@@ -8,9 +8,13 @@ import requests
 
 
 V1 = 'https://developer-apis.awair.is/v1'
-DEVICES = f'{V1}/users/self/devices'
-DEVICE_ID = 17617
+SELF = f'{V1}/users/self'
+DEVICES = f'{SELF}/devices'
+
 KEYS = ['timestamp', 'temp', 'co2', 'pm10', 'pm25', 'humid', 'voc']
+
+DEVICE_TYPE = 'awair-element'
+DEVICE_ID = 17617
 
 
 @click.group("awair")
@@ -35,6 +39,13 @@ def get(url: str):
 
 
 @cli.command
+def self():
+    res = get(SELF)
+    json.dump(res, stdout, indent=2)
+    print()
+
+
+@cli.command
 def devices():
     res = get(DEVICES)
     devices = res['devices']
@@ -46,8 +57,7 @@ def devices():
 @cli.command
 def raw():
     """Fetch raw air data from an Awair Element device."""
-    # curl -H "authorization: Bearer $tok" 'https://developer-apis.awair.is/v1/users/self/devices/awair-element/17617/air-data/raw?fahrenheit=true'
-    res = get(f'{DEVICES}/awair-element/{DEVICE_ID}/air-data/raw?fahrenheit=true')
+    res = get(f'{DEVICES}/{DEVICE_TYPE}/{DEVICE_ID}/air-data/raw?fahrenheit=true')
     rows = []
     for datum in res['data']:
         row = { 'timestamp': datum['timestamp'] }
