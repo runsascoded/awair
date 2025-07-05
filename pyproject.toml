@@ -1,0 +1,19 @@
+[project]
+name = "awair"
+version = "0.0.1"
+description = "Awair API wrapper"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "click",
+    "requests",
+]
+[project.scripts]
+awair = "awair.cli:cli"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
