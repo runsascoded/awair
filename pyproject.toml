@@ -7,6 +7,7 @@ requires-python = ">=3.9"
 dependencies = [
     "click",
     "requests",
+    "sqlalchemy",
 ]
 [project.scripts]
 awair = "awair.cli:cli"
