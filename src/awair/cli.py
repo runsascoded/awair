@@ -11,15 +11,13 @@ import requests
 from click import option, echo
 from functools import partial
 
-from .database import Database
+from .database import Database, get_all_fields
 
 err = partial(echo, err=True)
 
 V1 = 'https://developer-apis.awair.is/v1'
 SELF = f'{V1}/users/self'
 DEVICES = f'{SELF}/devices'
-
-KEYS = ['timestamp', 'temp', 'co2', 'pm10', 'pm25', 'humid', 'voc']
 
 DEVICE_TYPE = 'awair-element'
 DEVICE_ID = 17617
@@ -93,7 +91,7 @@ def fetch_raw_data(from_dt: str | None = None, limit: int = 360, to_dt: str | No
             row[k] = v
         row = {
             k: row[k]
-            for k in KEYS
+            for k in get_all_fields()
         }
         rows.append(row)
 
