@@ -2,10 +2,11 @@
 import json
 from functools import cache
 from sys import stdout
+from urllib.parse import quote_plus
 
 import click
 import requests
-
+from click import option
 
 V1 = 'https://developer-apis.awair.is/v1'
 SELF = f'{V1}/users/self'
@@ -55,9 +56,25 @@ def devices():
 
 
 @cli.command
-def raw():
+@option('-f', '--from-dt')
+@option('-l', '--limit', default=360)
+@option('-t', '--to-dt')
+def raw(
+    from_dt: str | None,
+    limit: int,
+    to_dt: str | None,
+):
     """Fetch raw air data from an Awair Element device."""
-    res = get(f'{DEVICES}/{DEVICE_TYPE}/{DEVICE_ID}/air-data/raw?fahrenheit=true')
+    query = {
+        'fahrenheit': 'true',
+        'limit': limit,
+    }
+    if from_dt:
+        query['from'] = from_dt
+    if to_dt:
+        query['to'] = to_dt
+    query_str = '&'.join(f'{k}={quote_plus(str(v))}' for k, v in query.items())
+    res = get(f'{DEVICES}/{DEVICE_TYPE}/{DEVICE_ID}/air-data/raw?{query_str}')
     rows = []
     for datum in res['data']:
         row = { 'timestamp': datum['timestamp'] }
