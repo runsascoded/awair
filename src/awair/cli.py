@@ -144,18 +144,19 @@ def devices():
 @option('-f', '--from-dt', help='Start datetime (ISO format)')
 @option('-t', '--to-dt', help='End datetime (ISO format)')
 @option('-l', '--limit', default=360, help='Max records per request')
-@option('-s', '--save', is_flag=True, help='Save to database')
+@option('-S', '--no-save', is_flag=True, help='Do not save to database (print to stdout instead)')
 @option('-d', '--db-path', default='awair.db', help='Database file path')
 @option('--sleep-s', default=1.0, help='Sleep interval between requests (seconds)')
 def raw(
     from_dt: str | None,
     to_dt: str | None,
     limit: int,
-    save: bool,
+    no_save: bool,
     db_path: str,
     sleep_s: float,
 ):
     """Fetch raw air data from an Awair Element device. Defaults to last ~month if no date range specified."""
+    save = not no_save
     db = Database(db_path) if save else None
 
     # If no date range specified, default to last month + 2 days
@@ -252,8 +253,6 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, db: D
         err(f"Complete! Total requests: {total_requests}, Total inserted: {total_inserted}")
         if db:
             err(f"Database now contains {db.get_record_count()} total records")
-
-
 
 
 @cli.command
