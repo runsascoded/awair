@@ -143,12 +143,14 @@ def devices():
 
 
 @cli.command
-@option('-f', '--from-dt', help='Start datetime (ISO format)')
-@option('-t', '--to-dt', help='End datetime (ISO format)')
-@option('-l', '--limit', default=360, help='Max records per request')
-@option('-S', '--no-save', is_flag=True, help='Do not save to database (print to stdout instead)')
+@option('-a', '--conflict-action', default='warn', type=click.Choice(['warn', 'error', 'replace']), help='Action on data conflicts: warn (log warning), error (raise exception), replace (overwrite)')
 @option('-d', '--data-path', default='awair.parquet', help='Data file path')
-@option('--sleep-s', default=1.0, help='Sleep interval between requests (seconds)')
+@option('-f', '--from-dt', help='Start datetime (ISO format)')
+@option('-l', '--limit', default=360, help='Max records per request')
+@option('-s', '--sleep-s', default=1.0, help='Sleep interval between requests (seconds)')
+@option('-S', '--no-save', is_flag=True, help='Do not save to database (print to stdout instead)')
+@option('-t', '--to-dt', help='End datetime (ISO format)')
+@option('-r', '--recent-only', is_flag=True, help='Fetch only new data since latest timestamp in storage')
 def raw(
     from_dt: str | None,
     to_dt: str | None,
@@ -156,25 +158,48 @@ def raw(
     no_save: bool,
     data_path: str,
     sleep_s: float,
+    conflict_action: str,
+    recent_only: bool,
 ):
     """Fetch raw air data from an Awair Element device. Defaults to last ~month if no date range specified."""
     save = not no_save
     storage = ParquetStorage(data_path) if save else None
 
-    # If no date range specified, default to last month + 2 days
+    # If no date range specified, determine from existing data
     if not from_dt and not to_dt:
         end_date = datetime.now()
-        start_date = end_date - timedelta(days=32)  # ~1 month + 2 days
+
+        if recent_only and storage:
+            # Recent-only mode: fetch only since latest timestamp
+            latest_timestamp = storage.get_latest_timestamp()
+            if latest_timestamp:
+                start_date = latest_timestamp
+                err(f'Recent-only mode: fetching data since latest timestamp: {start_date}')
+            else:
+                err('Recent-only mode requested but no existing data found. Use default mode to seed initial data.')
+                return
+        elif storage:
+            # Default mode: fetch last month + 2 days and merge
+            latest_timestamp = storage.get_latest_timestamp()
+            start_date = end_date - timedelta(days=32)
+            if latest_timestamp:
+                err(f'Default mode: fetching last month + 2 days ({start_date.date()} to {end_date.date()}) and merging with existing data')
+            else:
+                err(f'No existing data, fetching last month + 2 days: {start_date.date()} to {end_date.date()}')
+        else:
+            # No save mode, just fetch recent data
+            start_date = end_date - timedelta(days=2)
+            err(f'No date range specified, fetching last 2 days: {start_date.date()} to {end_date.date()}')
+
         from_dt = start_date.isoformat()
         to_dt = end_date.isoformat()
-        err(f'No date range specified, defaulting to last ~month: {start_date.date()} to {end_date.date()}')
 
     # Handle partial date range
     if not from_dt or not to_dt:
         err('Error: Both --from-dt and --to-dt are required')
         return
 
-    fetch_date_range(from_dt, to_dt, limit, sleep_s, storage, save)
+    fetch_date_range(from_dt, to_dt, limit, sleep_s, storage, save, conflict_action)
 
 
 def handle_fetch_error(result: dict):
@@ -195,7 +220,15 @@ def print_fetch_result(result: dict):
         err(f'Average interval: {result["avg_interval_minutes"]:.1f} minutes')
 
 
-def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, storage: ParquetStorage | None, save: bool):
+def fetch_date_range(
+    from_dt: str,
+    to_dt: str,
+    limit: int,
+    sleep_s: float,
+    storage: ParquetStorage | None,
+    save: bool,
+    conflict_action: str = 'warn',
+):
     """Fetch data across a date range using adaptive chunking based on actual data returned."""
     # Parse dates - keep them naive for simplicity, API handles timezone conversion
     start_date = datetime.fromisoformat(from_dt)
@@ -228,7 +261,7 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, stora
         print_fetch_result(result)
 
         if save and result['data'] and storage:
-            inserted = storage.insert_air_data(result['data'])
+            inserted = storage.insert_air_data(result['data'], conflict_action)
             total_inserted += inserted
             err(f'Inserted {inserted} new records')
         elif not save:

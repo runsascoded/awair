@@ -26,7 +26,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.ruff]
-line-length = 120
+line-length = 999
 target-version = "py39"
 
 [tool.ruff.format]
