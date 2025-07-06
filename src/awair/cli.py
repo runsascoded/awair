@@ -195,8 +195,9 @@ def print_fetch_result(result: dict):
 
 def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, db: Database | None, save: bool):
     """Fetch data across a date range using adaptive chunking based on actual data returned."""
-    start_date = datetime.fromisoformat(from_dt.replace('Z', '+00:00'))
-    end_date = datetime.fromisoformat(to_dt.replace('Z', '+00:00'))
+    # Parse dates - keep them naive for simplicity, API handles timezone conversion
+    start_date = datetime.fromisoformat(from_dt)
+    end_date = datetime.fromisoformat(to_dt)
 
     total_inserted = 0
     total_requests = 0
@@ -238,7 +239,8 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, db: D
             break
 
         # Use the oldest timestamp from returned data as the new end point
-        oldest_timestamp = datetime.fromisoformat(result['actual_from'].replace('Z', '+00:00'))
+        # Convert to naive datetime for consistency
+        oldest_timestamp = datetime.fromisoformat(result['actual_from'].replace('Z', '').replace('+00:00', ''))
 
         # If we didn't make progress (oldest timestamp is not older than our current end),
         # step back manually to avoid infinite loop
