@@ -9,8 +9,11 @@ from datetime import datetime, timedelta
 import click
 import requests
 from click import option, echo
+from functools import partial
 
 from .database import Database
+
+err = partial(echo, err=True)
 
 V1 = 'https://developer-apis.awair.is/v1'
 SELF = f'{V1}/users/self'
@@ -169,7 +172,7 @@ def raw(
         print_fetch_result(result)
         if save and result['data']:
             inserted = db.insert_air_data(result['data'])
-            echo(f"Inserted {inserted} records into database")
+            err(f"Inserted {inserted} records into database")
         elif not save:
             for row in result['data']:
                 print(row)
@@ -177,7 +180,7 @@ def raw(
 
     # Handle date range fetching
     if not from_dt or not to_dt:
-        echo("Error: Both --from-dt and --to-dt are required for range fetching")
+        err("Error: Both --from-dt and --to-dt are required for range fetching")
         return
 
     fetch_date_range(from_dt, to_dt, limit, chunk_hours, sleep_s, db, save)
@@ -186,19 +189,19 @@ def raw(
 def handle_fetch_error(result: dict):
     """Handle fetch errors with appropriate logging."""
     if result['error'] == 'rate_limit':
-        echo(f"Rate limit exceeded. Please wait before making more requests.", err=True)
-        echo(f"Requested range: {result['requested_from']} to {result['requested_to']}", err=True)
+        err("Rate limit exceeded. Please wait before making more requests.")
+        err(f"Requested range: {result['requested_from']} to {result['requested_to']}")
     else:
-        echo(f"Error fetching data: {result['message']}", err=True)
+        err(f"Error fetching data: {result['message']}")
 
 
 def print_fetch_result(result: dict):
     """Print detailed information about a fetch result."""
-    echo(f"Requested: {result['requested_from']} to {result['requested_to']} (limit: {result['requested_limit']})")
-    echo(f"Actual range: {result['actual_from']} to {result['actual_to']}")
-    echo(f"Records: {result['record_count']}")
+    err(f"Requested: {result['requested_from']} to {result['requested_to']} (limit: {result['requested_limit']})")
+    err(f"Actual range: {result['actual_from']} to {result['actual_to']}")
+    err(f"Records: {result['record_count']}")
     if result['avg_interval_minutes']:
-        echo(f"Average interval: {result['avg_interval_minutes']:.1f} minutes")
+        err(f"Average interval: {result['avg_interval_minutes']:.1f} minutes")
 
 
 def fetch_date_range(from_dt: str, to_dt: str, limit: int, chunk_hours: int, sleep_s: float, db: Database | None, save: bool):
@@ -210,7 +213,7 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, chunk_hours: int, sle
     total_requests = 0
     current_date = start_date
 
-    echo(f"Fetching data from {start_date} to {end_date}")
+    err(f"Fetching data from {start_date} to {end_date}")
 
     while current_date < end_date:
         chunk_end = min(current_date + timedelta(hours=chunk_hours), end_date)
@@ -224,10 +227,10 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, chunk_hours: int, sle
         if not result['success']:
             handle_fetch_error(result)
             if result['error'] == 'rate_limit':
-                echo(f"Stopping due to rate limit. Made {total_requests} requests.", err=True)
+                err(f"Stopping due to rate limit. Made {total_requests} requests.")
                 break
             else:
-                echo("Continuing with next chunk...", err=True)
+                err("Continuing with next chunk...")
                 current_date = chunk_end
                 continue
 
@@ -236,7 +239,7 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, chunk_hours: int, sle
         if save and result['data'] and db:
             inserted = db.insert_air_data(result['data'])
             total_inserted += inserted
-            echo(f"Inserted {inserted} new records")
+            err(f"Inserted {inserted} new records")
         elif not save:
             for row in result['data']:
                 print(row)
@@ -244,9 +247,9 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, chunk_hours: int, sle
         current_date = chunk_end
 
     if save:
-        echo(f"Complete! Total requests: {total_requests}, Total inserted: {total_inserted}")
+        err(f"Complete! Total requests: {total_requests}, Total inserted: {total_inserted}")
         if db:
-            echo(f"Database now contains {db.get_record_count()} total records")
+            err(f"Database now contains {db.get_record_count()} total records")
 
 
 @cli.command
@@ -264,11 +267,11 @@ def seed(db_path: str, sleep_s: float):
     if latest_timestamp:
         # If we have data, start from the latest timestamp
         start_date = latest_timestamp
-        echo(f"Continuing from latest timestamp: {latest_timestamp}")
+        err(f"Continuing from latest timestamp: {latest_timestamp}")
     else:
         # If no data, go back 30 days
         start_date = end_date - timedelta(days=30)
-        echo(f"Starting fresh, going back 30 days to: {start_date}")
+        err(f"Starting fresh, going back 30 days to: {start_date}")
 
     from_dt = start_date.isoformat()
     to_dt = end_date.isoformat()
