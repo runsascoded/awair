@@ -7,7 +7,6 @@ requires-python = ">=3.9"
 dependencies = [
     "click",
     "requests",
-    "sqlalchemy",
     "pandas",
     "pyarrow",
 ]

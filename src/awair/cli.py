@@ -11,7 +11,7 @@ import pandas as pd
 import requests
 from click import echo, option
 
-from .database import Database, get_all_fields
+from .storage import ParquetStorage, get_all_fields
 
 err = partial(echo, err=True)
 
@@ -147,19 +147,19 @@ def devices():
 @option('-t', '--to-dt', help='End datetime (ISO format)')
 @option('-l', '--limit', default=360, help='Max records per request')
 @option('-S', '--no-save', is_flag=True, help='Do not save to database (print to stdout instead)')
-@option('-d', '--db-path', default='awair.db', help='Database file path')
+@option('-d', '--data-path', default='awair.parquet', help='Data file path')
 @option('--sleep-s', default=1.0, help='Sleep interval between requests (seconds)')
 def raw(
     from_dt: str | None,
     to_dt: str | None,
     limit: int,
     no_save: bool,
-    db_path: str,
+    data_path: str,
     sleep_s: float,
 ):
     """Fetch raw air data from an Awair Element device. Defaults to last ~month if no date range specified."""
     save = not no_save
-    db = Database(db_path) if save else None
+    storage = ParquetStorage(data_path) if save else None
 
     # If no date range specified, default to last month + 2 days
     if not from_dt and not to_dt:
@@ -174,7 +174,7 @@ def raw(
         err('Error: Both --from-dt and --to-dt are required')
         return
 
-    fetch_date_range(from_dt, to_dt, limit, sleep_s, db, save)
+    fetch_date_range(from_dt, to_dt, limit, sleep_s, storage, save)
 
 
 def handle_fetch_error(result: dict):
@@ -195,7 +195,7 @@ def print_fetch_result(result: dict):
         err(f'Average interval: {result["avg_interval_minutes"]:.1f} minutes')
 
 
-def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, db: Database | None, save: bool):
+def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, storage: ParquetStorage | None, save: bool):
     """Fetch data across a date range using adaptive chunking based on actual data returned."""
     # Parse dates - keep them naive for simplicity, API handles timezone conversion
     start_date = datetime.fromisoformat(from_dt)
@@ -227,8 +227,8 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, db: D
 
         print_fetch_result(result)
 
-        if save and result['data'] and db:
-            inserted = db.insert_air_data(result['data'])
+        if save and result['data'] and storage:
+            inserted = storage.insert_air_data(result['data'])
             total_inserted += inserted
             err(f'Inserted {inserted} new records')
         elif not save:
@@ -255,64 +255,24 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, db: D
 
     if save:
         err(f'Complete! Total requests: {total_requests}, Total inserted: {total_inserted}')
-        if db:
-            err(f'Database now contains {db.get_record_count()} total records')
+        if storage:
+            err(f'Data file now contains {storage.get_record_count()} total records')
 
 
 @cli.command
-@option('-d', '--db-path', default='awair.db', help='Database file path')
-def db_info(db_path: str):
-    """Show database information."""
-    db = Database(db_path)
-    count = db.get_record_count()
-    latest = db.get_latest_timestamp()
+@option('-d', '--data-path', default='awair.parquet', help='Data file path')
+def data_info(data_path: str):
+    """Show data file information."""
+    storage = ParquetStorage(data_path)
+    summary = storage.get_data_summary()
 
-    echo(f'Database: {db_path}')
-    echo(f'Total records: {count}')
-    if latest:
-        echo(f'Latest timestamp: {latest}')
+    echo(f'Data file: {data_path}')
+    echo(f'Total records: {summary["count"]}')
+    if summary['earliest']:
+        echo(f'Date range: {summary["earliest"]} to {summary["latest"]}')
+        echo(f'File size: {summary["file_size_mb"]:.2f} MB')
     else:
-        echo('No data in database')
-
-
-@cli.command
-@option('-d', '--db-path', default='awair.db', help='SQLite database file path')
-@option('-o', '--output', default='awair.parquet', help='Output Parquet file path')
-def sql2pqt(db_path: str, output: str):
-    """Convert SQLite database to Parquet format."""
-    db = Database(db_path)
-
-    err(f'Reading data from {db_path}...')
-
-    # Read all data from SQLite
-    session = db.get_session()
-    try:
-        from .database import AirData
-
-        query = session.query(AirData).order_by(AirData.timestamp)
-
-        # Convert to list of dicts
-        data = []
-        for record in query:
-            row = {'timestamp': record.timestamp}
-            for field in get_all_fields()[1:]:  # Skip 'timestamp' since we already added it
-                row[field] = getattr(record, field)
-            data.append(row)
-
-        if not data:
-            err('No data found in database')
-            return
-
-        err(f'Converting {len(data)} records to Parquet...')
-
-        # Create DataFrame and save to Parquet
-        df = pd.DataFrame(data)
-        df.to_parquet(output, index=False, engine='pyarrow')
-
-        err(f'Conversion complete: {output}')
-
-    finally:
-        session.close()
+        echo('No data in file')
 
 
 if __name__ == '__main__':
