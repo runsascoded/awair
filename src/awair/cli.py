@@ -148,23 +148,38 @@ def devices():
 @option('-f', '--from-dt', help='Start datetime (ISO format)')
 @option('-l', '--limit', default=360, help='Max records per request')
 @option('-s', '--sleep-s', default=1.0, help='Sleep interval between requests (seconds)')
-@option('-S', '--no-save', is_flag=True, help='Do not save to database (print to stdout instead)')
 @option('-t', '--to-dt', help='End datetime (ISO format)')
 @option('-r', '--recent-only', is_flag=True, help='Fetch only new data since latest timestamp in storage')
 def raw(
     from_dt: str | None,
     to_dt: str | None,
     limit: int,
-    no_save: bool,
     data_path: str,
     sleep_s: float,
     conflict_action: str,
     recent_only: bool,
 ):
     """Fetch raw air data from an Awair Element device. Defaults to last ~month if no date range specified."""
-    save = not no_save
+    # Check if we should output to stdout as JSONL
+    output_to_stdout = data_path in ['-', '']
 
-    if save:
+    if output_to_stdout:
+        # Output to stdout as JSONL - use simple date range logic
+        if not from_dt and not to_dt:
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=2)
+            err(f'No date range specified, fetching last 2 days: {start_date.date()} to {end_date.date()}')
+            from_dt = start_date.isoformat()
+            to_dt = end_date.isoformat()
+
+        # Handle partial date range
+        if not from_dt or not to_dt:
+            err('Error: Both --from-dt and --to-dt are required')
+            return
+
+        fetch_date_range(from_dt, to_dt, limit, sleep_s, None)
+    else:
+        # Save to Parquet file
         with ParquetStorage(data_path) as storage:
             storage.set_conflict_action(conflict_action)
 
@@ -198,22 +213,7 @@ def raw(
                 err('Error: Both --from-dt and --to-dt are required')
                 return
 
-            fetch_date_range(from_dt, to_dt, limit, sleep_s, storage, save)
-    else:
-        # No save mode, just fetch recent data
-        if not from_dt and not to_dt:
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=2)
-            err(f'No date range specified, fetching last 2 days: {start_date.date()} to {end_date.date()}')
-            from_dt = start_date.isoformat()
-            to_dt = end_date.isoformat()
-
-        # Handle partial date range
-        if not from_dt or not to_dt:
-            err('Error: Both --from-dt and --to-dt are required')
-            return
-
-        fetch_date_range(from_dt, to_dt, limit, sleep_s, None, save)
+            fetch_date_range(from_dt, to_dt, limit, sleep_s, storage)
 
 
 def handle_fetch_error(result: dict):
@@ -240,7 +240,6 @@ def fetch_date_range(
     limit: int,
     sleep_s: float,
     storage: ParquetStorage | None,
-    save: bool,
 ):
     """Fetch data across a date range using adaptive chunking based on actual data returned."""
     # Parse dates - keep them naive for simplicity, API handles timezone conversion
@@ -273,13 +272,15 @@ def fetch_date_range(
 
         print_fetch_result(result)
 
-        if save and result['data'] and storage:
+        if storage and result['data']:
+            # Save to Parquet file
             inserted = storage.insert_air_data(result['data'])
             total_inserted += inserted
             err(f'Inserted {inserted} new records')
-        elif not save:
+        elif not storage and result['data']:
+            # Output to stdout as JSONL
             for row in result['data']:
-                print(row)
+                print(json.dumps(row))
 
         # If no data returned, we're done
         if not result['data']:
@@ -299,10 +300,11 @@ def fetch_date_range(
 
         err(f'Next chunk will end at: {current_end}')
 
-    if save:
+    if storage:
         err(f'Complete! Total requests: {total_requests}, Total inserted: {total_inserted}')
-        if storage:
-            err(f'Data file now contains {storage.get_record_count()} total records')
+        err(f'Data file now contains {storage.get_record_count()} total records')
+    else:
+        err(f'Complete! Total requests: {total_requests}')
 
 
 @cli.command
