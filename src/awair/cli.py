@@ -155,28 +155,20 @@ def raw(
     db_path: str,
     sleep_s: float,
 ):
-    """Fetch raw air data from an Awair Element device."""
+    """Fetch raw air data from an Awair Element device. Defaults to last ~month if no date range specified."""
     db = Database(db_path) if save else None
 
-    # If no date range specified, just fetch recent data
+    # If no date range specified, default to last month + 2 days
     if not from_dt and not to_dt:
-        result = fetch_raw_data(limit=limit, sleep_interval=sleep_s)
-        if not result['success']:
-            handle_fetch_error(result)
-            return
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=32)  # ~1 month + 2 days
+        from_dt = start_date.isoformat()
+        to_dt = end_date.isoformat()
+        err(f"No date range specified, defaulting to last ~month: {start_date.date()} to {end_date.date()}")
 
-        print_fetch_result(result)
-        if save and result['data']:
-            inserted = db.insert_air_data(result['data'])
-            err(f"Inserted {inserted} records into database")
-        elif not save:
-            for row in result['data']:
-                print(row)
-        return
-
-    # Handle date range fetching
+    # Handle partial date range
     if not from_dt or not to_dt:
-        err("Error: Both --from-dt and --to-dt are required for range fetching")
+        err("Error: Both --from-dt and --to-dt are required")
         return
 
     fetch_date_range(from_dt, to_dt, limit, sleep_s, db, save)
@@ -262,31 +254,6 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, db: D
             err(f"Database now contains {db.get_record_count()} total records")
 
 
-@cli.command
-@option('-d', '--db-path', default='awair.db', help='Database file path')
-@option('--sleep-s', default=9.0, help='Sleep interval between requests (seconds)')
-def seed(db_path: str, sleep_s: float):
-    """Seed database with all available historical data."""
-    db = Database(db_path)
-
-    # Get the latest timestamp in the database
-    latest_timestamp = db.get_latest_timestamp()
-
-    # Calculate date range - go back 30 days from now or from latest timestamp
-    end_date = datetime.now()
-    if latest_timestamp:
-        # If we have data, start from the latest timestamp
-        start_date = latest_timestamp
-        err(f"Continuing from latest timestamp: {latest_timestamp}")
-    else:
-        # If no data, go back 30 days
-        start_date = end_date - timedelta(days=30)
-        err(f"Starting fresh, going back 30 days to: {start_date}")
-
-    from_dt = start_date.isoformat()
-    to_dt = end_date.isoformat()
-
-    fetch_date_range(from_dt, to_dt, 360, sleep_s, db, True)
 
 
 @cli.command
