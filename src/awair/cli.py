@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 import json
 import time
-from functools import cache
-from sys import stdout, stderr
-from urllib.parse import quote_plus
 from datetime import datetime, timedelta
+from functools import cache, partial
+from sys import stdout
+from urllib.parse import quote_plus
 
 import click
+import pandas as pd
 import requests
-from click import option, echo
-from functools import partial
+from click import echo, option
 
 from .database import Database, get_all_fields
 
@@ -23,7 +23,7 @@ DEVICE_TYPE = 'awair-element'
 DEVICE_ID = 17617
 
 
-@click.group("awair")
+@click.group('awair')
 def cli():
     pass
 
@@ -44,7 +44,12 @@ def get(url: str):
     return res.json()
 
 
-def fetch_raw_data(from_dt: str | None = None, limit: int = 360, to_dt: str | None = None, sleep_interval: float = 0.0) -> dict:
+def fetch_raw_data(
+    from_dt: str = None,
+    limit: int = 360,
+    to_dt: str = None,
+    sleep_interval: float = 0.0,
+) -> dict:
     """Fetch raw air data and return metadata about the request."""
     query = {
         'fahrenheit': 'true',
@@ -69,7 +74,7 @@ def fetch_raw_data(from_dt: str | None = None, limit: int = 360, to_dt: str | No
                 'message': 'Rate limit exceeded (429)',
                 'requested_from': from_dt,
                 'requested_to': to_dt,
-                'requested_limit': limit
+                'requested_limit': limit,
             }
         else:
             return {
@@ -78,21 +83,18 @@ def fetch_raw_data(from_dt: str | None = None, limit: int = 360, to_dt: str | No
                 'message': str(e),
                 'requested_from': from_dt,
                 'requested_to': to_dt,
-                'requested_limit': limit
+                'requested_limit': limit,
             }
 
     rows = []
     for datum in res['data']:
-        row = { 'timestamp': datum['timestamp'] }
+        row = {'timestamp': datum['timestamp']}
         sensors = datum['sensors']
         for s in sensors:
             k = s['comp']
             v = s['value']
             row[k] = v
-        row = {
-            k: row[k]
-            for k in get_all_fields()
-        }
+        row = {k: row[k] for k in get_all_fields()}
         rows.append(row)
 
     # Calculate actual range and intervals
@@ -120,7 +122,7 @@ def fetch_raw_data(from_dt: str | None = None, limit: int = 360, to_dt: str | No
         'actual_to': actual_to.isoformat() if actual_to else None,
         'record_count': len(rows),
         'avg_interval_seconds': avg_interval,
-        'avg_interval_minutes': avg_interval / 60 if avg_interval else None
+        'avg_interval_minutes': avg_interval / 60 if avg_interval else None,
     }
 
 
@@ -165,11 +167,11 @@ def raw(
         start_date = end_date - timedelta(days=32)  # ~1 month + 2 days
         from_dt = start_date.isoformat()
         to_dt = end_date.isoformat()
-        err(f"No date range specified, defaulting to last ~month: {start_date.date()} to {end_date.date()}")
+        err(f'No date range specified, defaulting to last ~month: {start_date.date()} to {end_date.date()}')
 
     # Handle partial date range
     if not from_dt or not to_dt:
-        err("Error: Both --from-dt and --to-dt are required")
+        err('Error: Both --from-dt and --to-dt are required')
         return
 
     fetch_date_range(from_dt, to_dt, limit, sleep_s, db, save)
@@ -178,19 +180,19 @@ def raw(
 def handle_fetch_error(result: dict):
     """Handle fetch errors with appropriate logging."""
     if result['error'] == 'rate_limit':
-        err("Rate limit exceeded. Please wait before making more requests.")
-        err(f"Requested range: {result['requested_from']} to {result['requested_to']}")
+        err('Rate limit exceeded. Please wait before making more requests.')
+        err(f'Requested range: {result["requested_from"]} to {result["requested_to"]}')
     else:
-        err(f"Error fetching data: {result['message']}")
+        err(f'Error fetching data: {result["message"]}')
 
 
 def print_fetch_result(result: dict):
     """Print detailed information about a fetch result."""
-    err(f"Requested: {result['requested_from']} to {result['requested_to']} (limit: {result['requested_limit']})")
-    err(f"Actual range: {result['actual_from']} to {result['actual_to']}")
-    err(f"Records: {result['record_count']}")
+    err(f'Requested: {result["requested_from"]} to {result["requested_to"]} (limit: {result["requested_limit"]})')
+    err(f'Actual range: {result["actual_from"]} to {result["actual_to"]}')
+    err(f'Records: {result["record_count"]}')
     if result['avg_interval_minutes']:
-        err(f"Average interval: {result['avg_interval_minutes']:.1f} minutes")
+        err(f'Average interval: {result["avg_interval_minutes"]:.1f} minutes')
 
 
 def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, db: Database | None, save: bool):
@@ -203,7 +205,7 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, db: D
     total_requests = 0
     current_end = end_date
 
-    err(f"Fetching data from {start_date} to {end_date}")
+    err(f'Fetching data from {start_date} to {end_date}')
 
     while current_end > start_date:
         from_dt_str = start_date.isoformat()
@@ -215,10 +217,10 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, db: D
         if not result['success']:
             handle_fetch_error(result)
             if result['error'] == 'rate_limit':
-                err(f"Stopping due to rate limit. Made {total_requests} requests.")
+                err(f'Stopping due to rate limit. Made {total_requests} requests.')
                 break
             else:
-                err("Continuing with next chunk...")
+                err('Continuing with next chunk...')
                 # Move back a bit and try again
                 current_end = current_end - timedelta(hours=1)
                 continue
@@ -228,14 +230,14 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, db: D
         if save and result['data'] and db:
             inserted = db.insert_air_data(result['data'])
             total_inserted += inserted
-            err(f"Inserted {inserted} new records")
+            err(f'Inserted {inserted} new records')
         elif not save:
             for row in result['data']:
                 print(row)
 
         # If no data returned, we're done
         if not result['data']:
-            err("No more data available")
+            err('No more data available')
             break
 
         # Use the oldest timestamp from returned data as the new end point
@@ -249,12 +251,12 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, db: D
         else:
             current_end = oldest_timestamp
 
-        err(f"Next chunk will end at: {current_end}")
+        err(f'Next chunk will end at: {current_end}')
 
     if save:
-        err(f"Complete! Total requests: {total_requests}, Total inserted: {total_inserted}")
+        err(f'Complete! Total requests: {total_requests}, Total inserted: {total_inserted}')
         if db:
-            err(f"Database now contains {db.get_record_count()} total records")
+            err(f'Database now contains {db.get_record_count()} total records')
 
 
 @cli.command
@@ -265,12 +267,52 @@ def db_info(db_path: str):
     count = db.get_record_count()
     latest = db.get_latest_timestamp()
 
-    echo(f"Database: {db_path}")
-    echo(f"Total records: {count}")
+    echo(f'Database: {db_path}')
+    echo(f'Total records: {count}')
     if latest:
-        echo(f"Latest timestamp: {latest}")
+        echo(f'Latest timestamp: {latest}')
     else:
-        echo("No data in database")
+        echo('No data in database')
+
+
+@cli.command
+@option('-d', '--db-path', default='awair.db', help='SQLite database file path')
+@option('-o', '--output', default='awair.parquet', help='Output Parquet file path')
+def sql2pqt(db_path: str, output: str):
+    """Convert SQLite database to Parquet format."""
+    db = Database(db_path)
+
+    err(f'Reading data from {db_path}...')
+
+    # Read all data from SQLite
+    session = db.get_session()
+    try:
+        from .database import AirData
+
+        query = session.query(AirData).order_by(AirData.timestamp)
+
+        # Convert to list of dicts
+        data = []
+        for record in query:
+            row = {'timestamp': record.timestamp}
+            for field in get_all_fields()[1:]:  # Skip 'timestamp' since we already added it
+                row[field] = getattr(record, field)
+            data.append(row)
+
+        if not data:
+            err('No data found in database')
+            return
+
+        err(f'Converting {len(data)} records to Parquet...')
+
+        # Create DataFrame and save to Parquet
+        df = pd.DataFrame(data)
+        df.to_parquet(output, index=False, engine='pyarrow')
+
+        err(f'Conversion complete: {output}')
+
+    finally:
+        session.close()
 
 
 if __name__ == '__main__':

@@ -1,9 +1,9 @@
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import create_engine, Column, Integer, Float, DateTime, UniqueConstraint
+from sqlalchemy import Column, DateTime, Float, Integer, UniqueConstraint, create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
 Base = declarative_base()
 
@@ -34,11 +34,11 @@ class AirData(Base):
     __table_args__ = (UniqueConstraint('timestamp', name='unique_timestamp'),)
 
     def __repr__(self):
-        return f"<AirData(timestamp={self.timestamp}, temp={self.temp}, co2={self.co2})>"
+        return f'<AirData(timestamp={self.timestamp}, temp={self.temp}, co2={self.co2})>'
 
 
 class Database:
-    def __init__(self, db_path: str = "awair.db"):
+    def __init__(self, db_path: str = 'awair.db'):
         self.engine = create_engine(f'sqlite:///{db_path}')
         self.SessionLocal = sessionmaker(bind=self.engine)
         Base.metadata.create_all(self.engine)
@@ -67,12 +67,10 @@ class Database:
                         existing_val = getattr(existing, field)
                         new_val = record[field]
                         if existing_val != new_val:
-                            conflicts.append(f"{field}: {existing_val} -> {new_val}")
+                            conflicts.append(f'{field}: {existing_val} -> {new_val}')
 
                     if conflicts:
-                        raise ValueError(
-                            f"Data conflict at timestamp {timestamp}: {', '.join(conflicts)}"
-                        )
+                        raise ValueError(f'Data conflict at timestamp {timestamp}: {", ".join(conflicts)}')
                     # Data matches, skip insertion
                     continue
 
