@@ -149,7 +149,6 @@ def devices():
 @option('-s', '--save', is_flag=True, help='Save to database')
 @option('-d', '--db-path', default='awair.db', help='Database file path')
 @option('--sleep-s', default=1.0, help='Sleep interval between requests (seconds)')
-@option('--chunk-hours', default=6, help='Hours per chunk for large date ranges')
 def raw(
     from_dt: str | None,
     to_dt: str | None,
@@ -157,7 +156,6 @@ def raw(
     save: bool,
     db_path: str,
     sleep_s: float,
-    chunk_hours: int,
 ):
     """Fetch raw air data from an Awair Element device."""
     db = Database(db_path) if save else None
@@ -183,7 +181,7 @@ def raw(
         err("Error: Both --from-dt and --to-dt are required for range fetching")
         return
 
-    fetch_date_range(from_dt, to_dt, limit, chunk_hours, sleep_s, db, save)
+    fetch_date_range(from_dt, to_dt, limit, sleep_s, db, save)
 
 
 def handle_fetch_error(result: dict):
@@ -204,22 +202,20 @@ def print_fetch_result(result: dict):
         err(f"Average interval: {result['avg_interval_minutes']:.1f} minutes")
 
 
-def fetch_date_range(from_dt: str, to_dt: str, limit: int, chunk_hours: int, sleep_s: float, db: Database | None, save: bool):
-    """Fetch data across a date range using chunked requests."""
+def fetch_date_range(from_dt: str, to_dt: str, limit: int, sleep_s: float, db: Database | None, save: bool):
+    """Fetch data across a date range using adaptive chunking based on actual data returned."""
     start_date = datetime.fromisoformat(from_dt.replace('Z', '+00:00'))
     end_date = datetime.fromisoformat(to_dt.replace('Z', '+00:00'))
 
     total_inserted = 0
     total_requests = 0
-    current_date = start_date
+    current_end = end_date
 
     err(f"Fetching data from {start_date} to {end_date}")
 
-    while current_date < end_date:
-        chunk_end = min(current_date + timedelta(hours=chunk_hours), end_date)
-
-        from_dt_str = current_date.isoformat()
-        to_dt_str = chunk_end.isoformat()
+    while current_end > start_date:
+        from_dt_str = start_date.isoformat()
+        to_dt_str = current_end.isoformat()
 
         result = fetch_raw_data(from_dt=from_dt_str, to_dt=to_dt_str, limit=limit, sleep_interval=sleep_s)
         total_requests += 1
@@ -231,7 +227,8 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, chunk_hours: int, sle
                 break
             else:
                 err("Continuing with next chunk...")
-                current_date = chunk_end
+                # Move back a bit and try again
+                current_end = current_end - timedelta(hours=1)
                 continue
 
         print_fetch_result(result)
@@ -244,7 +241,22 @@ def fetch_date_range(from_dt: str, to_dt: str, limit: int, chunk_hours: int, sle
             for row in result['data']:
                 print(row)
 
-        current_date = chunk_end
+        # If no data returned, we're done
+        if not result['data']:
+            err("No more data available")
+            break
+
+        # Use the oldest timestamp from returned data as the new end point
+        oldest_timestamp = datetime.fromisoformat(result['actual_from'].replace('Z', '+00:00'))
+
+        # If we didn't make progress (oldest timestamp is not older than our current end),
+        # step back manually to avoid infinite loop
+        if oldest_timestamp >= current_end:
+            current_end = current_end - timedelta(minutes=1)
+        else:
+            current_end = oldest_timestamp
+
+        err(f"Next chunk will end at: {current_end}")
 
     if save:
         err(f"Complete! Total requests: {total_requests}, Total inserted: {total_inserted}")
@@ -276,7 +288,7 @@ def seed(db_path: str, sleep_s: float):
     from_dt = start_date.isoformat()
     to_dt = end_date.isoformat()
 
-    fetch_date_range(from_dt, to_dt, 360, 6, sleep_s, db, True)
+    fetch_date_range(from_dt, to_dt, 360, sleep_s, db, True)
 
 
 @cli.command
