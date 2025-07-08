@@ -296,7 +296,8 @@ def fetch_date_range(
         if oldest_timestamp >= current_end:
             current_end = current_end - timedelta(minutes=1)
         else:
-            current_end = oldest_timestamp
+            # Subtract 1 second to avoid potential boundary overlap/gap issues
+            current_end = oldest_timestamp - timedelta(seconds=1)
 
         err(f'Next chunk will end at: {current_end}')
 

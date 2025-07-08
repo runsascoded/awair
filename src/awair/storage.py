@@ -26,6 +26,8 @@ class ParquetStorage:
         """Enter context manager - load existing data into memory."""
         if self.file_path.exists():
             self._batch_df = pd.read_parquet(self.file_path)
+            # Ensure existing timestamps are timezone-naive
+            self._batch_df['timestamp'] = pd.to_datetime(self._batch_df['timestamp']).dt.tz_localize(None)
         else:
             self._batch_df = pd.DataFrame(columns=get_all_fields())
         self._dirty = False
@@ -35,6 +37,8 @@ class ParquetStorage:
         """Exit context manager - save data if dirty."""
         try:
             if self._dirty and self._batch_df is not None:
+                # Normalize timestamps to naive (remove timezone info) before sorting
+                self._batch_df['timestamp'] = pd.to_datetime(self._batch_df['timestamp']).dt.tz_localize(None)
                 # Sort by timestamp and save
                 final_df = self._batch_df.sort_values('timestamp').reset_index(drop=True)
                 final_df.to_parquet(self.file_path, index=False, engine='pyarrow')
@@ -53,7 +57,8 @@ class ParquetStorage:
 
         # Convert new data to DataFrame
         new_df = pd.DataFrame(data)
-        new_df['timestamp'] = pd.to_datetime(new_df['timestamp'])
+        # Ensure new timestamps are timezone-naive
+        new_df['timestamp'] = pd.to_datetime(new_df['timestamp']).dt.tz_localize(None)
 
         original_count = len(self._batch_df)
 
