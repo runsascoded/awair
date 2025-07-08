@@ -1,5 +1,5 @@
 outs:
-- md5: c4b60d0d9388788ccd912f8656def0d7
-  size: 441011
+- md5: f64fafe6ba27b3ec9ed03017a3efbac0
+  size: 486060
   hash: md5
   path: awair.parquet
