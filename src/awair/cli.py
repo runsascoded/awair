@@ -15,6 +15,86 @@ from .storage import ParquetStorage, FIELDS
 
 err = partial(echo, err=True)
 
+# Default data file path
+DEFAULT_DATA_PATH = 'awair.parquet'
+
+# Common click options
+data_path_opt = option('-d', '--data-path', default=DEFAULT_DATA_PATH, help='Data file path')
+
+def from_dt_opt():
+    """Option that parses flexible datetime format for start time."""
+    def callback(ctx, param, value):
+        if value is None:
+            return None
+        try:
+            return parse_flexible_datetime(value)
+        except click.BadParameter as e:
+            raise click.BadParameter(f'Invalid --from-dt format: {e}')
+    
+    return option('-f', '--from-dt', callback=callback, help='Start datetime (flexible format)')
+
+def to_dt_opt():
+    """Option that parses flexible datetime format for end time."""
+    def callback(ctx, param, value):
+        if value is None:
+            return None
+        try:
+            return parse_flexible_datetime(value)
+        except click.BadParameter as e:
+            raise click.BadParameter(f'Invalid --to-dt format: {e}')
+    
+    return option('-t', '--to-dt', callback=callback, help='End datetime (flexible format)')
+
+def parse_flexible_datetime(dt_str: str | None) -> str | None:
+    """Parse flexible datetime formats into ISO format."""
+    if not dt_str:
+        return None
+
+    # Remove any whitespace
+    dt_str = dt_str.strip()
+
+    # If already in ISO format, return as-is
+    if 'T' in dt_str and len(dt_str) >= 19:
+        return dt_str
+
+    # Handle various compact formats
+    # Add century if missing (assume 20xx)
+    if len(dt_str) >= 6 and not dt_str.startswith('20'):
+        dt_str = '20' + dt_str
+
+    # Parse different components
+    date_part = dt_str[:8]  # YYYYMMDD
+    time_part = dt_str[8:] if len(dt_str) > 8 else ''
+
+    # Validate and format date part
+    if len(date_part) != 8 or not date_part.isdigit():
+        raise click.BadParameter(f'Invalid date format: {dt_str}. Expected formats like 20250630, 250630T16, etc.')
+
+    # Format as YYYY-MM-DD
+    formatted_date = f'{date_part[:4]}-{date_part[4:6]}-{date_part[6:8]}'
+
+    # Handle time part
+    if not time_part:
+        return f'{formatted_date}T00:00:00'
+
+    # Remove T prefix if present
+    if time_part.startswith('T'):
+        time_part = time_part[1:]
+
+    # Parse time components
+    if len(time_part) == 2:  # HH
+        formatted_time = f'{time_part}:00:00'
+    elif len(time_part) == 4:  # HHMM
+        formatted_time = f'{time_part[:2]}:{time_part[2:4]}:00'
+    elif len(time_part) == 5 and ':' in time_part:  # HH:MM
+        formatted_time = f'{time_part}:00'
+    elif len(time_part) == 8 and time_part.count(':') == 2:  # HH:MM:SS
+        formatted_time = time_part
+    else:
+        raise click.BadParameter(f'Invalid time format in: {dt_str}')
+
+    return f'{formatted_date}T{formatted_time}'
+
 V1 = 'https://developer-apis.awair.is/v1'
 SELF = f'{V1}/users/self'
 DEVICES = f'{SELF}/devices'
@@ -210,15 +290,15 @@ def fetch_date_range(
 
 @cli.command
 @option('-a', '--conflict-action', default='warn', type=click.Choice(['warn', 'error', 'replace']), help='Action on data conflicts: warn (log warning), error (raise exception), replace (overwrite)')
-@option('-d', '--data-path', default='awair.parquet', help='Data file path')
-@option('-f', '--from-dt', 'from_str', help='Start datetime (ISO format)')
+@data_path_opt
+@from_dt_opt()
 @option('-l', '--limit', default=360, help='Max records per request')
 @option('-s', '--sleep-s', default=1.0, help='Sleep interval between requests (seconds)')
-@option('-t', '--to-dt', 'to_str', help='End datetime (ISO format)')
+@to_dt_opt()
 @option('-r', '--recent-only', is_flag=True, help='Fetch only new data since latest timestamp in storage')
 def raw(
-    from_str: str | None,
-    to_str: str | None,
+    from_dt: str | None,
+    to_dt: str | None,
     limit: int,
     data_path: str,
     sleep_s: float,
@@ -228,25 +308,27 @@ def raw(
     """Fetch raw air data from an Awair Element device. Defaults to last ~month if no date range specified."""
     output_to_stdout = data_path in ['-', '']
 
-    if not from_str:
-        from_str = (datetime.now() - timedelta(days=34)).isoformat()
-        err(f'Auto-filled --from-dt to 34 days ago: {from_str}')
-    if not to_str:
-        to_str = (datetime.now() + timedelta(minutes=10)).isoformat()
-        err(f'Auto-filled --to-dt to current time + 10min: {to_str}')
+    # Auto-fill missing dates (parsing already handled by option callbacks)
+    if not from_dt:
+        from_dt = (datetime.now() - timedelta(days=34)).isoformat()
+        err(f'Auto-filled --from-dt to 34 days ago: {from_dt}')
+        
+    if not to_dt:
+        to_dt = (datetime.now() + timedelta(minutes=10)).isoformat()
+        err(f'Auto-filled --to-dt to current time + 10min: {to_dt}')
 
     if output_to_stdout:
-        fetch_date_range(from_str, to_str, limit, sleep_s, None)
+        fetch_date_range(from_dt, to_dt, limit, sleep_s, None)
     else:
         with ParquetStorage(data_path, conflict_action=conflict_action) as storage:
             if recent_only:
                 latest_timestamp = storage.get_latest_timestamp()
                 if latest_timestamp:
-                    from_str = latest_timestamp.isoformat()
-                    err(f'Recent-only mode: fetching data since {from_str}')
+                    from_dt = latest_timestamp.isoformat()
+                    err(f'Recent-only mode: fetching data since {from_dt}')
                 else:
-                    err(f'No existing data found; reading from {from_str}')
-            fetch_date_range(from_str, to_str, limit, sleep_s, storage)
+                    err(f'No existing data found; reading from {from_dt}')
+            fetch_date_range(from_dt, to_dt, limit, sleep_s, storage)
 
 
 def handle_fetch_error(result: dict):
@@ -268,7 +350,7 @@ def print_fetch_result(result: dict):
 
 
 @cli.command
-@option('-d', '--data-path', default='awair.parquet', help='Data file path')
+@data_path_opt
 def data_info(data_path: str):
     """Show data file information."""
     storage = ParquetStorage(data_path)
@@ -284,12 +366,12 @@ def data_info(data_path: str):
 
 
 @cli.command
-@option('-d', '--data-path', default='awair.parquet', help='Data file path')
-@option('-f', '--from-dt', 'from_str', help='Start datetime (ISO format)')
-@option('-t', '--to-dt', 'to_str', help='End datetime (ISO format)')
+@data_path_opt
+@from_dt_opt()
+@to_dt_opt()
 @option('-n', '--count', default=10, help='Number of largest gaps to show')
 @option('-m', '--min-gap', type=int, help='Minimum gap size in seconds to report')
-def gaps(data_path: str, from_str: str | None, to_str: str | None, count: int, min_gap: int | None):
+def gaps(data_path: str, from_dt: str | None, to_dt: str | None, count: int, min_gap: int | None):
     """Find and report the largest timing gaps in the data."""
     import pandas as pd
 
@@ -303,15 +385,15 @@ def gaps(data_path: str, from_str: str | None, to_str: str | None, count: int, m
         err('No data in file')
         return
 
-    # Filter by date range if specified
-    if from_str or to_str:
+    # Filter by date range if specified (parsing already handled by option callbacks)
+    if from_dt or to_dt:
         df['timestamp'] = pd.to_datetime(df['timestamp'])
-        if from_str:
-            from_dt = pd.to_datetime(from_str)
-            df = df[df['timestamp'] >= from_dt]
-        if to_str:
-            to_dt = pd.to_datetime(to_str)
-            df = df[df['timestamp'] <= to_dt]
+        if from_dt:
+            from_timestamp = pd.to_datetime(from_dt)
+            df = df[df['timestamp'] >= from_timestamp]
+        if to_dt:
+            to_timestamp = pd.to_datetime(to_dt)
+            df = df[df['timestamp'] <= to_timestamp]
 
         if df.empty:
             err('No data in specified date range')
@@ -367,10 +449,10 @@ def gaps(data_path: str, from_str: str | None, to_str: str | None, count: int, m
 
 
 @cli.command
-@option('-d', '--data-path', default='awair.parquet', help='Data file path')
-@option('-f', '--from-dt', 'from_str', help='Start datetime (ISO format)')
-@option('-t', '--to-dt', 'to_str', help='End datetime (ISO format)')
-def hist(data_path: str, from_str: str | None, to_str: str | None):
+@data_path_opt
+@from_dt_opt()
+@to_dt_opt()
+def hist(data_path: str, from_dt: str | None, to_dt: str | None):
     """Generate histogram of record counts per day."""
     import pandas as pd
 
@@ -387,14 +469,14 @@ def hist(data_path: str, from_str: str | None, to_str: str | None):
     # Ensure timestamp is datetime
     df['timestamp'] = pd.to_datetime(df['timestamp'])
 
-    # Filter by date range if specified
-    if from_str or to_str:
-        if from_str:
-            from_dt = pd.to_datetime(from_str)
-            df = df[df['timestamp'] >= from_dt]
-        if to_str:
-            to_dt = pd.to_datetime(to_str)
-            df = df[df['timestamp'] <= to_dt]
+    # Filter by date range if specified (parsing already handled by option callbacks)
+    if from_dt or to_dt:
+        if from_dt:
+            from_timestamp = pd.to_datetime(from_dt)
+            df = df[df['timestamp'] >= from_timestamp]
+        if to_dt:
+            to_timestamp = pd.to_datetime(to_dt)
+            df = df[df['timestamp'] <= to_timestamp]
 
         if df.empty:
             err('No data in specified date range')
