@@ -366,5 +366,50 @@ def gaps(data_path: str, from_str: str | None, to_str: str | None, count: int, m
         echo(f'{gap_min:5.1f}m gap: {prev_ts} -> {curr_ts}')
 
 
+@cli.command
+@option('-d', '--data-path', default='awair.parquet', help='Data file path')
+@option('-f', '--from-dt', 'from_str', help='Start datetime (ISO format)')
+@option('-t', '--to-dt', 'to_str', help='End datetime (ISO format)')
+def hist(data_path: str, from_str: str | None, to_str: str | None):
+    """Generate histogram of record counts per day."""
+    import pandas as pd
+
+    # Read data
+    if not Path(data_path).exists():
+        err(f'Data file not found: {data_path}')
+        return
+
+    df = pd.read_parquet(data_path)
+    if df.empty:
+        err('No data in file')
+        return
+
+    # Ensure timestamp is datetime
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+    # Filter by date range if specified
+    if from_str or to_str:
+        if from_str:
+            from_dt = pd.to_datetime(from_str)
+            df = df[df['timestamp'] >= from_dt]
+        if to_str:
+            to_dt = pd.to_datetime(to_str)
+            df = df[df['timestamp'] <= to_dt]
+
+        if df.empty:
+            err('No data in specified date range')
+            return
+
+    # Extract date and count records per day
+    df['date'] = df['timestamp'].dt.date
+    daily_counts = df.groupby('date').size().reset_index(name='count')
+
+    # Sort by date and display
+    daily_counts = daily_counts.sort_values('date')
+
+    for _, row in daily_counts.iterrows():
+        echo(f'{row["count"]:7d} {row["date"]}')
+
+
 if __name__ == '__main__':
     cli()
