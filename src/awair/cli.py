@@ -5,11 +5,11 @@ from datetime import datetime, timedelta
 from functools import cache, partial
 from pathlib import Path
 from sys import stdout
+from typing import Callable
 from urllib.parse import quote_plus
 
-import click
 import requests
-from click import echo, option
+from click import echo, option, Context, Parameter, BadParameter, Choice, group
 
 from .storage import ParquetStorage, FIELDS
 
@@ -21,29 +21,54 @@ DEFAULT_DATA_PATH = 'awair.parquet'
 # Common click options
 data_path_opt = option('-d', '--data-path', default=DEFAULT_DATA_PATH, help='Data file path')
 
-def from_dt_opt():
-    """Option that parses flexible datetime format for start time."""
-    def callback(ctx, param, value):
-        if value is None:
-            return None
-        try:
-            return parse_flexible_datetime(value)
-        except click.BadParameter as e:
-            raise click.BadParameter(f'Invalid --from-dt format: {e}')
-    
-    return option('-f', '--from-dt', callback=callback, help='Start datetime (flexible format)')
 
-def to_dt_opt():
-    """Option that parses flexible datetime format for end time."""
-    def callback(ctx, param, value):
+def click_cb(fn: Callable[[str | None], str | None]) -> Callable[[Context, Parameter, str | None], str | None]:
+    def cb(ctx: Context, param: Parameter, value: str | None) -> str | None:
+        return fn(value)
+
+    return cb
+
+
+def dt_range_opts(from_default_days=None, to_default_minutes=None):
+    """
+    Decorator that adds both -f/--from-dt and -t/--to-dt options with optional auto-fill defaults.
+
+    Args:
+        from_default_days: Days to subtract from now if --from-dt not provided (None = no default)
+        to_default_minutes: Minutes to add to now if --to-dt not provided (None = no default)
+    """
+    def from_callback(value: str | None) -> str | None:
         if value is None:
-            return None
+            if from_default_days is None:
+                return None
+            default_dt = (datetime.now() - timedelta(days=from_default_days)).isoformat()
+            err(f'Auto-filled --from-dt to {from_default_days} days ago: {default_dt}')
+            return default_dt
         try:
             return parse_flexible_datetime(value)
-        except click.BadParameter as e:
-            raise click.BadParameter(f'Invalid --to-dt format: {e}')
-    
-    return option('-t', '--to-dt', callback=callback, help='End datetime (flexible format)')
+        except BadParameter as e:
+            raise BadParameter(f'Invalid --from-dt format: {e}')
+
+    def to_callback(value: str | None) -> str | None:
+        if value is None:
+            if to_default_minutes is None:
+                return None
+            default_dt = (datetime.now() + timedelta(minutes=to_default_minutes)).isoformat()
+            err(f'Auto-filled --to-dt to current time + {to_default_minutes}min: {default_dt}')
+            return default_dt
+        try:
+            return parse_flexible_datetime(value)
+        except BadParameter as e:
+            raise BadParameter(f'Invalid --to-dt format: {e}')
+
+    def decorator(func):
+        # Apply options in reverse order (click applies decorators bottom-up)
+        func = option('-t', '--to-dt', callback=click_cb(to_callback), help='End datetime (flexible format)')(func)
+        func = option('-f', '--from-dt', callback=click_cb(from_callback), help='Start datetime (flexible format)')(func)
+        return func
+
+    return decorator
+
 
 def parse_flexible_datetime(dt_str: str | None) -> str | None:
     """Parse flexible datetime formats into ISO format."""
@@ -68,7 +93,7 @@ def parse_flexible_datetime(dt_str: str | None) -> str | None:
 
     # Validate and format date part
     if len(date_part) != 8 or not date_part.isdigit():
-        raise click.BadParameter(f'Invalid date format: {dt_str}. Expected formats like 20250630, 250630T16, etc.')
+        raise BadParameter(f'Invalid date format: {dt_str}. Expected formats like 20250630, 250630T16, etc.')
 
     # Format as YYYY-MM-DD
     formatted_date = f'{date_part[:4]}-{date_part[4:6]}-{date_part[6:8]}'
@@ -91,9 +116,10 @@ def parse_flexible_datetime(dt_str: str | None) -> str | None:
     elif len(time_part) == 8 and time_part.count(':') == 2:  # HH:MM:SS
         formatted_time = time_part
     else:
-        raise click.BadParameter(f'Invalid time format in: {dt_str}')
+        raise BadParameter(f'Invalid time format in: {dt_str}')
 
     return f'{formatted_date}T{formatted_time}'
+
 
 V1 = 'https://developer-apis.awair.is/v1'
 SELF = f'{V1}/users/self'
@@ -103,15 +129,15 @@ DEVICE_TYPE = 'awair-element'
 DEVICE_ID = 17617
 
 
-@click.group('awair')
-def cli():
-    pass
-
-
 @cache
 def get_token():
     with open('.token', 'r') as f:
         return f.read().strip()
+
+
+@group
+def awair():
+    pass
 
 
 def get(url: str):
@@ -198,14 +224,14 @@ def fetch_raw_data(
     }
 
 
-@cli.command
+@awair.command
 def self():
     res = get(SELF)
     json.dump(res, stdout, indent=2)
     print()
 
 
-@cli.command
+@awair.command
 def devices():
     res = get(DEVICES)
     devices = res['devices']
@@ -288,17 +314,16 @@ def fetch_date_range(
         err(f'Complete! Total requests: {total_requests}')
 
 
-@cli.command
-@option('-a', '--conflict-action', default='warn', type=click.Choice(['warn', 'error', 'replace']), help='Action on data conflicts: warn (log warning), error (raise exception), replace (overwrite)')
+@awair.command
+@option('-a', '--conflict-action', default='warn', type=Choice(['warn', 'error', 'replace']), help='Action on data conflicts: warn (log warning), error (raise exception), replace (overwrite)')
 @data_path_opt
-@from_dt_opt()
+@dt_range_opts(from_default_days=34, to_default_minutes=10)
 @option('-l', '--limit', default=360, help='Max records per request')
 @option('-s', '--sleep-s', default=1.0, help='Sleep interval between requests (seconds)')
-@to_dt_opt()
 @option('-r', '--recent-only', is_flag=True, help='Fetch only new data since latest timestamp in storage')
 def raw(
-    from_dt: str | None,
-    to_dt: str | None,
+    from_dt: str,
+    to_dt: str,
     limit: int,
     data_path: str,
     sleep_s: float,
@@ -307,15 +332,6 @@ def raw(
 ):
     """Fetch raw air data from an Awair Element device. Defaults to last ~month if no date range specified."""
     output_to_stdout = data_path in ['-', '']
-
-    # Auto-fill missing dates (parsing already handled by option callbacks)
-    if not from_dt:
-        from_dt = (datetime.now() - timedelta(days=34)).isoformat()
-        err(f'Auto-filled --from-dt to 34 days ago: {from_dt}')
-        
-    if not to_dt:
-        to_dt = (datetime.now() + timedelta(minutes=10)).isoformat()
-        err(f'Auto-filled --to-dt to current time + 10min: {to_dt}')
 
     if output_to_stdout:
         fetch_date_range(from_dt, to_dt, limit, sleep_s, None)
@@ -349,7 +365,7 @@ def print_fetch_result(result: dict):
         err(f'Average interval: {result["avg_interval_minutes"]:.1f} minutes')
 
 
-@cli.command
+@awair.command
 @data_path_opt
 def data_info(data_path: str):
     """Show data file information."""
@@ -365,10 +381,9 @@ def data_info(data_path: str):
         echo('No data in file')
 
 
-@cli.command
+@awair.command
 @data_path_opt
-@from_dt_opt()
-@to_dt_opt()
+@dt_range_opts()
 @option('-n', '--count', default=10, help='Number of largest gaps to show')
 @option('-m', '--min-gap', type=int, help='Minimum gap size in seconds to report')
 def gaps(data_path: str, from_dt: str | None, to_dt: str | None, count: int, min_gap: int | None):
@@ -448,15 +463,17 @@ def gaps(data_path: str, from_dt: str | None, to_dt: str | None, count: int, min
         echo(f'{gap_min:5.1f}m gap: {prev_ts} -> {curr_ts}')
 
 
-@cli.command
+@awair.command
 @data_path_opt
-@from_dt_opt()
-@to_dt_opt()
-def hist(data_path: str, from_dt: str | None, to_dt: str | None):
+@dt_range_opts()
+def hist(
+    data_path: str,
+    from_dt: str | None,
+    to_dt: str | None,
+):
     """Generate histogram of record counts per day."""
     import pandas as pd
 
-    # Read data
     if not Path(data_path).exists():
         err(f'Data file not found: {data_path}')
         return
@@ -494,4 +511,4 @@ def hist(data_path: str, from_dt: str | None, to_dt: str | None):
 
 
 if __name__ == '__main__':
-    cli()
+    awair()

@@ -16,7 +16,7 @@ dev = [
     "ruff",
 ]
 [project.scripts]
-awair = "awair.cli:cli"
+awair = "awair.cli:awair"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
