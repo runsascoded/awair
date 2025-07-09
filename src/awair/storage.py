@@ -1,26 +1,22 @@
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 import pandas as pd
 
-
-def get_sensor_fields():
-    """Get list of sensor field names, excluding timestamp."""
-    return ['temp', 'co2', 'pm10', 'pm25', 'humid', 'voc']
-
-
-def get_all_fields():
-    """Get list of all field names including timestamp."""
-    return ['timestamp'] + get_sensor_fields()
+VAL_FIELDS = ['temp', 'co2', 'pm10', 'pm25', 'humid', 'voc']
+FIELDS = ['timestamp'] + VAL_FIELDS
 
 
 class ParquetStorage:
-    def __init__(self, file_path: str = 'awair.parquet'):
+    def __init__(
+        self,
+        file_path: str = 'awair.parquet',
+        conflict_action: str = 'warn',
+    ):
         self.file_path = Path(file_path)
         self._batch_df = None
         self._dirty = False
-        self._conflict_action = 'warn'
+        self.conflict_action = conflict_action
 
     def __enter__(self):
         """Enter context manager - load existing data into memory."""
@@ -29,7 +25,7 @@ class ParquetStorage:
             # Ensure existing timestamps are timezone-naive
             self._batch_df['timestamp'] = pd.to_datetime(self._batch_df['timestamp']).dt.tz_localize(None)
         else:
-            self._batch_df = pd.DataFrame(columns=get_all_fields())
+            self._batch_df = pd.DataFrame(columns=FIELDS)
         self._dirty = False
         return self
 
@@ -46,11 +42,7 @@ class ParquetStorage:
             self._batch_df = None
             self._dirty = False
 
-    def set_conflict_action(self, action: str):
-        """Set the conflict action for this session."""
-        self._conflict_action = action
-
-    def insert_air_data(self, data: List[dict]) -> int:
+    def insert_air_data(self, data: list[dict]) -> int:
         """Insert air data into the in-memory batch, returning count of inserted records."""
         if not data or self._batch_df is None:
             return 0
@@ -75,7 +67,7 @@ class ParquetStorage:
                 if len(unique_rows) > 1:
                     # Found conflicting data for same timestamp
                     conflicts = []
-                    for field in get_sensor_fields():
+                    for field in VAL_FIELDS:
                         values = unique_rows[field].unique()
                         if len(values) > 1:
                             conflicts.append(f'{field}: {values}')
@@ -84,13 +76,13 @@ class ParquetStorage:
                         conflict_msg = f'Data conflict at timestamp {timestamp}: {", ".join(conflicts)}'
                         conflict_found = True
 
-                        if self._conflict_action == 'error':
+                        if self.conflict_action == 'error':
                             raise ValueError(conflict_msg)
-                        elif self._conflict_action == 'warn':
+                        elif self.conflict_action == 'warn':
                             print(f'WARNING: {conflict_msg}', file=__import__('sys').stderr)
                         # For 'replace' action, we'll keep the new data (last occurrence)
 
-            if conflict_found and self._conflict_action == 'replace':
+            if conflict_found and self.conflict_action == 'replace':
                 # Keep last occurrence (new data)
                 self._batch_df = combined_df.drop_duplicates(subset=['timestamp'], keep='last')
             else:
@@ -106,7 +98,7 @@ class ParquetStorage:
 
         return max(0, inserted_count)
 
-    def get_latest_timestamp(self) -> Optional[datetime]:
+    def get_latest_timestamp(self) -> datetime | None:
         """Get the latest timestamp in the data."""
         # If we're in a context manager session, use batch data
         if self._batch_df is not None:

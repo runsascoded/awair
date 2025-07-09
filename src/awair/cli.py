@@ -7,11 +7,10 @@ from sys import stdout
 from urllib.parse import quote_plus
 
 import click
-import pandas as pd
 import requests
 from click import echo, option
 
-from .storage import ParquetStorage, get_all_fields
+from .storage import ParquetStorage, FIELDS
 
 err = partial(echo, err=True)
 
@@ -45,9 +44,9 @@ def get(url: str):
 
 
 def fetch_raw_data(
-    from_dt: str = None,
+    from_str: str = None,
     limit: int = 360,
-    to_dt: str = None,
+    to_str: str = None,
     sleep_interval: float = 0.0,
 ) -> dict:
     """Fetch raw air data and return metadata about the request."""
@@ -55,10 +54,10 @@ def fetch_raw_data(
         'fahrenheit': 'true',
         'limit': limit,
     }
-    if from_dt:
-        query['from'] = from_dt
-    if to_dt:
-        query['to'] = to_dt
+    if from_str:
+        query['from'] = from_str
+    if to_str:
+        query['to'] = to_str
     query_str = '&'.join(f'{k}={quote_plus(str(v))}' for k, v in query.items())
 
     if sleep_interval > 0:
@@ -67,24 +66,16 @@ def fetch_raw_data(
     try:
         res = get(f'{DEVICES}/{DEVICE_TYPE}/{DEVICE_ID}/air-data/raw?{query_str}')
     except requests.exceptions.HTTPError as e:
+        obj = {
+            'success': False,
+            'requested_from': from_str,
+            'requested_to': to_str,
+            'requested_limit': limit,
+        }
         if e.response.status_code == 429:
-            return {
-                'success': False,
-                'error': 'rate_limit',
-                'message': 'Rate limit exceeded (429)',
-                'requested_from': from_dt,
-                'requested_to': to_dt,
-                'requested_limit': limit,
-            }
+            return { **obj, 'error': 'rate_limit', 'message': 'Rate limit exceeded (429)', }
         else:
-            return {
-                'success': False,
-                'error': 'http_error',
-                'message': str(e),
-                'requested_from': from_dt,
-                'requested_to': to_dt,
-                'requested_limit': limit,
-            }
+            return { **obj, 'error': 'http_error', 'message': str(e), }
 
     rows = []
     for datum in res['data']:
@@ -94,7 +85,7 @@ def fetch_raw_data(
             k = s['comp']
             v = s['value']
             row[k] = v
-        row = {k: row[k] for k in get_all_fields()}
+        row = { k: row[k] for k in FIELDS }
         rows.append(row)
 
     # Calculate actual range and intervals
@@ -115,8 +106,8 @@ def fetch_raw_data(
     return {
         'success': True,
         'data': rows,
-        'requested_from': from_dt,
-        'requested_to': to_dt,
+        'requested_from': from_str,
+        'requested_to': to_str,
         'requested_limit': limit,
         'actual_from': actual_from.isoformat() if actual_from else None,
         'actual_to': actual_to.isoformat() if actual_to else None,
@@ -142,109 +133,17 @@ def devices():
         print()
 
 
-@cli.command
-@option('-a', '--conflict-action', default='warn', type=click.Choice(['warn', 'error', 'replace']), help='Action on data conflicts: warn (log warning), error (raise exception), replace (overwrite)')
-@option('-d', '--data-path', default='awair.parquet', help='Data file path')
-@option('-f', '--from-dt', help='Start datetime (ISO format)')
-@option('-l', '--limit', default=360, help='Max records per request')
-@option('-s', '--sleep-s', default=1.0, help='Sleep interval between requests (seconds)')
-@option('-t', '--to-dt', help='End datetime (ISO format)')
-@option('-r', '--recent-only', is_flag=True, help='Fetch only new data since latest timestamp in storage')
-def raw(
-    from_dt: str | None,
-    to_dt: str | None,
-    limit: int,
-    data_path: str,
-    sleep_s: float,
-    conflict_action: str,
-    recent_only: bool,
-):
-    """Fetch raw air data from an Awair Element device. Defaults to last ~month if no date range specified."""
-    # Check if we should output to stdout as JSONL
-    output_to_stdout = data_path in ['-', '']
-
-    if output_to_stdout:
-        # Output to stdout as JSONL - use simple date range logic
-        if not from_dt and not to_dt:
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=2)
-            err(f'No date range specified, fetching last 2 days: {start_date.date()} to {end_date.date()}')
-            from_dt = start_date.isoformat()
-            to_dt = end_date.isoformat()
-
-        # Handle partial date range
-        if not from_dt or not to_dt:
-            err('Error: Both --from-dt and --to-dt are required')
-            return
-
-        fetch_date_range(from_dt, to_dt, limit, sleep_s, None)
-    else:
-        # Save to Parquet file
-        with ParquetStorage(data_path) as storage:
-            storage.set_conflict_action(conflict_action)
-
-            # If no date range specified, determine from existing data
-            if not from_dt and not to_dt:
-                end_date = datetime.now()
-
-                if recent_only:
-                    # Recent-only mode: fetch only since latest timestamp
-                    latest_timestamp = storage.get_latest_timestamp()
-                    if latest_timestamp:
-                        start_date = latest_timestamp
-                        err(f'Recent-only mode: fetching data since latest timestamp: {start_date}')
-                    else:
-                        err('Recent-only mode requested but no existing data found. Use default mode to seed initial data.')
-                        return
-                else:
-                    # Default mode: fetch last month + 2 days and merge
-                    latest_timestamp = storage.get_latest_timestamp()
-                    start_date = end_date - timedelta(days=32)
-                    if latest_timestamp:
-                        err(f'Default mode: fetching last month + 2 days ({start_date.date()} to {end_date.date()}) and merging with existing data')
-                    else:
-                        err(f'No existing data, fetching last month + 2 days: {start_date.date()} to {end_date.date()}')
-
-                from_dt = start_date.isoformat()
-                to_dt = end_date.isoformat()
-
-            # Handle partial date range
-            if not from_dt or not to_dt:
-                err('Error: Both --from-dt and --to-dt are required')
-                return
-
-            fetch_date_range(from_dt, to_dt, limit, sleep_s, storage)
-
-
-def handle_fetch_error(result: dict):
-    """Handle fetch errors with appropriate logging."""
-    if result['error'] == 'rate_limit':
-        err('Rate limit exceeded. Please wait before making more requests.')
-        err(f'Requested range: {result["requested_from"]} to {result["requested_to"]}')
-    else:
-        err(f'Error fetching data: {result["message"]}')
-
-
-def print_fetch_result(result: dict):
-    """Print detailed information about a fetch result."""
-    err(f'Requested: {result["requested_from"]} to {result["requested_to"]} (limit: {result["requested_limit"]})')
-    err(f'Actual range: {result["actual_from"]} to {result["actual_to"]}')
-    err(f'Records: {result["record_count"]}')
-    if result['avg_interval_minutes']:
-        err(f'Average interval: {result["avg_interval_minutes"]:.1f} minutes')
-
-
 def fetch_date_range(
-    from_dt: str,
-    to_dt: str,
+    from_str: str,
+    to_str: str,
     limit: int,
     sleep_s: float,
     storage: ParquetStorage | None,
 ):
     """Fetch data across a date range using adaptive chunking based on actual data returned."""
     # Parse dates - keep them naive for simplicity, API handles timezone conversion
-    start_date = datetime.fromisoformat(from_dt)
-    end_date = datetime.fromisoformat(to_dt)
+    start_date = datetime.fromisoformat(from_str)
+    end_date = datetime.fromisoformat(to_str)
 
     total_inserted = 0
     total_requests = 0
@@ -253,10 +152,10 @@ def fetch_date_range(
     err(f'Fetching data from {start_date} to {end_date}')
 
     while current_end > start_date:
-        from_dt_str = start_date.isoformat()
-        to_dt_str = current_end.isoformat()
+        from_str = start_date.isoformat()
+        to_str = current_end.isoformat()
 
-        result = fetch_raw_data(from_dt=from_dt_str, to_dt=to_dt_str, limit=limit, sleep_interval=sleep_s)
+        result = fetch_raw_data(from_str=from_str, to_str=to_str, limit=limit, sleep_interval=sleep_s)
         total_requests += 1
 
         if not result['success']:
@@ -306,6 +205,65 @@ def fetch_date_range(
         err(f'Data file now contains {storage.get_record_count()} total records')
     else:
         err(f'Complete! Total requests: {total_requests}')
+
+
+@cli.command
+@option('-a', '--conflict-action', default='warn', type=click.Choice(['warn', 'error', 'replace']), help='Action on data conflicts: warn (log warning), error (raise exception), replace (overwrite)')
+@option('-d', '--data-path', default='awair.parquet', help='Data file path')
+@option('-f', '--from-dt', 'from_str', help='Start datetime (ISO format)')
+@option('-l', '--limit', default=360, help='Max records per request')
+@option('-s', '--sleep-s', default=1.0, help='Sleep interval between requests (seconds)')
+@option('-t', '--to-dt', 'to_str', help='End datetime (ISO format)')
+@option('-r', '--recent-only', is_flag=True, help='Fetch only new data since latest timestamp in storage')
+def raw(
+    from_str: str | None,
+    to_str: str | None,
+    limit: int,
+    data_path: str,
+    sleep_s: float,
+    conflict_action: str,
+    recent_only: bool,
+):
+    """Fetch raw air data from an Awair Element device. Defaults to last ~month if no date range specified."""
+    output_to_stdout = data_path in ['-', '']
+
+    if not from_str:
+        from_str = (datetime.now() - timedelta(days=34)).isoformat()
+        err(f'Auto-filled --from-dt to 34 days ago: {from_str}')
+    if not to_str:
+        to_str = (datetime.now() + timedelta(minutes=10)).isoformat()
+        err(f'Auto-filled --to-dt to current time + 10min: {to_str}')
+
+    if output_to_stdout:
+        fetch_date_range(from_str, to_str, limit, sleep_s, None)
+    else:
+        with ParquetStorage(data_path, conflict_action=conflict_action) as storage:
+            if recent_only:
+                latest_timestamp = storage.get_latest_timestamp()
+                if latest_timestamp:
+                    from_str = latest_timestamp.isoformat()
+                    err(f'Recent-only mode: fetching data since {from_str}')
+                else:
+                    err(f'No existing data found; reading from {from_str}')
+            fetch_date_range(from_str, to_str, limit, sleep_s, storage)
+
+
+def handle_fetch_error(result: dict):
+    """Handle fetch errors with appropriate logging."""
+    if result['error'] == 'rate_limit':
+        err('Rate limit exceeded. Please wait before making more requests.')
+        err(f'Requested range: {result["requested_from"]} to {result["requested_to"]}')
+    else:
+        err(f'Error fetching data: {result["message"]}')
+
+
+def print_fetch_result(result: dict):
+    """Print detailed information about a fetch result."""
+    err(f'Requested: {result["requested_from"]} to {result["requested_to"]} (limit: {result["requested_limit"]})')
+    err(f'Actual range: {result["actual_from"]} to {result["actual_to"]}')
+    err(f'Records: {result["record_count"]}')
+    if result['avg_interval_minutes']:
+        err(f'Average interval: {result["avg_interval_minutes"]:.1f} minutes')
 
 
 @cli.command
