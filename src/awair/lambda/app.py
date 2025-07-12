@@ -18,7 +18,8 @@ from aws_cdk import (
 class AwairLambdaStack(Stack):
     """Stack for Awair scheduled data updater Lambda."""
 
-    def __init__(self, scope: Construct, construct_id: str, awair_token: str, data_path: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, awair_token: str, data_path: str,
+                 package_type: str = "source", version: str = None, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Parse S3 path for IAM permissions
@@ -62,19 +63,28 @@ class AwairLambdaStack(Stack):
             }
         )
 
+        # Determine deployment package based on package type
+        if package_type == "pypi":
+            deployment_zip = "lambda-updater-pypi-deployment.zip"
+            description_suffix = f" (PyPI {version})" if version else " (PyPI latest)"
+        else:
+            deployment_zip = "lambda-updater-deployment.zip"
+            description_suffix = " (source)"
+
         # Lambda function
         updater_function = _lambda.Function(
             self, "AwairDataUpdaterFunction",
             function_name=construct_id,
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="lambda_function.lambda_handler",
-            code=_lambda.Code.from_asset("lambda-updater-deployment.zip"),
+            code=_lambda.Code.from_asset(deployment_zip),
             timeout=Duration.minutes(5),
             memory_size=512,
             reserved_concurrent_executions=1,
             environment={
                 "AWAIR_TOKEN": awair_token,
-                "AWAIR_DATA_PATH": data_path
+                "AWAIR_DATA_PATH": data_path,
+                "AWAIR_VERSION": version or "unknown"
             },
             layers=[
                 _lambda.LayerVersion.from_layer_version_arn(
@@ -83,7 +93,7 @@ class AwairLambdaStack(Stack):
                 )
             ],
             role=lambda_role,
-            description="Scheduled Awair data updater - fetches sensor data every 5 minutes"
+            description=f"Scheduled Awair data updater - fetches sensor data every 5 minutes{description_suffix}"
         )
 
         # EventBridge rule for scheduling
@@ -136,7 +146,8 @@ class AwairLambdaStack(Stack):
 class AwairCdkApp(cdk.App):
     """CDK App for Awair infrastructure."""
 
-    def __init__(self, awair_token: str, data_path: str, stack_name: str = "awair-data-updater"):
+    def __init__(self, awair_token: str, data_path: str, stack_name: str = "awair-data-updater",
+                 package_type: str = "source", version: str = None):
         super().__init__()
 
         # Create the stack
@@ -144,6 +155,8 @@ class AwairCdkApp(cdk.App):
             self, stack_name,
             awair_token=awair_token,
             data_path=data_path,
+            package_type=package_type,
+            version=version,
             description="Awair Data Updater - Scheduled Lambda for S3 updates",
             env=cdk.Environment(
                 # Use default AWS credentials/region
@@ -153,24 +166,31 @@ class AwairCdkApp(cdk.App):
         )
 
 
-def create_app(awair_token: str, data_path: str, stack_name: str = "awair-data-updater") -> AwairCdkApp:
+def create_app(awair_token: str, data_path: str, stack_name: str = "awair-data-updater",
+               package_type: str = "source", version: str = None) -> AwairCdkApp:
     """Create and return the CDK app."""
-    return AwairCdkApp(awair_token, data_path, stack_name)
+    return AwairCdkApp(awair_token, data_path, stack_name, package_type, version)
 
 
 if __name__ == "__main__":
+    import os
     from awair.cli.config import get_token, get_default_data_path
 
     # Use unified token and data path flows
     try:
         token = get_token()
         data_path = get_default_data_path()
+
+        # Check for PyPI deployment environment variables
+        package_type = os.getenv('AWAIR_LAMBDA_PACKAGE', 'source')
+        version = os.getenv('AWAIR_VERSION')
+
     except ValueError as e:
         print(f"Configuration error: {e}")
         import sys
         sys.exit(1)
 
-    app = create_app(token, data_path)
+    app = create_app(token, data_path, package_type=package_type, version=version)
 
     # Synthesize the app (generate CloudFormation)
     app.synth()

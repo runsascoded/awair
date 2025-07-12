@@ -23,7 +23,7 @@ def lambda_cli():
 @lambda_cli.command
 @option('--dry-run', is_flag=True, help='Build package only, do not deploy')
 def deploy(dry_run: bool):
-    """Deploy the scheduled Lambda updater to AWS using CDK."""
+    """Deploy the scheduled Lambda updater to AWS using CDK (source-based)."""
     # Validate token via unified flow and pass to subprocess
     try:
         token = get_token()
@@ -117,4 +117,43 @@ def logs(follow: bool, stack_name: str):
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         err(f'Failed to fetch logs: {e}')
+        sys.exit(1)
+
+
+@lambda_cli.command("deploy-pypi")
+@option('--version', help='Specific awair version to deploy (e.g., 0.0.1)')
+@option('--dry-run', is_flag=True, help='Build package only, do not deploy')
+def deploy_pypi(version: str = None, dry_run: bool = False):
+    """Deploy the scheduled Lambda updater using PyPI release."""
+    # Validate token via unified flow and pass to subprocess
+    try:
+        token = get_token()
+    except ValueError as e:
+        err(f'Token error: {e}')
+        sys.exit(1)
+
+    deploy_script = join(LAMBDA_DIR, 'deploy_pypi.py')
+
+    if not exists(deploy_script):
+        err('PyPI deployment script not found')
+        return
+
+    try:
+        # Set token and data path in environment for subprocess
+        env = environ.copy()
+        env['AWAIR_TOKEN'] = token
+        env['AWAIR_DATA_PATH'] = get_default_data_path()
+
+        if dry_run:
+            cmd = [sys.executable, deploy_script, 'package']
+        else:
+            cmd = [sys.executable, deploy_script, 'deploy']
+
+        if version:
+            cmd.extend(['--version', version])
+
+        subprocess.run(cmd, check=True, env=env, cwd=LAMBDA_DIR)
+
+    except subprocess.CalledProcessError as e:
+        err(f'PyPI deployment failed: {e}')
         sys.exit(1)

@@ -1,9 +1,9 @@
-# Awair API Client & Data Collection System
+# [Awair] API Client & Data Collection System
 
 [![PyPI version](https://badge.fury.io/py/awair.svg)](https://badge.fury.io/py/awair)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Python CLI tool and automated data collection system for Awair air quality sensors. Provides real-time data fetching, historical analysis, and automated S3 storage via AWS Lambda.
+A Python CLI tool and automated data collection system for [Awair] air quality sensors. Provides real-time data fetching using [the Awair API][API], historical analysis, and automated S3 storage via AWS Lambda.
 
 ## Features
 
@@ -182,6 +182,43 @@ ruff format
 pytest
 ```
 
+## Lambda Deployment
+
+The system supports two deployment methods:
+
+### Source-Based Deployment (Development)
+
+Deploy from your local source code:
+
+```bash
+# Deploy current source
+awair lambda deploy
+
+# Build package only
+awair lambda deploy --dry-run
+```
+
+### PyPI-Based Deployment (Production)
+
+Deploy from published PyPI releases:
+
+```bash
+# Deploy latest version
+awair lambda deploy-pypi
+
+# Deploy specific version
+awair lambda deploy-pypi --version 0.0.1
+
+# Build package only
+awair lambda deploy-pypi --version 0.0.1 --dry-run
+```
+
+**PyPI Deployment Advantages:**
+- ✅ **Exact Versions**: Deploy specific, tested releases
+- ✅ **Smaller Packages**: Only runtime dependencies
+- ✅ **Immutable**: Consistent across environments
+- ✅ **Traceable**: Clear version tracking in Lambda
+
 ## AWS Infrastructure
 
 The Lambda deployment creates:
@@ -212,3 +249,6 @@ The CLI uses a compact date format for convenience:
 ## License
 
 MIT License - see LICENSE file for details.
+
+[Awair]: https://www.getawair.com/
+[API]: https://docs.developer.getawair.com/

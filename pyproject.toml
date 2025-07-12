@@ -40,7 +40,6 @@ Homepage = "https://github.com/runsascoded/awair"
 Documentation = "https://github.com/runsascoded/awair#readme"
 Repository = "https://github.com/runsascoded/awair.git"
 Issues = "https://github.com/runsascoded/awair/issues"
-Changelog = "https://github.com/runsascoded/awair/releases"
 
 [project.optional-dependencies]
 dev = [
