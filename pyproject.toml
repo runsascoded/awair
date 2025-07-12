@@ -1,20 +1,63 @@
 [project]
 name = "awair"
 version = "0.0.1"
-description = "Awair API wrapper"
+description = "Awair API client and data collection system with AWS Lambda automation"
 readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "Ryan Williams", email = "ryan@runsascoded.com"}
+]
+maintainers = [
+    {name = "Ryan Williams", email = "ryan@runsascoded.com"}
+]
+keywords = ["awair", "air-quality", "iot", "sensors", "aws", "lambda", "data-collection"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Home Automation",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Topic :: System :: Monitoring",
+    "Topic :: Utilities",
+]
 requires-python = ">=3.9"
 dependencies = [
-    "click",
-    "requests",
-    "pandas",
-    "pyarrow",
+    "click>=8.0.0",
+    "requests>=2.28.0",
+    "pandas>=1.5.0",
+    "pyarrow>=10.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/runsascoded/awair"
+Documentation = "https://github.com/runsascoded/awair#readme"
+Repository = "https://github.com/runsascoded/awair.git"
+Issues = "https://github.com/runsascoded/awair/issues"
+Changelog = "https://github.com/runsascoded/awair/releases"
 
 [project.optional-dependencies]
 dev = [
     "ruff",
     "pytest",
+]
+lambda = [
+    "aws-cdk-lib>=2.0.0",
+    "constructs>=10.0.0",
+    "utz>=0.20.0",
+]
+all = [
+    "ruff",
+    "pytest",
+    "aws-cdk-lib>=2.0.0",
+    "constructs>=10.0.0",
+    "utz>=0.20.0",
 ]
 [project.scripts]
 awair = "awair.cli:awair"

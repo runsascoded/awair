@@ -1,5 +1,8 @@
 # Awair API Client & Data Collection System
 
+[![PyPI version](https://badge.fury.io/py/awair.svg)](https://badge.fury.io/py/awair)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A Python CLI tool and automated data collection system for Awair air quality sensors. Provides real-time data fetching, historical analysis, and automated S3 storage via AWS Lambda.
 
 ## Features
@@ -13,7 +16,24 @@ A Python CLI tool and automated data collection system for Awair air quality sen
 
 ## Installation
 
+### From PyPI (Recommended)
+
 ```bash
+# Basic installation
+pip install awair
+
+# With Lambda deployment support
+pip install awair[lambda]
+
+# Development installation
+pip install awair[dev]
+```
+
+### From Source
+
+```bash
+git clone https://github.com/runsascoded/awair.git
+cd awair
 pip install -e .
 ```
 
