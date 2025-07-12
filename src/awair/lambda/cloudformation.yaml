@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Awair Data Updater - Scheduled Lambda for S3 updates'
+
+Parameters:
+  AwairToken:
+    Type: String
+    Description: 'Awair API Token'
+    NoEcho: true
+
+Resources:
+  # IAM Role for Lambda
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: 'arn:aws:s3:::380nwk/awair.parquet'
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: 'arn:aws:s3:::380nwk'
+
+  # Lambda Function
+  AwairDataUpdaterFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-updater'
+      Runtime: python3.12
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': 'Please upload the actual deployment package'
+              }
+      Timeout: 300
+      MemorySize: 512
+      ReservedConcurrencyExecutions: 1  # Ensure only 1 concurrent execution
+      Environment:
+        Variables:
+          AWAIR_TOKEN: !Ref AwairToken
+
+  # EventBridge Rule for scheduling
+  UpdateScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${AWS::StackName}-schedule'
+      Description: 'Trigger Awair data update every 5 minutes'
+      ScheduleExpression: 'rate(5 minutes)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt AwairDataUpdaterFunction.Arn
+          Id: AwairDataUpdaterTarget
+
+  # Permission for EventBridge to invoke Lambda
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AwairDataUpdaterFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt UpdateScheduleRule.Arn
+
+  # CloudWatch Log Group (optional, for better log management)
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AwairDataUpdaterFunction}'
+      RetentionInDays: 14
+
+Outputs:
+  LambdaFunctionArn:
+    Description: 'Lambda Function ARN'
+    Value: !GetAtt AwairDataUpdaterFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-LambdaArn'
+
+  ScheduleRuleArn:
+    Description: 'EventBridge Schedule Rule ARN'
+    Value: !GetAtt UpdateScheduleRule.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ScheduleArn'
+
+  S3DataLocation:
+    Description: 'S3 location of the Parquet data file'
+    Value: 's3://380nwk/awair.parquet'
+    Export:
+      Name: !Sub '${AWS::StackName}-S3Location'

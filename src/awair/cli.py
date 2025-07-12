@@ -413,5 +413,93 @@ def hist(
         echo(f'{row["count"]:7d} {row["date"]}')
 
 
+@group()
+def lambda_cli():
+    """AWS Lambda operations for scheduled data updates."""
+    pass
+
+# Add the lambda group to the main awair group
+awair.add_command(lambda_cli, name='lambda')
+
+
+@lambda_cli.command('deploy')
+@option('--token', help='Awair API token (or set AWAIR_TOKEN env var)')
+@option('--dry-run', is_flag=True, help='Build package only, do not deploy')
+def deploy(token: str, dry_run: bool):
+    """Deploy the scheduled Lambda updater to AWS."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    # Set token in environment if provided
+    if token:
+        import os
+        os.environ['AWAIR_TOKEN'] = token
+
+    # Run the deploy script
+    lambda_dir = Path(__file__).parent / 'lambda'
+    deploy_script = lambda_dir / 'deploy.py'
+
+    if not deploy_script.exists():
+        err('Lambda deployment script not found')
+        return
+
+    try:
+        cmd = [sys.executable, str(deploy_script)]
+        if token:
+            cmd.append(token)
+        if not dry_run:
+            cmd.append('deploy')
+
+        subprocess.run(cmd, check=True, cwd=lambda_dir)
+
+    except subprocess.CalledProcessError as e:
+        err(f'Deployment failed: {e}')
+        sys.exit(1)
+
+
+@lambda_cli.command('test')
+def test():
+    """Test the Lambda updater locally (without S3)."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    lambda_dir = Path(__file__).parent / 'lambda'
+    test_script = lambda_dir / 'test_updater.py'
+
+    if not test_script.exists():
+        err('Lambda test script not found')
+        return
+
+    try:
+        subprocess.run([sys.executable, str(test_script)], check=True, cwd=lambda_dir)
+    except subprocess.CalledProcessError as e:
+        err(f'Test failed: {e}')
+        sys.exit(1)
+
+
+@lambda_cli.command('logs')
+@option('--follow', '-f', is_flag=True, help='Follow logs in real-time')
+@option('--stack-name', default='awair-data-updater', help='CloudFormation stack name')
+def logs(follow: bool, stack_name: str):
+    """View Lambda function logs."""
+    import subprocess
+    import sys
+
+    function_name = f'{stack_name}-updater'
+    log_group = f'/aws/lambda/{function_name}'
+
+    cmd = ['aws', 'logs', 'tail', log_group]
+    if follow:
+        cmd.append('--follow')
+
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        err(f'Failed to fetch logs: {e}')
+        sys.exit(1)
+
+
 if __name__ == '__main__':
     awair()
