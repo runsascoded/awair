@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 import pandas as pd
 from utz.s3 import atomic_edit
 
-from awair.cli import fetch_raw_data, parse_s3_path
+from awair.cli.raw_cmd import fetch_raw_data
+from awair.cli.config import parse_s3_path
 from awair.storage import ParquetStorage
 
 

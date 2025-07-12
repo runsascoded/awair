@@ -70,8 +70,8 @@ EventBridge (5min) → Lambda → Awair API → S3 (atomic update)
 
 ```bash
 # View logs
-aws logs tail /aws/lambda/awair-data-updater-updater --follow
+aws logs tail /aws/lambda/awair-data-updater --follow
 
 # Check function status
-aws lambda get-function --function-name awair-data-updater-updater
+aws lambda get-function --function-name awair-data-updater
 ```

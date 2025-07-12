@@ -166,7 +166,7 @@ pytest
 
 The Lambda deployment creates:
 
-- **Lambda Function**: `awair-data-updater-updater`
+- **Lambda Function**: `awair-data-updater`
 - **EventBridge Rule**: 5-minute schedule
 - **IAM Role**: S3 permissions for target bucket
 - **CloudWatch Logs**: 2-week retention

@@ -65,7 +65,7 @@ class AwairLambdaStack(Stack):
         # Lambda function
         updater_function = _lambda.Function(
             self, "AwairDataUpdaterFunction",
-            function_name=f"{construct_id}-updater",
+            function_name=construct_id,
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="lambda_function.lambda_handler",
             code=_lambda.Code.from_asset("lambda-updater-deployment.zip"),
@@ -159,7 +159,7 @@ def create_app(awair_token: str, data_path: str, stack_name: str = "awair-data-u
 
 
 if __name__ == "__main__":
-    from awair.cli import get_token, get_default_data_path
+    from awair.cli.config import get_token, get_default_data_path
 
     # Use unified token and data path flows
     try:

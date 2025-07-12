@@ -22,7 +22,7 @@ EventBridge (every 5min) → Lambda → Awair API → S3 (atomic update)
 python deploy-updater.py YOUR_AWAIR_TOKEN deploy
 
 # 2. Monitor logs
-aws logs tail /aws/lambda/awair-data-updater-updater --follow
+aws logs tail /aws/lambda/awair-data-updater --follow
 ```
 
 ## How It Works
@@ -65,13 +65,13 @@ Your static webapp can directly read the Parquet file:
 
 ```bash
 # View recent logs
-aws logs tail /aws/lambda/awair-data-updater-updater --follow
+aws logs tail /aws/lambda/awair-data-updater --follow
 
 # Check function metrics
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Lambda \
   --metric-name Duration \
-  --dimensions Name=FunctionName,Value=awair-data-updater-updater \
+  --dimensions Name=FunctionName,Value=awair-data-updater \
   --start-time 2025-01-01T00:00:00Z \
   --end-time 2025-01-02T00:00:00Z \
   --period 300 \

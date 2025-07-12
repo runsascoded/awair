@@ -49,7 +49,7 @@ def create_lambda_package() -> str:
         # Bake in device configuration for Lambda
         print("Baking in device configuration...")
         try:
-            from awair.cli import get_device_info
+            from awair.cli.config import get_device_info
             device_type, device_id = get_device_info()
             device_config_content = f"{device_type},{device_id}"
 
@@ -154,7 +154,7 @@ def deploy():
     """Deploy the stack."""
     try:
         # Get token and data path via unified flows
-        from awair.cli import get_token, get_default_data_path
+        from awair.cli.config import get_token, get_default_data_path
         token = get_token()
         data_path = get_default_data_path()
 
@@ -165,7 +165,7 @@ def deploy():
 
         echo("\n✅ CDK deployment complete!")
         echo(f"Lambda will run every 5 minutes, updating {data_path}")
-        echo("Monitor logs: aws logs tail /aws/lambda/awair-data-updater-updater --follow")
+        echo("Monitor logs: aws logs tail /aws/lambda/awair-data-updater --follow")
 
     except Exception as e:
         echo(f"❌ Deployment failed: {e}", err=True)
@@ -177,7 +177,7 @@ def synth():
     """Synthesize CloudFormation template."""
     try:
         # Get token and data path via unified flows
-        from awair.cli import get_token, get_default_data_path
+        from awair.cli.config import get_token, get_default_data_path
         token = get_token()
         data_path = get_default_data_path()
 
