@@ -83,16 +83,18 @@ def get_device_config() -> tuple[str, int]:
     # Try environment variables first
     device_type = os.getenv('AWAIR_DEVICE_TYPE')
     device_id = os.getenv('AWAIR_DEVICE_ID')
-    
+
     if device_type and device_id:
         return device_type.strip(), int(device_id.strip())
-    
-    # Try config files (local, then user config)
+
+    # Try config files (local, lambda package, then user config)
     config_paths = [
         '.awair-device',
+        '.awair/device',  # Lambda package baked-in config (relative to working dir)
+        '/var/task/.awair/device',  # Lambda package baked-in config (absolute path for Lambda)
         join(expanduser('~/.awair'), 'device')
     ]
-    
+
     for config_path in config_paths:
         if exists(config_path):
             with open(config_path, 'r') as f:
@@ -100,36 +102,36 @@ def get_device_config() -> tuple[str, int]:
                 if ',' in content:
                     device_type, device_id = content.split(',', 1)
                     return device_type.strip(), int(device_id.strip())
-    
+
     # Auto-discover from devices API
     try:
         devices_data = get_devices()
         if not devices_data:
             raise ValueError("No devices found in your Awair account")
-        
+
         if len(devices_data) > 1:
             err(f"Multiple devices found ({len(devices_data)}). Please configure specific device.")
             for i, device in enumerate(devices_data):
                 err(f"  {i+1}. {device['deviceType']} ID: {device['deviceId']}")
             raise ValueError("Multiple devices found - manual configuration required")
-        
+
         # Single device found - use it and save for future
         device = devices_data[0]
         device_type = device['deviceType']
         device_id = device['deviceId']
-        
+
         # Save to user config for future use
         awair_dir = expanduser('~/.awair')
         os.makedirs(awair_dir, exist_ok=True)
         config_file = join(awair_dir, 'device')
         with open(config_file, 'w') as f:
             f.write(f"{device_type},{device_id}")
-        
+
         echo(f"Auto-configured device: {device_type} ID: {device_id}")
         echo(f"Saved to: {config_file}")
-        
+
         return device_type, device_id
-        
+
     except Exception as e:
         raise ValueError(f"Failed to get device configuration: {e}")
 

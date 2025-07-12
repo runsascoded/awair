@@ -46,6 +46,28 @@ def create_lambda_package() -> str:
                 else:
                     run("cp", str(item), str(awair_dest))
 
+        # Bake in device configuration for Lambda
+        print("Baking in device configuration...")
+        try:
+            from awair.cli import get_device_info
+            device_type, device_id = get_device_info()
+            device_config_content = f"{device_type},{device_id}"
+
+            # Create .awair directory in package
+            awair_config_dir = package_dir / ".awair"
+            run("mkdir", "-p", str(awair_config_dir))
+
+            # Write device config file
+            device_config_file = awair_config_dir / "device"
+            with open(device_config_file, 'w') as f:
+                f.write(device_config_content)
+
+            print(f"Baked in device: {device_type} ID: {device_id}")
+
+        except Exception as e:
+            echo(f"Warning: Could not bake in device config: {e}", err=True)
+            echo("Lambda will auto-discover device on first run", err=True)
+
         print("Creating deployment package...")
         # Create ZIP file
         zip_path = Path(__file__).parent / "lambda-updater-deployment.zip"
