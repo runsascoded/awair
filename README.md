@@ -25,6 +25,13 @@ Set your Awair API token via:
 - Local file: `echo "your-token" > .token`
 - User config: `echo "your-token" > ~/.awair/token`
 
+### Device Configuration
+Configure your Awair device via:
+- Environment variables: `export AWAIR_DEVICE_TYPE="awair-element" AWAIR_DEVICE_ID="12345"`
+- Local file: `echo "awair-element,12345" > .awair-device`
+- User config: `echo "awair-element,12345" > ~/.awair/device`
+- **Auto-discovery**: If not configured, the CLI will automatically detect your device on first use
+
 ### Data Storage Location
 Configure default data file path via:
 - Environment variable: `export AWAIR_DATA_PATH="s3://your-bucket/data.parquet"`

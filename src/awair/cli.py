@@ -7,6 +7,7 @@ import time
 from datetime import datetime, timedelta
 from functools import cache, partial
 from os.path import dirname, exists, expanduser, join
+from sys import stdout
 from urllib.parse import quote_plus
 
 import pandas as pd
@@ -71,8 +72,72 @@ V1 = 'https://developer-apis.awair.is/v1'
 SELF = f'{V1}/users/self'
 DEVICES = f'{SELF}/devices'
 
-DEVICE_TYPE = 'awair-element'
-DEVICE_ID = 17617
+def get_devices():
+    """Get devices list from API."""
+    res = get(DEVICES)
+    return res['devices']
+
+
+def get_device_config() -> tuple[str, int]:
+    """Get device type and ID from env vars, config files, or auto-discovery."""
+    # Try environment variables first
+    device_type = os.getenv('AWAIR_DEVICE_TYPE')
+    device_id = os.getenv('AWAIR_DEVICE_ID')
+    
+    if device_type and device_id:
+        return device_type.strip(), int(device_id.strip())
+    
+    # Try config files (local, then user config)
+    config_paths = [
+        '.awair-device',
+        join(expanduser('~/.awair'), 'device')
+    ]
+    
+    for config_path in config_paths:
+        if exists(config_path):
+            with open(config_path, 'r') as f:
+                content = f.read().strip()
+                if ',' in content:
+                    device_type, device_id = content.split(',', 1)
+                    return device_type.strip(), int(device_id.strip())
+    
+    # Auto-discover from devices API
+    try:
+        devices_data = get_devices()
+        if not devices_data:
+            raise ValueError("No devices found in your Awair account")
+        
+        if len(devices_data) > 1:
+            err(f"Multiple devices found ({len(devices_data)}). Please configure specific device.")
+            for i, device in enumerate(devices_data):
+                err(f"  {i+1}. {device['deviceType']} ID: {device['deviceId']}")
+            raise ValueError("Multiple devices found - manual configuration required")
+        
+        # Single device found - use it and save for future
+        device = devices_data[0]
+        device_type = device['deviceType']
+        device_id = device['deviceId']
+        
+        # Save to user config for future use
+        awair_dir = expanduser('~/.awair')
+        os.makedirs(awair_dir, exist_ok=True)
+        config_file = join(awair_dir, 'device')
+        with open(config_file, 'w') as f:
+            f.write(f"{device_type},{device_id}")
+        
+        echo(f"Auto-configured device: {device_type} ID: {device_id}")
+        echo(f"Saved to: {config_file}")
+        
+        return device_type, device_id
+        
+    except Exception as e:
+        raise ValueError(f"Failed to get device configuration: {e}")
+
+
+@cache
+def get_device_info():
+    """Cached device configuration."""
+    return get_device_config()
 
 
 @cache
@@ -133,7 +198,8 @@ def fetch_raw_data(
         time.sleep(sleep_interval)
 
     try:
-        res = get(f'{DEVICES}/{DEVICE_TYPE}/{DEVICE_ID}/air-data/raw?{query_str}')
+        device_type, device_id = get_device_info()
+        res = get(f'{DEVICES}/{device_type}/{device_id}/air-data/raw?{query_str}')
     except requests.exceptions.HTTPError as e:
         obj = {
             'success': False,
