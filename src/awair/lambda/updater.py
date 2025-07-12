@@ -1,7 +1,4 @@
-import os
-import tempfile
 from datetime import datetime, timedelta
-from pathlib import Path
 
 import pandas as pd
 from utz.s3 import atomic_edit
@@ -12,23 +9,6 @@ from awair.storage import ParquetStorage
 # S3 configuration
 S3_BUCKET = "380nwk"
 S3_KEY = "awair.parquet"
-
-def setup_token_for_cli():
-    """Setup token file for CLI functions to use."""
-    token = os.environ.get('AWAIR_TOKEN')
-    if not token:
-        raise ValueError("AWAIR_TOKEN environment variable is required")
-
-    # Create temporary token file for CLI to use
-    token_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.token')
-    token_file.write(token)
-    token_file.close()
-
-    # Monkey patch the CLI's get_token to use our token
-    import awair.cli as cli
-    cli.get_token = lambda: token
-
-    return token_file.name
 
 def update_s3_data():
     """Update the S3 Parquet file with latest data using atomic_edit."""
@@ -84,12 +64,8 @@ def update_s3_data():
 
 def lambda_handler(event, context):
     """AWS Lambda handler function for scheduled data updates."""
-    token_file = None
     try:
         print(f"Starting data update at {datetime.now().isoformat()}")
-
-        # Setup token for CLI functions
-        token_file = setup_token_for_cli()
 
         # Update S3 data with latest from Awair API
         new_records = update_s3_data()
@@ -116,8 +92,3 @@ def lambda_handler(event, context):
                 'timestamp': datetime.now().isoformat()
             }
         }
-
-    finally:
-        # Clean up temporary token file
-        if token_file and os.path.exists(token_file):
-            os.unlink(token_file)

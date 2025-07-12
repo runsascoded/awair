@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import json
+import os
 import time
 from datetime import datetime, timedelta
 from functools import cache, partial
@@ -32,8 +33,24 @@ DEVICE_ID = 17617
 
 @cache
 def get_token():
-    with open('.token', 'r') as f:
-        return f.read().strip()
+    # Try environment variable first
+    token = os.getenv('AWAIR_TOKEN')
+    if token:
+        return token.strip()
+
+    # Try local .token file
+    if Path('.token').exists():
+        with open('.token', 'r') as f:
+            return f.read().strip()
+
+    # Try ~/.awair/token
+    awair_dir = Path.home() / '.awair'
+    token_file = awair_dir / 'token'
+    if token_file.exists():
+        with open(token_file, 'r') as f:
+            return f.read().strip()
+
+    raise ValueError("No Awair token found. Set AWAIR_TOKEN env var or create .token file")
 
 
 @group
@@ -423,33 +440,32 @@ awair.add_command(lambda_cli, name='lambda')
 
 
 @lambda_cli.command('deploy')
-@option('--token', help='Awair API token (or set AWAIR_TOKEN env var)')
 @option('--dry-run', is_flag=True, help='Build package only, do not deploy')
-def deploy(token: str, dry_run: bool):
-    """Deploy the scheduled Lambda updater to AWS."""
+def deploy(dry_run: bool):
+    """Deploy the scheduled Lambda updater to AWS using CDK."""
     import subprocess
     import sys
     from pathlib import Path
 
-    # Set token in environment if provided
-    if token:
-        import os
-        os.environ['AWAIR_TOKEN'] = token
+    # Validate token via unified flow
+    try:
+        get_token()
+    except ValueError as e:
+        err(f'Token error: {e}')
+        sys.exit(1)
 
-    # Run the deploy script
     lambda_dir = Path(__file__).parent / 'lambda'
     deploy_script = lambda_dir / 'deploy.py'
 
     if not deploy_script.exists():
-        err('Lambda deployment script not found')
+        err('Deployment script not found')
         return
 
     try:
-        cmd = [sys.executable, str(deploy_script)]
-        if token:
-            cmd.append(token)
-        if not dry_run:
-            cmd.append('deploy')
+        if dry_run:
+            cmd = [sys.executable, str(deploy_script), 'package']
+        else:
+            cmd = [sys.executable, str(deploy_script), 'deploy']
 
         subprocess.run(cmd, check=True, cwd=lambda_dir)
 
@@ -476,6 +492,36 @@ def test():
         subprocess.run([sys.executable, str(test_script)], check=True, cwd=lambda_dir)
     except subprocess.CalledProcessError as e:
         err(f'Test failed: {e}')
+        sys.exit(1)
+
+
+@lambda_cli.command('synth')
+def synth():
+    """Synthesize CloudFormation template from CDK (without deploying)."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    # Validate token via unified flow
+    try:
+        get_token()
+    except ValueError as e:
+        err(f'Token error: {e}')
+        sys.exit(1)
+
+    lambda_dir = Path(__file__).parent / 'lambda'
+    deploy_script = lambda_dir / 'deploy.py'
+
+    if not deploy_script.exists():
+        err('Deployment script not found')
+        return
+
+    try:
+        cmd = [sys.executable, str(deploy_script), 'synth']
+        subprocess.run(cmd, check=True, cwd=lambda_dir)
+
+    except subprocess.CalledProcessError as e:
+        err(f'Synthesis failed: {e}')
         sys.exit(1)
 
 

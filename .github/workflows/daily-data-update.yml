@@ -40,21 +40,21 @@ jobs:
     - name: Commit and push changes
       run: |
         git add awair.parquet.dvc
-        
+
         # Check if there are changes to commit
         if git diff --staged --quiet; then
           echo "No data changes to commit"
           exit 0
         fi
-        
+
         # Calculate new records added
         FINAL_COUNT=$(awair data-info | grep "Total records:" | awk '{print $3}')
         NEW_RECORDS=$((FINAL_COUNT - INITIAL_COUNT))
-        
+
         if [ $NEW_RECORDS -eq 0 ]; then
           git commit -m "\`awair raw -r\`: no new records"
         else
           git commit -m "\`awair raw -r\`: $NEW_RECORDS new records"
         fi
-        
+
         git push origin main

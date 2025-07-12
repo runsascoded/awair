@@ -1,45 +1,44 @@
 #!/usr/bin/env python3
-"""Deploy the Awair Data Updater Lambda to AWS."""
+"""CDK deployment script for Awair Lambda infrastructure."""
 
 import os
 import sys
-import subprocess
-import tempfile
 import zipfile
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
-def create_lambda_package():
+from click import group, echo, pass_context, Abort
+from utz.proc import run, output, check
+
+
+def create_lambda_package() -> str:
     """Create a deployment package for AWS Lambda."""
 
     # Create temporary directory for the package
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         package_dir = temp_path / "package"
         package_dir.mkdir()
 
         print("Installing dependencies...")
         # Install dependencies to package directory
-        subprocess.run([
-            sys.executable, "-m", "pip", "install",
+        run(sys.executable, "-m", "pip", "install",
             "-r", "requirements.txt",
-            "-t", str(package_dir)
-        ], check=True, cwd=Path(__file__).parent)
+            "-t", str(package_dir),
+            cwd=Path(__file__).parent)
 
         print("Copying source files...")
         # Copy lambda function (rename for Lambda handler)
-        subprocess.run([
-            "cp", "updater.py", str(package_dir / "lambda_function.py")
-        ], check=True, cwd=Path(__file__).parent)
+        run("cp", "updater.py", str(package_dir / "lambda_function.py"),
+            cwd=Path(__file__).parent)
 
         # Copy awair module from project root
         project_root = Path(__file__).parent.parent.parent.parent
-        subprocess.run([
-            "cp", "-r", str(project_root / "src" / "awair"), str(package_dir)
-        ], check=True)
+        run("cp", "-r", str(project_root / "src" / "awair"), str(package_dir))
 
         print("Creating deployment package...")
         # Create ZIP file
-        zip_path = "lambda-updater-deployment.zip"
+        zip_path = Path(__file__).parent / "lambda-updater-deployment.zip"
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(package_dir):
                 for file in files:
@@ -47,56 +46,125 @@ def create_lambda_package():
                     arc_name = file_path.relative_to(package_dir)
                     zipf.write(file_path, arc_name)
 
-        print(f"Created {zip_path} ({Path(zip_path).stat().st_size / 1024 / 1024:.1f} MB)")
+        print(f"Created {zip_path} ({zip_path.stat().st_size / 1024 / 1024:.1f} MB)")
 
-        return zip_path
+        return str(zip_path)
 
-def deploy_stack(awair_token):
-    """Deploy the CloudFormation stack."""
-    stack_name = "awair-data-updater"
 
-    print(f"Deploying CloudFormation stack: {stack_name}")
-    subprocess.run([
-        "aws", "cloudformation", "deploy",
-        "--template-file", "cloudformation.yaml",
-        "--stack-name", stack_name,
-        "--parameter-overrides", f"AwairToken={awair_token}",
-        "--capabilities", "CAPABILITY_NAMED_IAM"
-    ], check=True, cwd=Path(__file__).parent)
+def install_cdk_dependencies():
+    """Install CDK dependencies if not already installed."""
+    if check(sys.executable, "-c", "import aws_cdk"):
+        print("CDK dependencies already installed")
+    else:
+        print("Installing CDK dependencies...")
+        run(sys.executable, "-m", "pip", "install",
+            "aws-cdk-lib>=2.0.0",
+            "constructs>=10.0.0")
 
-    return stack_name
 
-def update_lambda_code(stack_name, zip_path):
-    """Update the Lambda function code."""
-    function_name = f"{stack_name}-updater"
+def bootstrap_cdk():
+    """Bootstrap CDK if needed."""
+    if not check("aws", "cloudformation", "describe-stacks", "--stack-name", "CDKToolkit"):
+        print("Bootstrapping CDK...")
+        run("cdk", "bootstrap")
+    else:
+        print("CDK already bootstrapped")
 
-    print(f"Updating Lambda function code: {function_name}")
-    subprocess.run([
-        "aws", "lambda", "update-function-code",
-        "--function-name", function_name,
-        "--zip-file", f"fileb://{zip_path}"
-    ], check=True)
+
+def deploy_with_cdk(awair_token: str, stack_name: str = "awair-data-updater"):
+    """Deploy using CDK."""
+    lambda_dir = Path(__file__).parent
+
+    # Set token in environment for CDK app (unified flow)
+    env = os.environ.copy()
+    env['AWAIR_TOKEN'] = awair_token
+
+    print(f"Deploying CDK stack: {stack_name}")
+
+    # Run CDK deploy
+    run("cdk", "deploy", stack_name,
+        "--app", f"python {lambda_dir / 'app.py'}",
+        "--require-approval", "never",
+        env=env, cwd=lambda_dir)
+
+
+def synthesize_cloudformation(awair_token: str, stack_name: str = "awair-data-updater") -> str:
+    """Synthesize CloudFormation template from CDK."""
+    lambda_dir = Path(__file__).parent
+
+    # Set token in environment for CDK app (unified flow)
+    env = os.environ.copy()
+    env['AWAIR_TOKEN'] = awair_token
+
+    print("Synthesizing CloudFormation template...")
+
+    # Create CDK app and synthesize
+    return output("cdk", "synth", stack_name,
+                  "--app", f"python {lambda_dir / 'app.py'}",
+                  env=env, cwd=lambda_dir).decode()
+
+
+@group(invoke_without_command=True)
+@pass_context
+def main(ctx):
+    """CDK deployment for Awair Lambda infrastructure."""
+    if ctx.invoked_subcommand is None:
+        # Default to deploy
+        ctx.invoke(deploy)
+
+
+@main.command
+def deploy():
+    """Deploy the stack."""
+    try:
+        # Get token via unified flow
+        from awair.cli import get_token
+        token = get_token()
+
+        install_cdk_dependencies()
+        bootstrap_cdk()
+        create_lambda_package()
+        deploy_with_cdk(token)
+
+        echo("\n✅ CDK deployment complete!")
+        echo("Lambda will run every 5 minutes, updating s3://380nwk/awair.parquet")
+        echo("Monitor logs: aws logs tail /aws/lambda/awair-data-updater-updater --follow")
+
+    except Exception as e:
+        echo(f"❌ Deployment failed: {e}", err=True)
+        raise Abort()
+
+
+@main.command
+def synth():
+    """Synthesize CloudFormation template."""
+    try:
+        # Get token via unified flow
+        from awair.cli import get_token
+        token = get_token()
+
+        install_cdk_dependencies()
+        create_lambda_package()  # CDK needs the zip file to exist
+        template = synthesize_cloudformation(token)
+        echo("CloudFormation template:")
+        echo(template)
+
+    except Exception as e:
+        echo(f"❌ Synthesis failed: {e}", err=True)
+        raise Abort()
+
+
+@main.command
+def package():
+    """Create Lambda package only."""
+    try:
+        zip_path = create_lambda_package()
+        echo(f"✅ Package created: {zip_path}")
+
+    except Exception as e:
+        echo(f"❌ Package creation failed: {e}", err=True)
+        raise Abort()
+
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python deploy-updater.py <awair-token> [deploy]")
-        print("  <awair-token>: Your Awair API token")
-        print("  deploy: Actually deploy to AWS (optional)")
-        sys.exit(1)
-
-    awair_token = sys.argv[1]
-    should_deploy = len(sys.argv) > 2 and sys.argv[2] == "deploy"
-
-    print("Building Lambda deployment package...")
-    zip_path = create_lambda_package()
-
-    if should_deploy:
-        print("\nDeploying to AWS...")
-        stack_name = deploy_stack(awair_token)
-        update_lambda_code(stack_name, zip_path)
-        print("\n✅ Deployment complete!")
-        print(f"Lambda will run every 5 minutes, updating s3://380nwk/awair.parquet")
-        print(f"Monitor logs: aws logs tail /aws/lambda/{stack_name}-updater --follow")
-    else:
-        print(f"\n📦 Package created: {zip_path}")
-        print(f"To deploy: python deploy-updater.py {awair_token} deploy")
+    main()
