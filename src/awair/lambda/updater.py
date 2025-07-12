@@ -4,15 +4,25 @@ from datetime import datetime, timedelta
 import pandas as pd
 from utz.s3 import atomic_edit
 
-from awair.cli import fetch_raw_data
+from awair.cli import fetch_raw_data, parse_s3_path
 from awair.storage import ParquetStorage
 
-# S3 configuration
-S3_BUCKET = "380nwk"
-S3_KEY = "awair.parquet"
+
+def get_s3_config():
+    """Get S3 bucket and key from environment variable."""
+    data_path = os.getenv('AWAIR_DATA_PATH', 's3://380nwk/awair.parquet')
+
+    if not data_path.startswith('s3://'):
+        raise ValueError(f"Lambda requires S3 data path, got: {data_path}")
+
+    bucket, key = parse_s3_path(data_path)
+    return bucket, key
 
 def update_s3_data():
     """Update the S3 Parquet file with latest data using atomic_edit."""
+    # Get S3 configuration from environment
+    s3_bucket, s3_key = get_s3_config()
+
     # Change to /tmp directory for Lambda write permissions
     original_cwd = os.getcwd()
     os.chdir('/tmp')
@@ -21,7 +31,7 @@ def update_s3_data():
         import boto3
         s3 = boto3.client('s3')
         try:
-            s3.head_object(Bucket=S3_BUCKET, Key=S3_KEY)
+            s3.head_object(Bucket=s3_bucket, Key=s3_key)
             file_exists = True
         except s3.exceptions.ClientError as e:
             if e.response['Error']['Code'] == '404':
@@ -29,7 +39,7 @@ def update_s3_data():
             else:
                 raise
 
-        with atomic_edit(S3_BUCKET, S3_KEY, create_ok=True, download=file_exists) as tmp_path:
+        with atomic_edit(s3_bucket, s3_key, create_ok=True, download=file_exists) as tmp_path:
             # Convert to Path object
             from pathlib import Path
             tmp_path = Path(tmp_path)

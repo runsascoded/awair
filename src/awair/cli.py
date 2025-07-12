@@ -22,6 +22,24 @@ err = partial(echo, err=True)
 LAMBDA_DIR = join(dirname(__file__), 'lambda')
 
 
+def parse_s3_path(s3_path: str) -> tuple[str, str]:
+    """Parse S3 path into bucket and key components."""
+    if not s3_path.startswith('s3://'):
+        raise ValueError(f"Invalid S3 path: {s3_path}. Must start with 's3://'")
+
+    path = s3_path[5:]  # Remove 's3://'
+    parts = path.split('/', 1)
+    bucket = parts[0]
+    key = parts[1] if len(parts) > 1 else ''
+
+    if not bucket:
+        raise ValueError(f"Invalid S3 path: {s3_path}. Missing bucket name")
+    if not key:
+        raise ValueError(f"Invalid S3 path: {s3_path}. Missing key/object name")
+
+    return bucket, key
+
+
 def get_default_data_path():
     """Get default data file path from env var, local file, or fallback."""
     # Try environment variable first
@@ -477,9 +495,10 @@ def deploy(dry_run: bool):
         return
 
     try:
-        # Set token in environment for subprocess
+        # Set token and data path in environment for subprocess
         env = os.environ.copy()
         env['AWAIR_TOKEN'] = token
+        env['AWAIR_DATA_PATH'] = get_default_data_path()
 
         if dry_run:
             cmd = [sys.executable, deploy_script, 'package']
@@ -526,9 +545,10 @@ def synth():
         return
 
     try:
-        # Set token in environment for subprocess
+        # Set token and data path in environment for subprocess
         env = os.environ.copy()
         env['AWAIR_TOKEN'] = token
+        env['AWAIR_DATA_PATH'] = get_default_data_path()
 
         cmd = [sys.executable, deploy_script, 'synth']
         subprocess.run(cmd, check=True, env=env, cwd=LAMBDA_DIR)

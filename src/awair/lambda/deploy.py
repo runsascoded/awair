@@ -81,15 +81,17 @@ def bootstrap_cdk():
         print("CDK already bootstrapped")
 
 
-def deploy_with_cdk(awair_token: str, stack_name: str = "awair-data-updater"):
+def deploy_with_cdk(awair_token: str, data_path: str, stack_name: str = "awair-data-updater"):
     """Deploy using CDK."""
     lambda_dir = Path(__file__).parent
 
-    # Set token in environment for CDK app (unified flow)
+    # Set token and data path in environment for CDK app (unified flow)
     env = os.environ.copy()
     env['AWAIR_TOKEN'] = awair_token
+    env['AWAIR_DATA_PATH'] = data_path
 
     print(f"Deploying CDK stack: {stack_name}")
+    print(f"Target S3 location: {data_path}")
 
     # Run CDK deploy
     run("cdk", "deploy", stack_name,
@@ -98,15 +100,17 @@ def deploy_with_cdk(awair_token: str, stack_name: str = "awair-data-updater"):
         env=env, cwd=lambda_dir)
 
 
-def synthesize_cloudformation(awair_token: str, stack_name: str = "awair-data-updater") -> str:
+def synthesize_cloudformation(awair_token: str, data_path: str, stack_name: str = "awair-data-updater") -> str:
     """Synthesize CloudFormation template from CDK."""
     lambda_dir = Path(__file__).parent
 
-    # Set token in environment for CDK app (unified flow)
+    # Set token and data path in environment for CDK app (unified flow)
     env = os.environ.copy()
     env['AWAIR_TOKEN'] = awair_token
+    env['AWAIR_DATA_PATH'] = data_path
 
     print("Synthesizing CloudFormation template...")
+    print(f"Target S3 location: {data_path}")
 
     # Create CDK app and synthesize
     return output("cdk", "synth", stack_name,
@@ -127,17 +131,18 @@ def main(ctx):
 def deploy():
     """Deploy the stack."""
     try:
-        # Get token via unified flow
-        from awair.cli import get_token
+        # Get token and data path via unified flows
+        from awair.cli import get_token, get_default_data_path
         token = get_token()
+        data_path = get_default_data_path()
 
         install_cdk_dependencies()
         bootstrap_cdk()
         create_lambda_package()
-        deploy_with_cdk(token)
+        deploy_with_cdk(token, data_path)
 
         echo("\n✅ CDK deployment complete!")
-        echo("Lambda will run every 5 minutes, updating s3://380nwk/awair.parquet")
+        echo(f"Lambda will run every 5 minutes, updating {data_path}")
         echo("Monitor logs: aws logs tail /aws/lambda/awair-data-updater-updater --follow")
 
     except Exception as e:
@@ -149,13 +154,14 @@ def deploy():
 def synth():
     """Synthesize CloudFormation template."""
     try:
-        # Get token via unified flow
-        from awair.cli import get_token
+        # Get token and data path via unified flows
+        from awair.cli import get_token, get_default_data_path
         token = get_token()
+        data_path = get_default_data_path()
 
         install_cdk_dependencies()
         create_lambda_package()  # CDK needs the zip file to exist
-        template = synthesize_cloudformation(token)
+        template = synthesize_cloudformation(token, data_path)
         echo("CloudFormation template:")
         echo(template)
 
