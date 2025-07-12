@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 import json
 import os
+import subprocess
+import sys
 import time
 from datetime import datetime, timedelta
 from functools import cache, partial
-from pathlib import Path
-from sys import stdout
+from os.path import dirname, exists, expanduser, join
 from urllib.parse import quote_plus
 
+import pandas as pd
 import requests
 from click import echo, option, Choice, group
 
@@ -16,11 +18,35 @@ from .storage import ParquetStorage, FIELDS
 
 err = partial(echo, err=True)
 
-# Default data file path
-DEFAULT_DATA_PATH = 'awair.parquet'
+# Common paths
+LAMBDA_DIR = join(dirname(__file__), 'lambda')
+
+
+def get_default_data_path():
+    """Get default data file path from env var, local file, or fallback."""
+    # Try environment variable first
+    data_path = os.getenv('AWAIR_DATA_PATH')
+    if data_path:
+        return data_path.strip()
+
+    # Try local .awair-data-path file
+    if exists('.awair-data-path'):
+        with open('.awair-data-path', 'r') as f:
+            return f.read().strip()
+
+    # Try ~/.awair/data-path
+    awair_dir = expanduser('~/.awair')
+    data_path_file = join(awair_dir, 'data-path')
+    if exists(data_path_file):
+        with open(data_path_file, 'r') as f:
+            return f.read().strip()
+
+    # Default fallback
+    return 's3://380nwk/awair.parquet'
+
 
 # Common click options
-data_path_opt = option('-d', '--data-path', default=DEFAULT_DATA_PATH, help='Data file path')
+data_path_opt = option('-d', '--data-path', default=get_default_data_path(), help='Data file path')
 
 
 V1 = 'https://developer-apis.awair.is/v1'
@@ -39,14 +65,14 @@ def get_token():
         return token.strip()
 
     # Try local .token file
-    if Path('.token').exists():
+    if exists('.token'):
         with open('.token', 'r') as f:
             return f.read().strip()
 
     # Try ~/.awair/token
-    awair_dir = Path.home() / '.awair'
-    token_file = awair_dir / 'token'
-    if token_file.exists():
+    awair_dir = expanduser('~/.awair')
+    token_file = join(awair_dir, 'token')
+    if exists(token_file):
         with open(token_file, 'r') as f:
             return f.read().strip()
 
@@ -308,14 +334,11 @@ def data_info(data_path: str):
 @option('-m', '--min-gap', type=int, help='Minimum gap size in seconds to report')
 def gaps(data_path: str, from_dt: str | None, to_dt: str | None, count: int, min_gap: int | None):
     """Find and report the largest timing gaps in the data."""
-    import pandas as pd
 
     # Read data
-    if not Path(data_path).exists():
-        err(f'Data file not found: {data_path}')
-        return
+    storage = ParquetStorage(data_path)
+    df = storage.read_data()
 
-    df = pd.read_parquet(data_path)
     if df.empty:
         err('No data in file')
         return
@@ -392,13 +415,10 @@ def hist(
     to_dt: str | None,
 ):
     """Generate histogram of record counts per day."""
-    import pandas as pd
 
-    if not Path(data_path).exists():
-        err(f'Data file not found: {data_path}')
-        return
+    storage = ParquetStorage(data_path)
+    df = storage.read_data()
 
-    df = pd.read_parquet(data_path)
     if df.empty:
         err('No data in file')
         return
@@ -439,14 +459,10 @@ def lambda_cli():
 awair.add_command(lambda_cli, name='lambda')
 
 
-@lambda_cli.command('deploy')
+@lambda_cli.command
 @option('--dry-run', is_flag=True, help='Build package only, do not deploy')
 def deploy(dry_run: bool):
     """Deploy the scheduled Lambda updater to AWS using CDK."""
-    import subprocess
-    import sys
-    from pathlib import Path
-
     # Validate token via unified flow and pass to subprocess
     try:
         token = get_token()
@@ -454,59 +470,48 @@ def deploy(dry_run: bool):
         err(f'Token error: {e}')
         sys.exit(1)
 
-    lambda_dir = Path(__file__).parent / 'lambda'
-    deploy_script = lambda_dir / 'deploy.py'
+    deploy_script = join(LAMBDA_DIR, 'deploy.py')
 
-    if not deploy_script.exists():
+    if not exists(deploy_script):
         err('Deployment script not found')
         return
 
     try:
         # Set token in environment for subprocess
-        import os
         env = os.environ.copy()
         env['AWAIR_TOKEN'] = token
 
         if dry_run:
-            cmd = [sys.executable, str(deploy_script), 'package']
+            cmd = [sys.executable, deploy_script, 'package']
         else:
-            cmd = [sys.executable, str(deploy_script), 'deploy']
+            cmd = [sys.executable, deploy_script, 'deploy']
 
-        subprocess.run(cmd, check=True, env=env, cwd=lambda_dir)
+        subprocess.run(cmd, check=True, env=env, cwd=LAMBDA_DIR)
 
     except subprocess.CalledProcessError as e:
         err(f'Deployment failed: {e}')
         sys.exit(1)
 
 
-@lambda_cli.command('test')
+@lambda_cli.command
 def test():
     """Test the Lambda updater locally (without S3)."""
-    import subprocess
-    import sys
-    from pathlib import Path
+    test_script = join(LAMBDA_DIR, 'test_updater.py')
 
-    lambda_dir = Path(__file__).parent / 'lambda'
-    test_script = lambda_dir / 'test_updater.py'
-
-    if not test_script.exists():
+    if not exists(test_script):
         err('Lambda test script not found')
         return
 
     try:
-        subprocess.run([sys.executable, str(test_script)], check=True, cwd=lambda_dir)
+        subprocess.run([sys.executable, test_script], check=True, cwd=LAMBDA_DIR)
     except subprocess.CalledProcessError as e:
         err(f'Test failed: {e}')
         sys.exit(1)
 
 
-@lambda_cli.command('synth')
+@lambda_cli.command
 def synth():
     """Synthesize CloudFormation template from CDK (without deploying)."""
-    import subprocess
-    import sys
-    from pathlib import Path
-
     # Validate token via unified flow and pass to subprocess
     try:
         token = get_token()
@@ -514,35 +519,30 @@ def synth():
         err(f'Token error: {e}')
         sys.exit(1)
 
-    lambda_dir = Path(__file__).parent / 'lambda'
-    deploy_script = lambda_dir / 'deploy.py'
+    deploy_script = join(LAMBDA_DIR, 'deploy.py')
 
-    if not deploy_script.exists():
+    if not exists(deploy_script):
         err('Deployment script not found')
         return
 
     try:
         # Set token in environment for subprocess
-        import os
         env = os.environ.copy()
         env['AWAIR_TOKEN'] = token
 
-        cmd = [sys.executable, str(deploy_script), 'synth']
-        subprocess.run(cmd, check=True, env=env, cwd=lambda_dir)
+        cmd = [sys.executable, deploy_script, 'synth']
+        subprocess.run(cmd, check=True, env=env, cwd=LAMBDA_DIR)
 
     except subprocess.CalledProcessError as e:
         err(f'Synthesis failed: {e}')
         sys.exit(1)
 
 
-@lambda_cli.command('logs')
+@lambda_cli.command
 @option('--follow', '-f', is_flag=True, help='Follow logs in real-time')
 @option('--stack-name', default='awair-data-updater', help='CloudFormation stack name')
 def logs(follow: bool, stack_name: str):
     """View Lambda function logs."""
-    import subprocess
-    import sys
-
     function_name = f'{stack_name}-updater'
     log_group = f'/aws/lambda/{function_name}'
 

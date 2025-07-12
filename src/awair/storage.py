@@ -1,5 +1,5 @@
 from datetime import datetime
-from pathlib import Path
+import os
 
 import pandas as pd
 
@@ -13,18 +13,19 @@ class ParquetStorage:
         file_path: str = 'awair.parquet',
         conflict_action: str = 'warn',
     ):
-        self.file_path = Path(file_path)
+        self.file_path = file_path
         self._batch_df = None
         self._dirty = False
         self.conflict_action = conflict_action
 
     def __enter__(self):
         """Enter context manager - load existing data into memory."""
-        if self.file_path.exists():
+        try:
             self._batch_df = pd.read_parquet(self.file_path)
             # Ensure existing timestamps are timezone-naive
             self._batch_df['timestamp'] = pd.to_datetime(self._batch_df['timestamp']).dt.tz_localize(None)
-        else:
+        except (FileNotFoundError, OSError):
+            # File doesn't exist (local or S3)
             self._batch_df = pd.DataFrame(columns=FIELDS)
         self._dirty = False
         return self
@@ -106,15 +107,14 @@ class ParquetStorage:
                 return None
             return self._batch_df['timestamp'].max().to_pydatetime()
 
-        # Otherwise read from file
-        if not self.file_path.exists():
+        # Otherwise read from file/S3
+        try:
+            df = pd.read_parquet(self.file_path)
+            if df.empty:
+                return None
+            return df['timestamp'].max().to_pydatetime()
+        except (FileNotFoundError, OSError):
             return None
-
-        df = pd.read_parquet(self.file_path)
-        if df.empty:
-            return None
-
-        return df['timestamp'].max().to_pydatetime()
 
     def get_record_count(self) -> int:
         """Get total number of records."""
@@ -122,12 +122,12 @@ class ParquetStorage:
         if self._batch_df is not None:
             return len(self._batch_df)
 
-        # Otherwise read from file
-        if not self.file_path.exists():
+        # Otherwise read from file/S3
+        try:
+            df = pd.read_parquet(self.file_path)
+            return len(df)
+        except (FileNotFoundError, OSError):
             return 0
-
-        df = pd.read_parquet(self.file_path)
-        return len(df)
 
     def get_data_summary(self) -> dict:
         """Get summary statistics about the data."""
@@ -135,24 +135,48 @@ class ParquetStorage:
         if self._batch_df is not None:
             if self._batch_df.empty:
                 return {'count': 0, 'earliest': None, 'latest': None, 'file_size_mb': 0}
+
+            # Get file size (only for local files)
+            file_size_mb = 0
+            if not self.file_path.startswith('s3://') and os.path.exists(self.file_path):
+                file_size_mb = os.path.getsize(self.file_path) / (1024 * 1024)
+
             return {
                 'count': len(self._batch_df),
                 'earliest': self._batch_df['timestamp'].min().to_pydatetime(),
                 'latest': self._batch_df['timestamp'].max().to_pydatetime(),
-                'file_size_mb': self.file_path.stat().st_size / (1024 * 1024) if self.file_path.exists() else 0,
+                'file_size_mb': file_size_mb,
             }
 
-        # Otherwise read from file
-        if not self.file_path.exists():
+        # Otherwise read from file/S3
+        try:
+            df = pd.read_parquet(self.file_path)
+
+            # Get file size (only for local files)
+            file_size_mb = 0
+            if not self.file_path.startswith('s3://') and os.path.exists(self.file_path):
+                file_size_mb = os.path.getsize(self.file_path) / (1024 * 1024)
+
+            if df.empty:
+                return {'count': 0, 'earliest': None, 'latest': None, 'file_size_mb': file_size_mb}
+
+            return {
+                'count': len(df),
+                'earliest': df['timestamp'].min().to_pydatetime(),
+                'latest': df['timestamp'].max().to_pydatetime(),
+                'file_size_mb': file_size_mb,
+            }
+        except (FileNotFoundError, OSError):
             return {'count': 0, 'earliest': None, 'latest': None, 'file_size_mb': 0}
 
-        df = pd.read_parquet(self.file_path)
-        if df.empty:
-            return {'count': 0, 'earliest': None, 'latest': None, 'file_size_mb': 0}
+    def read_data(self) -> pd.DataFrame:
+        """Read all data as a DataFrame."""
+        # If we're in a context manager session, use batch data
+        if self._batch_df is not None:
+            return self._batch_df.copy()
 
-        return {
-            'count': len(df),
-            'earliest': df['timestamp'].min().to_pydatetime(),
-            'latest': df['timestamp'].max().to_pydatetime(),
-            'file_size_mb': self.file_path.stat().st_size / (1024 * 1024),
-        }
+        # Otherwise read from file/S3
+        try:
+            return pd.read_parquet(self.file_path)
+        except (FileNotFoundError, OSError):
+            return pd.DataFrame(columns=FIELDS)
