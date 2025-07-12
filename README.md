@@ -1,8 +1,187 @@
-```console
-$ cat raw.json | jq -c '.data[] | ({timestamp} + (.sensors | map({"key": .comp, value}) | from_entries)) | {timestamp,temp,co2,pm10,pm25,humid,voc}'
+# Awair API Client & Data Collection System
+
+A Python CLI tool and automated data collection system for Awair air quality sensors. Provides real-time data fetching, historical analysis, and automated S3 storage via AWS Lambda.
+
+## Features
+
+- **CLI Interface**: Raw data fetching, analysis, and export from Awair sensors
+- **Automated Collection**: AWS Lambda function that collects data every 5 minutes
+- **S3 Storage**: Efficient Parquet format with incremental updates
+- **Data Analysis**: Built-in tools for gaps analysis, histograms, and data summaries
+- **Flexible Storage**: Works with local files or S3 (configurable default paths)
+- **AWS Deployment**: One-command CDK deployment with automatic IAM permissions
+
+## Installation
+
+```bash
+pip install -e .
+```
+
+## Configuration
+
+### API Token
+Set your Awair API token via:
+- Environment variable: `export AWAIR_TOKEN="your-token"`
+- Local file: `echo "your-token" > .token`
+- User config: `echo "your-token" > ~/.awair/token`
+
+### Data Storage Location
+Configure default data file path via:
+- Environment variable: `export AWAIR_DATA_PATH="s3://your-bucket/data.parquet"`
+- Local file: `echo "s3://your-bucket/data.parquet" > .awair-data-path`
+- User config: `echo "s3://your-bucket/data.parquet" > ~/.awair/data-path`
+- Default: `s3://380nwk/awair.parquet`
+
+## Usage
+
+### Data Collection
+
+```bash
+# Fetch raw API data and save to configured data file
+awair raw --from-dt 250710T10 --to-dt 250710T11
+
+# Fetch raw API data and output as JSONL to stdout
+awair raw --from-dt 250710T10 --to-dt 250710T11 -d /dev/null
+
+# Fetch only new data since latest timestamp in storage
+awair raw --recent-only
+
+# Check your account info
+awair self
+
+# List your devices
+awair devices
+```
+
+### Data Analysis
+
+```bash
+# Show data file summary
+awair data-info
+awair data-info -d s3://your-bucket/data.parquet
+
+# Daily histogram of record counts
+awair hist
+awair hist --from-dt 250710 --to-dt 250712
+
+# Find timing gaps in data
+awair gaps -n 5 -m 300  # Top 5 gaps over 5 minutes
+```
+
+### AWS Lambda Deployment
+
+```bash
+# Deploy automated data collector
+awair lambda deploy
+
+# View CloudFormation template
+awair lambda synth
+
+# Monitor logs
+awair lambda logs --follow
+
+# Test locally
+awair lambda test
+```
+
+## Data Format
+
+Sensor data is stored in Parquet format with these fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `timestamp` | datetime | UTC timestamp |
+| `temp` | float | Temperature (°F) |
+| `co2` | int | CO2 (ppm) |
+| `pm10` | int | PM10 particles |
+| `pm25` | int | PM2.5 particles |
+| `humid` | float | Humidity (%) |
+| `voc` | int | Volatile Organic Compounds |
+
+### Example Data
+
+```json
 {"timestamp":"2025-07-05T22:22:06.331Z","temp":73.36,"co2":563,"pm10":3,"pm25":2,"humid":52.31,"voc":96}
 {"timestamp":"2025-07-05T22:21:06.063Z","temp":73.33,"co2":562,"pm10":3,"pm25":2,"humid":52.23,"voc":92}
-{"timestamp":"2025-07-05T22:20:05.807Z","temp":73.45,"co2":563,"pm10":2,"pm25":1,"humid":52.18,"voc":94}
-{"timestamp":"2025-07-05T22:19:05.552Z","temp":73.31,"co2":564,"pm10":3,"pm25":2,"humid":52.23,"voc":90}
-{"timestamp":"2025-07-05T22:18:05.291Z","temp":73.36,"co2":562,"pm10":3,"pm25":2,"humid":52.14,"voc":92}
 ```
+
+## Architecture
+
+### Automated Data Collection
+
+The system uses AWS Lambda for automated data collection:
+
+- **Schedule**: Runs every 5 minutes via EventBridge
+- **Storage**: Updates S3 Parquet file incrementally
+- **Efficiency**: Only fetches data since last update
+- **Reliability**: Uses `utz.s3.atomic_edit` for safe concurrent updates
+
+### CLI Integration
+
+The CLI seamlessly works with both local files and S3:
+
+```python
+# Both work the same way
+storage = ParquetStorage('local-file.parquet')
+storage = ParquetStorage('s3://bucket/file.parquet')
+```
+
+### Configurable Deployments
+
+Lambda deployments respect user configuration:
+
+- IAM permissions generated dynamically per S3 bucket
+- Environment variables passed to Lambda runtime
+- Support for any S3 bucket/key combination
+
+## Development
+
+### Setup
+
+```bash
+pip install -e ".[dev]"
+```
+
+### Code Style
+
+```bash
+ruff check
+ruff format
+```
+
+### Testing
+
+```bash
+pytest
+```
+
+## AWS Infrastructure
+
+The Lambda deployment creates:
+
+- **Lambda Function**: `awair-data-updater-updater`
+- **EventBridge Rule**: 5-minute schedule
+- **IAM Role**: S3 permissions for target bucket
+- **CloudWatch Logs**: 2-week retention
+- **Environment Variables**: `AWAIR_TOKEN`, `AWAIR_DATA_PATH`
+
+### Required AWS Permissions
+
+For deployment, you need permissions to create:
+- Lambda functions and layers
+- IAM roles and policies
+- EventBridge rules
+- CloudWatch log groups
+- S3 bucket access (for your target bucket)
+
+## Date/Time Format
+
+The CLI uses a compact date format for convenience:
+
+- `250710` → July 10, 2025
+- `250710T16` → July 10, 2025 at 4 PM
+- `20250710T1630` → July 10, 2025 at 4:30 PM
+
+## License
+
+MIT License - see LICENSE file for details.
