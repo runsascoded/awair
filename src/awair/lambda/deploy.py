@@ -32,9 +32,19 @@ def create_lambda_package() -> str:
         run("cp", "updater.py", str(package_dir / "lambda_function.py"),
             cwd=Path(__file__).parent)
 
-        # Copy awair module from project root
+        # Copy awair module from project root (excluding lambda directory to avoid recursion)
         project_root = Path(__file__).parent.parent.parent.parent
-        run("cp", "-r", str(project_root / "src" / "awair"), str(package_dir))
+        awair_src = project_root / "src" / "awair"
+        awair_dest = package_dir / "awair"
+
+        # Copy all files except the lambda directory
+        run("mkdir", "-p", str(awair_dest))
+        for item in awair_src.iterdir():
+            if item.name != "lambda":  # Skip lambda directory to avoid recursion
+                if item.is_dir():
+                    run("cp", "-r", str(item), str(awair_dest))
+                else:
+                    run("cp", str(item), str(awair_dest))
 
         print("Creating deployment package...")
         # Create ZIP file

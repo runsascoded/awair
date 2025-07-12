@@ -63,6 +63,12 @@ class AwairLambdaStack(Stack):
             environment={
                 "AWAIR_TOKEN": awair_token
             },
+            layers=[
+                _lambda.LayerVersion.from_layer_version_arn(
+                    self, "AWSSDKPandasLayer",
+                    layer_version_arn="arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python312:18"
+                )
+            ],
             role=lambda_role,
             description="Scheduled Awair data updater - fetches sensor data every 5 minutes"
         )

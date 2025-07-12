@@ -447,9 +447,9 @@ def deploy(dry_run: bool):
     import sys
     from pathlib import Path
 
-    # Validate token via unified flow
+    # Validate token via unified flow and pass to subprocess
     try:
-        get_token()
+        token = get_token()
     except ValueError as e:
         err(f'Token error: {e}')
         sys.exit(1)
@@ -462,12 +462,17 @@ def deploy(dry_run: bool):
         return
 
     try:
+        # Set token in environment for subprocess
+        import os
+        env = os.environ.copy()
+        env['AWAIR_TOKEN'] = token
+
         if dry_run:
             cmd = [sys.executable, str(deploy_script), 'package']
         else:
             cmd = [sys.executable, str(deploy_script), 'deploy']
 
-        subprocess.run(cmd, check=True, cwd=lambda_dir)
+        subprocess.run(cmd, check=True, env=env, cwd=lambda_dir)
 
     except subprocess.CalledProcessError as e:
         err(f'Deployment failed: {e}')
@@ -502,9 +507,9 @@ def synth():
     import sys
     from pathlib import Path
 
-    # Validate token via unified flow
+    # Validate token via unified flow and pass to subprocess
     try:
-        get_token()
+        token = get_token()
     except ValueError as e:
         err(f'Token error: {e}')
         sys.exit(1)
@@ -517,8 +522,13 @@ def synth():
         return
 
     try:
+        # Set token in environment for subprocess
+        import os
+        env = os.environ.copy()
+        env['AWAIR_TOKEN'] = token
+
         cmd = [sys.executable, str(deploy_script), 'synth']
-        subprocess.run(cmd, check=True, cwd=lambda_dir)
+        subprocess.run(cmd, check=True, env=env, cwd=lambda_dir)
 
     except subprocess.CalledProcessError as e:
         err(f'Synthesis failed: {e}')
