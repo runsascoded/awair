@@ -1,7 +1,0 @@
-# Runtime dependencies for AWS Lambda
-# These are the minimal dependencies needed for the Lambda function
-click>=8.0.0
-requests>=2.28.0
-pandas>=1.5.0
-pyarrow>=10.0.0
-utz>=0.20.0

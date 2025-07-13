@@ -184,40 +184,32 @@ pytest
 
 ## Lambda Deployment
 
-The system supports two deployment methods:
-
-### Source-Based Deployment (Development)
-
-Deploy from your local source code:
+Deploy AWS Lambda function for automated data collection:
 
 ```bash
-# Deploy current source
+# Deploy latest PyPI version (recommended)
 awair lambda deploy
 
-# Build package only
+# Deploy specific PyPI version
+awair lambda deploy -v 0.0.1
+
+# Deploy from local source (development)
+awair lambda deploy -v source
+
+# Build package only (no deploy)
 awair lambda deploy --dry-run
+awair lambda deploy -v 0.0.1 --dry-run
 ```
 
-### PyPI-Based Deployment (Production)
-
-Deploy from published PyPI releases:
-
-```bash
-# Deploy latest version
-awair lambda deploy-pypi
-
-# Deploy specific version
-awair lambda deploy-pypi --version 0.0.1
-
-# Build package only
-awair lambda deploy-pypi --version 0.0.1 --dry-run
-```
-
-**PyPI Deployment Advantages:**
+**PyPI Deployment (Default):**
 - ✅ **Exact Versions**: Deploy specific, tested releases
-- ✅ **Smaller Packages**: Only runtime dependencies
 - ✅ **Immutable**: Consistent across environments
 - ✅ **Traceable**: Clear version tracking in Lambda
+- ✅ **Production Ready**: Uses published releases
+
+**Source Deployment (`-v source`):**
+- 🔧 **Development**: Test local changes before publishing
+- 🚀 **Latest Features**: Access unreleased functionality
 
 ## AWS Infrastructure
 

@@ -108,13 +108,7 @@ class AwairLambdaStack(Stack):
         # Add Lambda as target for the schedule
         schedule_rule.add_target(targets.LambdaFunction(updater_function))
 
-        # CloudWatch Log Group (with retention)
-        log_group = logs.LogGroup(
-            self, "LambdaLogGroup",
-            log_group_name=f"/aws/lambda/{updater_function.function_name}",
-            retention=logs.RetentionDays.TWO_WEEKS,
-            removal_policy=cdk.RemovalPolicy.DESTROY
-        )
+        # Lambda automatically creates log groups, so we don't need to manage them
 
         # Outputs
         CfnOutput(
