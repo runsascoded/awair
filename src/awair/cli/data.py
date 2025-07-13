@@ -9,9 +9,15 @@ from ..dt import dt_range_opts
 from ..storage import ParquetStorage
 
 
-@awair.command
+@awair.group()
+def data():
+    """Data analysis and management commands."""
+    pass
+
+
+@data.command
 @data_path_opt
-def data_info(data_path: str):
+def info(data_path: str):
     """Show data file information."""
     storage = ParquetStorage(data_path)
     summary = storage.get_data_summary()
@@ -25,7 +31,7 @@ def data_info(data_path: str):
         echo('No data in file')
 
 
-@awair.command
+@data.command
 @data_path_opt
 @dt_range_opts()
 @option('-n', '--count', default=10, help='Number of largest gaps to show')
@@ -110,7 +116,7 @@ def gaps(
         echo(f'{gap_min:5.1f}m gap: {prev_ts} -> {curr_ts}')
 
 
-@awair.command
+@data.command
 @data_path_opt
 @dt_range_opts()
 def hist(
