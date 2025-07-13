@@ -218,41 +218,45 @@ export function AwairChart({ data }: Props) {
   const handleRelayout = useCallback((eventData: any) => {
     console.log('=== RELAYOUT EVENT FIRED ===');
     console.log('Full event data:', eventData);
-    console.log('Event keys:', Object.keys(eventData));
 
     // Try different possible keys for the range
     const xRange0 = eventData['xaxis.range[0]'] || (eventData['xaxis.range'] && eventData['xaxis.range'][0]);
     const xRange1 = eventData['xaxis.range[1]'] || (eventData['xaxis.range'] && eventData['xaxis.range'][1]);
 
-    console.log('xaxis.range[0]:', eventData['xaxis.range[0]']);
-    console.log('xaxis.range[1]:', eventData['xaxis.range[1]']);
-    console.log('xaxis.range:', eventData['xaxis.range']);
-    console.log('xaxis.autorange:', eventData['xaxis.autorange']);
-
     if (xRange0 && xRange1) {
-      // User zoomed or panned
-      const startTime = new Date(xRange0);
-      const endTime = new Date(xRange1);
-      const rangeMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+      console.log('🔍 ZOOM RANGE ANALYSIS:');
+      console.log('  Raw range from Plotly:', xRange0, 'to', xRange1);
+      console.log('  xRange0 type:', typeof xRange0);
+      console.log('  xRange1 type:', typeof xRange1);
 
-      console.log('X-axis range changed via relayout:');
-      console.log('  Start:', startTime.toLocaleString());
-      console.log('  End:', endTime.toLocaleString());
-      console.log('  Range (minutes):', rangeMinutes);
+      // Parse the ranges and show in different formats
+      const start = new Date(xRange0);
+      const end = new Date(xRange1);
+
+      console.log('  Parsed start (local):', start.toLocaleString());
+      console.log('  Parsed end (local):', end.toLocaleString());
+      console.log('  Parsed start (ISO):', start.toISOString());
+      console.log('  Parsed end (ISO):', end.toISOString());
+
+      // Show what our data looks like
+      if (data.length > 0) {
+        console.log('📊 DATA SAMPLE:');
+        console.log('  Sample data timestamp:', data[0].timestamp);
+        console.log('  Sample parsed as local:', new Date(data[0].timestamp).toLocaleString());
+        console.log('  Sample parsed as ISO:', new Date(data[0].timestamp).toISOString());
+        console.log('  Sample with Z (UTC):', new Date(data[0].timestamp + 'Z').toLocaleString());
+      }
 
       // Only update if actually different to prevent loops
       if (!xAxisRange || xAxisRange[0] !== xRange0 || xAxisRange[1] !== xRange1) {
-        console.log('Updating xAxisRange state');
+        console.log('  Setting xAxisRange to:', [xRange0, xRange1]);
         setXAxisRange([xRange0, xRange1]);
       }
     } else if (eventData['xaxis.autorange'] === true) {
-      // User clicked "reset zoom" or similar
       console.log('X-axis reset to autorange');
       setXAxisRange(null);
-    } else {
-      console.log('No recognized range change detected in relayout');
     }
-  }, [xAxisRange]);
+  }, [xAxisRange, data]);
 
   const handleRestyle = useCallback((eventData: any) => {
     console.log('=== RESTYLE EVENT FIRED ===');
@@ -310,22 +314,41 @@ export function AwairChart({ data }: Props) {
     const dataToUse = data;
 
     console.log('Sample original:', data[0]?.timestamp);
+    console.log('Sample type:', typeof data[0]?.timestamp);
     console.log('Sample parsed for display:', new Date(data[0]?.timestamp).toString());
 
     // Filter data to visible range if zoomed
     let dataToAggregate = dataToUse;
     if (xAxisRange) {
       const [start, end] = xAxisRange;
-      console.log('Zoom range strings:', start, 'to', end);
+      console.log('🔍 FILTERING DEBUG:');
+      console.log('  Zoom range from Plotly:', start, 'to', end);
 
-      const startTime = new Date(start).getTime();
-      const endTime = new Date(end).getTime();
+      // Plotly gives us local time strings, but our data has UTC timestamps
+      // We need to parse Plotly's local time and compare with our UTC data
+      const startDate = new Date(start);
+      const endDate = new Date(end);
 
-      console.log('Zoom range times:', new Date(startTime).toLocaleString(), 'to', new Date(endTime).toLocaleString());
+      console.log('  Start parsed:', startDate.toString());
+      console.log('  End parsed:', endDate.toString());
+      console.log('  Start ISO:', startDate.toISOString());
+      console.log('  End ISO:', endDate.toISOString());
+
+      // Show a few data points for comparison
+      if (dataToUse.length > 0) {
+        console.log('  First 3 data timestamps:');
+        dataToUse.slice(0, 3).forEach((d, i) => {
+          const dt = new Date(d.timestamp);
+          console.log(`    [${i}] raw: ${d.timestamp}`);
+          console.log(`    [${i}] parsed: ${dt.toString()}`);
+          console.log(`    [${i}] ISO: ${dt.toISOString()}`);
+        });
+      }
 
       dataToAggregate = dataToUse.filter(record => {
-        const recordTime = new Date(record.timestamp).getTime();
-        return recordTime >= startTime && recordTime <= endTime;
+        const recordDate = new Date(record.timestamp);
+        // Compare using Date objects to handle timezone correctly
+        return recordDate >= startDate && recordDate <= endDate;
       });
 
       // Sort filtered data chronologically (oldest first) for proper aggregation
@@ -353,7 +376,18 @@ export function AwairChart({ data }: Props) {
   };
 
   const config = metricConfig[metric];
-  const timestamps = aggregatedData.map(d => d.timestamp);
+  // Convert timestamps to the format Plotly expects (YYYY-MM-DD HH:MM:SS)
+  // This ensures Plotly interprets them the same way it returns them in zoom events
+  const timestamps = aggregatedData.map(d => {
+    const date = new Date(d.timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  });
   const avgValues = aggregatedData.map(d => d[`${metric}_avg`]);
   const minValues = aggregatedData.map(d => d[`${metric}_min`]);
   const maxValues = aggregatedData.map(d => d[`${metric}_max`]);
