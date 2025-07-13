@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Plot from 'react-plotly.js';
 import type { AwairRecord } from '../types/awair';
 
@@ -67,9 +67,7 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
   // Special case: if window is 1 minute and data points are ~1 minute apart,
   // just return the raw data converted to the aggregated format
   if (windowMinutes === 1 && data.length > 1) {
-    // Check typical interval between data points
     const interval = Math.abs(new Date(data[0].timestamp).getTime() - new Date(data[1].timestamp).getTime()) / (1000 * 60);
-    console.log('Data interval:', interval, 'minutes');
 
     if (interval <= 1.5) {
       // Data is already at ~1 minute intervals, just convert format
@@ -140,25 +138,21 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
+// Find the optimal aggregation window size to keep around 200 data points
+// This ensures good performance while maintaining visual detail
 function findOptimalWindow(dataLength: number, timeRangeMinutes?: number, data?: AwairRecord[]): TimeWindow {
-  // For a given time range, find the largest window that keeps us under 200 points
-  // This gives us the most detail while maintaining performance
+  const targetPoints = 200;
 
   if (timeRangeMinutes) {
-    console.log('Finding optimal window for range:', timeRangeMinutes, 'minutes (', (timeRangeMinutes / 60 / 24).toFixed(1), 'days)');
+    // When zoomed: calculate window size based on visible time range
+    let selectedWindow = TIME_WINDOWS[TIME_WINDOWS.length - 1];
 
-    // Find the largest window that keeps us close to but under 200 points
-    let selectedWindow = TIME_WINDOWS[TIME_WINDOWS.length - 1]; // Start with largest
-
-    // Go from largest to smallest window
     for (let i = TIME_WINDOWS.length - 1; i >= 0; i--) {
       const window = TIME_WINDOWS[i];
       const estimatedPoints = Math.ceil(timeRangeMinutes / window.minutes);
-      console.log(`  Window ${window.label} (${window.minutes}min): ~${estimatedPoints} points`);
 
-      if (estimatedPoints < 200) {
+      if (estimatedPoints < targetPoints) {
         selectedWindow = window;
-        // Keep looking for smaller windows that still stay under 200
       } else {
         // Too many points, use the previous (larger) window
         if (i < TIME_WINDOWS.length - 1) {
@@ -167,204 +161,83 @@ function findOptimalWindow(dataLength: number, timeRangeMinutes?: number, data?:
         break;
       }
     }
-    console.log(`  Selected: ${selectedWindow.label}`);
     return selectedWindow;
   } else if (data && data.length > 1) {
-    // Calculate actual time span from data
+    // Full dataset: calculate window based on total time span
     const firstTime = new Date(data[data.length - 1].timestamp).getTime();
     const lastTime = new Date(data[0].timestamp).getTime();
     const totalMinutes = (lastTime - firstTime) / (1000 * 60);
 
-    console.log('Finding optimal window for full data');
-    console.log('  Data points:', dataLength);
-    console.log('  Time span:', totalMinutes.toFixed(0), 'minutes (', (totalMinutes / 60 / 24).toFixed(1), 'days)');
+    let selectedWindow = TIME_WINDOWS[TIME_WINDOWS.length - 1];
 
-    // Find the largest window that keeps us close to but under 200 points
-    let selectedWindow = TIME_WINDOWS[TIME_WINDOWS.length - 1]; // Start with largest
-
-    // Go from largest to smallest window
     for (let i = TIME_WINDOWS.length - 1; i >= 0; i--) {
       const window = TIME_WINDOWS[i];
       const estimatedPoints = Math.ceil(totalMinutes / window.minutes);
-      console.log(`  Window ${window.label} (${window.minutes}min): ~${estimatedPoints} points`);
 
-      if (estimatedPoints < 200) {
+      if (estimatedPoints < targetPoints) {
         selectedWindow = window;
-        // Keep looking for smaller windows that still stay under 200
       } else {
-        // Too many points, use the previous (larger) window
         if (i < TIME_WINDOWS.length - 1) {
           selectedWindow = TIME_WINDOWS[i + 1];
         }
         break;
       }
     }
-    console.log(`  Selected: ${selectedWindow.label}`);
     return selectedWindow;
   } else {
-    // Fallback
-    return TIME_WINDOWS[Math.floor(TIME_WINDOWS.length / 2)]; // Default to middle window
+    // Fallback to middle window
+    return TIME_WINDOWS[Math.floor(TIME_WINDOWS.length / 2)];
   }
 }
 
 export function AwairChart({ data }: Props) {
   const [metric, setMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc'>('temp');
   const [xAxisRange, setXAxisRange] = useState<[string, string] | null>(null);
-  const plotRef = useRef<any>(null);
-
-  console.log('AwairChart render - data length:', data.length);
-  console.log('Current xAxisRange:', xAxisRange);
 
   const handleRelayout = useCallback((eventData: any) => {
-    console.log('=== RELAYOUT EVENT FIRED ===');
-    console.log('Full event data:', eventData);
-
-    // Try different possible keys for the range
-    const xRange0 = eventData['xaxis.range[0]'] || (eventData['xaxis.range'] && eventData['xaxis.range'][0]);
-    const xRange1 = eventData['xaxis.range[1]'] || (eventData['xaxis.range'] && eventData['xaxis.range'][1]);
+    const xRange0 = eventData['xaxis.range[0]'];
+    const xRange1 = eventData['xaxis.range[1]'];
 
     if (xRange0 && xRange1) {
-      console.log('🔍 ZOOM RANGE ANALYSIS:');
-      console.log('  Raw range from Plotly:', xRange0, 'to', xRange1);
-      console.log('  xRange0 type:', typeof xRange0);
-      console.log('  xRange1 type:', typeof xRange1);
-
-      // Parse the ranges and show in different formats
-      const start = new Date(xRange0);
-      const end = new Date(xRange1);
-
-      console.log('  Parsed start (local):', start.toLocaleString());
-      console.log('  Parsed end (local):', end.toLocaleString());
-      console.log('  Parsed start (ISO):', start.toISOString());
-      console.log('  Parsed end (ISO):', end.toISOString());
-
-      // Show what our data looks like
-      if (data.length > 0) {
-        console.log('📊 DATA SAMPLE:');
-        console.log('  Sample data timestamp:', data[0].timestamp);
-        console.log('  Sample parsed as local:', new Date(data[0].timestamp).toLocaleString());
-        console.log('  Sample parsed as ISO:', new Date(data[0].timestamp).toISOString());
-        console.log('  Sample with Z (UTC):', new Date(data[0].timestamp + 'Z').toLocaleString());
-      }
-
       // Only update if actually different to prevent loops
       if (!xAxisRange || xAxisRange[0] !== xRange0 || xAxisRange[1] !== xRange1) {
-        console.log('  Setting xAxisRange to:', [xRange0, xRange1]);
         setXAxisRange([xRange0, xRange1]);
       }
     } else if (eventData['xaxis.autorange'] === true) {
-      console.log('X-axis reset to autorange');
       setXAxisRange(null);
-    }
-  }, [xAxisRange, data]);
-
-  const handleRestyle = useCallback((eventData: any) => {
-    console.log('=== RESTYLE EVENT FIRED ===');
-    console.log('Restyle data:', eventData);
-  }, []);
-
-  const handleRedraw = useCallback(() => {
-    console.log('=== REDRAW EVENT FIRED ===');
-  }, []);
-
-  const handleSelected = useCallback((eventData: any) => {
-    console.log('=== SELECTED EVENT FIRED ===');
-    console.log('Selected data:', eventData);
-
-    if (eventData && eventData.range && eventData.range.x) {
-      const [start, end] = eventData.range.x;
-      console.log('Selected X range:', start, 'to', end);
-
-      // Only update if actually different
-      if (!xAxisRange || xAxisRange[0] !== start || xAxisRange[1] !== end) {
-        console.log('Updating range from selection:', [start, end]);
-        setXAxisRange([start, end]);
-      }
     }
   }, [xAxisRange]);
 
-  const handleDeselect = useCallback(() => {
-    console.log('=== DESELECTED EVENT FIRED ===');
-    // Don't reset on deselect - user might want to keep the zoom
-  }, []);
 
 
   // Calculate optimal window based on visible range or full data
   const selectedWindow = useMemo(() => {
     if (xAxisRange) {
       const [start, end] = xAxisRange;
-      const startTime = new Date(start).getTime();
-      const endTime = new Date(end).getTime();
-      const rangeMinutes = (endTime - startTime) / (1000 * 60);
-      const window = findOptimalWindow(data.length, rangeMinutes, data);
-      console.log('Calculated optimal window for range:', window.label, 'for', rangeMinutes, 'minutes');
-      return window;
+      const rangeMinutes = (new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60);
+      return findOptimalWindow(data.length, rangeMinutes, data);
     }
-    const window = findOptimalWindow(data.length, undefined, data);
-    console.log('Calculated optimal window for full data:', window.label);
-    return window;
-  }, [data.length, xAxisRange]);
+    return findOptimalWindow(data.length, undefined, data);
+  }, [data, xAxisRange]);
 
   const aggregatedData = useMemo(() => {
-    console.log('Aggregating data with window:', selectedWindow.label, selectedWindow.minutes, 'minutes');
-
-    // FIXED: Don't convert timestamps at all
-    // The timestamps should be displayed as-is (20:17 shows as 20:17 on chart)
-    // JavaScript will treat them as local time for display, which is exactly what we want
-    const dataToUse = data;
-
-    console.log('Sample original:', data[0]?.timestamp);
-    console.log('Sample type:', typeof data[0]?.timestamp);
-    console.log('Sample parsed for display:', new Date(data[0]?.timestamp).toString());
-
     // Filter data to visible range if zoomed
-    let dataToAggregate = dataToUse;
+    let dataToAggregate = data;
     if (xAxisRange) {
       const [start, end] = xAxisRange;
-      console.log('🔍 FILTERING DEBUG:');
-      console.log('  Zoom range from Plotly:', start, 'to', end);
-
-      // Plotly gives us local time strings, but our data has UTC timestamps
-      // We need to parse Plotly's local time and compare with our UTC data
       const startDate = new Date(start);
       const endDate = new Date(end);
 
-      console.log('  Start parsed:', startDate.toString());
-      console.log('  End parsed:', endDate.toString());
-      console.log('  Start ISO:', startDate.toISOString());
-      console.log('  End ISO:', endDate.toISOString());
-
-      // Show a few data points for comparison
-      if (dataToUse.length > 0) {
-        console.log('  First 3 data timestamps:');
-        dataToUse.slice(0, 3).forEach((d, i) => {
-          const dt = new Date(d.timestamp);
-          console.log(`    [${i}] raw: ${d.timestamp}`);
-          console.log(`    [${i}] parsed: ${dt.toString()}`);
-          console.log(`    [${i}] ISO: ${dt.toISOString()}`);
-        });
-      }
-
-      dataToAggregate = dataToUse.filter(record => {
+      dataToAggregate = data.filter(record => {
         const recordDate = new Date(record.timestamp);
-        // Compare using Date objects to handle timezone correctly
         return recordDate >= startDate && recordDate <= endDate;
       });
 
       // Sort filtered data chronologically (oldest first) for proper aggregation
       dataToAggregate.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-      console.log('Filtered to visible range:', dataToAggregate.length, 'points from', dataToUse.length);
-
-      if (dataToAggregate.length > 0) {
-        console.log('First filtered point (local time):', new Date(dataToAggregate[0].timestamp).toLocaleString());
-        console.log('Last filtered point (local time):', new Date(dataToAggregate[dataToAggregate.length - 1].timestamp).toLocaleString());
-      }
     }
 
-    const result = aggregateData(dataToAggregate, selectedWindow.minutes);
-    console.log('Aggregation result:', result.length, 'points from', dataToAggregate.length, 'original points');
-    return result;
+    return aggregateData(dataToAggregate, selectedWindow.minutes);
   }, [data, selectedWindow, xAxisRange]);
 
   const metricConfig = {
@@ -376,8 +249,9 @@ export function AwairChart({ data }: Props) {
   };
 
   const config = metricConfig[metric];
-  // Convert timestamps to the format Plotly expects (YYYY-MM-DD HH:MM:SS)
-  // This ensures Plotly interprets them the same way it returns them in zoom events
+  // Convert timestamps to Plotly's expected format (YYYY-MM-DD HH:MM:SS)
+  // This ensures consistent handling of timezones - Plotly returns zoom ranges
+  // in this format as local time strings, so we need to provide data the same way
   const timestamps = aggregatedData.map(d => {
     const date = new Date(d.timestamp);
     const year = date.getFullYear();
@@ -419,32 +293,11 @@ export function AwairChart({ data }: Props) {
               Drag to select time range, double-click to reset.
             </span>
           </div>
-
-          <div className="control-group">
-            <button
-              onClick={() => {
-                console.log('Testing manual zoom...');
-                if (data.length > 0) {
-                  // Get a middle section of the data (data is sorted newest first)
-                  const startIdx = Math.floor(data.length * 0.4);
-                  const endIdx = Math.floor(data.length * 0.6);
-                  const start = new Date(data[endIdx]?.timestamp); // Earlier time
-                  const end = new Date(data[startIdx]?.timestamp);   // Later time
-                  console.log('Manual zoom range:', start.toLocaleString(), 'to', end.toLocaleString());
-                  setXAxisRange([start.toISOString(), end.toISOString()]);
-                }
-              }}
-            >
-              Test Zoom (manual)
-            </button>
-          </div>
         </div>
       </div>
 
       <div className="chart-container">
         <Plot
-          key="awair-chart" // Stable key to prevent reinitialization
-          ref={plotRef}
           data={[
             // Min-Max filled area
             {
@@ -502,8 +355,6 @@ export function AwairChart({ data }: Props) {
             xaxis: {
               title: 'Time',
               type: 'date',
-              // Prevent Plotly from doing timezone conversion
-              timezone: 'local',
               ...(xAxisRange && { range: xAxisRange })
             },
             yaxis: {
@@ -531,29 +382,7 @@ export function AwairChart({ data }: Props) {
             responsive: true,
             scrollZoom: true
           }}
-          onInitialized={(figure, graphDiv) => {
-            console.log('Plot initialized, trying to bind events manually...');
-            console.log('Figure:', figure);
-            console.log('GraphDiv:', graphDiv);
-
-            // Try to manually verify the plot can handle events
-            if (graphDiv && graphDiv.on) {
-              console.log('GraphDiv has event binding capability');
-              const testHandler = (eventData: any) => {
-                console.log('Manual relayout event detected:', eventData);
-                handleRelayout(eventData);
-              };
-              graphDiv.on('plotly_relayout', testHandler);
-            } else {
-              console.log('GraphDiv does not have event binding capability');
-            }
-          }}
           onRelayout={handleRelayout}
-          onRestyle={handleRestyle}
-          onRedraw={handleRedraw}
-          onClick={(data) => console.log('CLICK:', data)}
-          onSelected={handleSelected}
-          onDeselect={handleDeselect}
         />
       </div>
     </div>
