@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
 import type { AwairRecord } from '../types/awair';
 
@@ -14,20 +14,15 @@ interface TimeWindow {
 interface AggregatedData {
   timestamp: string;
   temp_avg: number;
-  temp_min: number;
-  temp_max: number;
+  temp_stddev: number;
   co2_avg: number;
-  co2_min: number;
-  co2_max: number;
+  co2_stddev: number;
   humid_avg: number;
-  humid_min: number;
-  humid_max: number;
+  humid_stddev: number;
   pm25_avg: number;
-  pm25_min: number;
-  pm25_max: number;
+  pm25_stddev: number;
   voc_avg: number;
-  voc_min: number;
-  voc_max: number;
+  voc_stddev: number;
 }
 
 const TIME_WINDOWS: TimeWindow[] = [
@@ -74,20 +69,15 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
       return data.map(record => ({
         timestamp: record.timestamp,
         temp_avg: record.temp,
-        temp_min: record.temp,
-        temp_max: record.temp,
+        temp_stddev: 0,
         co2_avg: record.co2,
-        co2_min: record.co2,
-        co2_max: record.co2,
+        co2_stddev: 0,
         humid_avg: record.humid,
-        humid_min: record.humid,
-        humid_max: record.humid,
+        humid_stddev: 0,
         pm25_avg: record.pm25,
-        pm25_min: record.pm25,
-        pm25_max: record.pm25,
+        pm25_stddev: 0,
         voc_avg: record.voc,
-        voc_min: record.voc,
-        voc_max: record.voc,
+        voc_stddev: 0,
       }));
     }
   }
@@ -107,6 +97,15 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
     groups[key].push(record);
   });
 
+  // Calculate standard deviation
+  const calculateStdDev = (values: number[]): number => {
+    if (values.length <= 1) return 0;
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
+    const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
+    return Math.sqrt(avgSquaredDiff);
+  };
+
   // Aggregate each group and ensure chronological order
   return Object.entries(groups)
     .map(([timestamp, records]) => {
@@ -119,49 +118,44 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
       return {
         timestamp,
         temp_avg: temps.reduce((a, b) => a + b, 0) / temps.length,
-        temp_min: Math.min(...temps),
-        temp_max: Math.max(...temps),
+        temp_stddev: calculateStdDev(temps),
         co2_avg: co2s.reduce((a, b) => a + b, 0) / co2s.length,
-        co2_min: Math.min(...co2s),
-        co2_max: Math.max(...co2s),
+        co2_stddev: calculateStdDev(co2s),
         humid_avg: humids.reduce((a, b) => a + b, 0) / humids.length,
-        humid_min: Math.min(...humids),
-        humid_max: Math.max(...humids),
+        humid_stddev: calculateStdDev(humids),
         pm25_avg: pm25s.reduce((a, b) => a + b, 0) / pm25s.length,
-        pm25_min: Math.min(...pm25s),
-        pm25_max: Math.max(...pm25s),
+        pm25_stddev: calculateStdDev(pm25s),
         voc_avg: vocs.reduce((a, b) => a + b, 0) / vocs.length,
-        voc_min: Math.min(...vocs),
-        voc_max: Math.max(...vocs),
+        voc_stddev: calculateStdDev(vocs),
       };
     })
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
-// Find the optimal aggregation window size to keep around 200 data points
+// Find the optimal aggregation window size to keep around 300 data points
 // This ensures good performance while maintaining visual detail
 function findOptimalWindow(dataLength: number, timeRangeMinutes?: number, data?: AwairRecord[]): TimeWindow {
-  const targetPoints = 200;
+  const targetPoints = 300;
 
   if (timeRangeMinutes) {
     // When zoomed: calculate window size based on visible time range
-    let selectedWindow = TIME_WINDOWS[TIME_WINDOWS.length - 1];
+    console.log(`🔧 Finding window for ${timeRangeMinutes.toFixed(1)} minutes`);
 
-    for (let i = TIME_WINDOWS.length - 1; i >= 0; i--) {
+    // Go from smallest to largest to find the smallest window that keeps us under target
+    for (let i = 0; i < TIME_WINDOWS.length; i++) {
       const window = TIME_WINDOWS[i];
       const estimatedPoints = Math.ceil(timeRangeMinutes / window.minutes);
+      console.log(`  ${window.label}: ${estimatedPoints} points`);
 
-      if (estimatedPoints < targetPoints) {
-        selectedWindow = window;
-      } else {
-        // Too many points, use the previous (larger) window
-        if (i < TIME_WINDOWS.length - 1) {
-          selectedWindow = TIME_WINDOWS[i + 1];
-        }
-        break;
+      if (estimatedPoints <= targetPoints) {
+        console.log(`  → Selected: ${window.label}`);
+        return window;
       }
     }
-    return selectedWindow;
+
+    // If even the largest window gives too many points, use it anyway
+    console.log(`  → Fallback: ${TIME_WINDOWS[TIME_WINDOWS.length - 1].label}`);
+    return TIME_WINDOWS[TIME_WINDOWS.length - 1];
   } else if (data && data.length > 1) {
     // Full dataset: calculate window based on total time span
     const firstTime = new Date(data[data.length - 1].timestamp).getTime();
@@ -191,54 +185,224 @@ function findOptimalWindow(dataLength: number, timeRangeMinutes?: number, data?:
 }
 
 export function AwairChart({ data }: Props) {
-  const [metric, setMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc'>('temp');
-  const [xAxisRange, setXAxisRange] = useState<[string, string] | null>(null);
+  const [metric, setMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc'>(() => {
+    const stored = sessionStorage.getItem('awair-metric') as 'temp' | 'co2' | 'humid' | 'pm25' | 'voc';
+    const validMetrics = ['temp', 'co2', 'humid', 'pm25', 'voc'];
+    return validMetrics.includes(stored) ? stored : 'temp';
+  });
+  const [xAxisRange, setXAxisRange] = useState<[string, string] | null>(() => {
+    const stored = sessionStorage.getItem('awair-time-range');
+    return stored ? JSON.parse(stored) : null;
+  });
 
-  const handleRelayout = useCallback((eventData: any) => {
-    const xRange0 = eventData['xaxis.range[0]'];
-    const xRange1 = eventData['xaxis.range[1]'];
+  // Flag to ignore the next relayout event from double-click
+  const ignoreNextRelayoutRef = useRef(false);
 
-    if (xRange0 && xRange1) {
-      // Only update if actually different to prevent loops
-      if (!xAxisRange || xAxisRange[0] !== xRange0 || xAxisRange[1] !== xRange1) {
-        setXAxisRange([xRange0, xRange1]);
-      }
-    } else if (eventData['xaxis.autorange'] === true) {
-      setXAxisRange(null);
+
+  // Save to session storage when values change
+  useEffect(() => {
+    sessionStorage.setItem('awair-metric', metric);
+  }, [metric]);
+
+  useEffect(() => {
+    if (xAxisRange) {
+      sessionStorage.setItem('awair-time-range', JSON.stringify(xAxisRange));
+    } else {
+      sessionStorage.removeItem('awair-time-range');
     }
   }, [xAxisRange]);
 
+  // Format date for Plotly (YYYY-MM-DD HH:MM:SS)
+  const formatForPlotly = useCallback((date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }, []);
 
+  const handleTimeRangeClick = useCallback((hours: number) => {
+    if (data.length === 0) return;
 
-  // Calculate optimal window based on visible range or full data
-  const selectedWindow = useMemo(() => {
-    if (xAxisRange) {
-      const [start, end] = xAxisRange;
-      const rangeMinutes = (new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60);
-      return findOptimalWindow(data.length, rangeMinutes, data);
+    // Get the most recent timestamp (data is sorted newest first)
+    const latestTime = new Date(data[0].timestamp);
+    const earliestTime = new Date(latestTime.getTime() - (hours * 60 * 60 * 1000));
+
+    const newRange: [string, string] = [formatForPlotly(earliestTime), formatForPlotly(latestTime)];
+    setXAxisRange(newRange);
+  }, [data, formatForPlotly]);
+
+  const setRangeByWidth = useCallback((hours: number, centerTime?: Date) => {
+    if (data.length === 0) return;
+
+    const center = centerTime || new Date();
+    const halfSpan = (hours * 60 * 60 * 1000) / 2;
+
+    let startTime = new Date(center.getTime() - halfSpan);
+    let endTime = new Date(center.getTime() + halfSpan);
+
+    // Clamp to global data bounds
+    const globalStart = new Date(data[data.length - 1].timestamp);
+    const globalEnd = new Date(data[0].timestamp);
+
+    if (startTime < globalStart) {
+      const diff = globalStart.getTime() - startTime.getTime();
+      startTime = globalStart;
+      endTime = new Date(endTime.getTime() + diff);
     }
-    return findOptimalWindow(data.length, undefined, data);
-  }, [data, xAxisRange]);
+    if (endTime > globalEnd) {
+      const diff = endTime.getTime() - globalEnd.getTime();
+      endTime = globalEnd;
+      startTime = new Date(startTime.getTime() - diff);
+    }
 
-  const aggregatedData = useMemo(() => {
-    // Filter data to visible range if zoomed
-    let dataToAggregate = data;
+    // Final clamp
+    startTime = new Date(Math.max(startTime.getTime(), globalStart.getTime()));
+    endTime = new Date(Math.min(endTime.getTime(), globalEnd.getTime()));
+
+    const newRange: [string, string] = [formatForPlotly(startTime), formatForPlotly(endTime)];
+    setXAxisRange(newRange);
+  }, [data, formatForPlotly]);
+
+  const handleDoubleClick = useCallback(() => {
+    console.log('🔄 Double-click detected - setting full range');
+    if (data.length > 0) {
+      // Set our desired full range
+      const fullRange: [string, string] = [
+        formatForPlotly(new Date(data[data.length - 1].timestamp)),
+        formatForPlotly(new Date(data[0].timestamp))
+      ];
+      console.log('🔍 Setting full range via double-click:', fullRange);
+
+      // Set the flag BEFORE setting the range
+      ignoreNextRelayoutRef.current = true;
+      setXAxisRange(fullRange);
+    }
+  }, [data, formatForPlotly]);
+
+  const handleRelayout = useCallback((eventData: any) => {
+    console.log('🎯 Relayout event:', eventData);
+    console.log('🎯 Current xAxisRange at event start:', xAxisRange);
+    console.log('🎯 ignoreNextRelayout flag:', ignoreNextRelayoutRef.current);
+
+    // Check if we should ignore this event (from double-click)
+    if (ignoreNextRelayoutRef.current) {
+      console.log('🚫 Ignoring relayout event after double-click');
+      ignoreNextRelayoutRef.current = false;
+      return;
+    }
+
+    // Check if this is a range update
+    const xRange0 = eventData['xaxis.range[0]'] || (eventData['xaxis.range'] && eventData['xaxis.range'][0]);
+    const xRange1 = eventData['xaxis.range[1]'] || (eventData['xaxis.range'] && eventData['xaxis.range'][1]);
+
+    if (xRange0 && xRange1) {
+      let newStart = new Date(String(xRange0));
+      let newEnd = new Date(String(xRange1));
+
+      // Clamp to data bounds if we have data
+      if (data.length > 0) {
+        const globalStart = new Date(data[data.length - 1].timestamp);
+        const globalEnd = new Date(data[0].timestamp);
+
+        // If panned beyond bounds, clamp and shift
+        if (newStart < globalStart) {
+          const diff = globalStart.getTime() - newStart.getTime();
+          newStart = globalStart;
+          newEnd = new Date(newEnd.getTime() + diff);
+        }
+        if (newEnd > globalEnd) {
+          const diff = newEnd.getTime() - globalEnd.getTime();
+          newEnd = globalEnd;
+          newStart = new Date(newStart.getTime() - diff);
+        }
+
+        // Final clamp
+        newStart = new Date(Math.max(newStart.getTime(), globalStart.getTime()));
+        newEnd = new Date(Math.min(newEnd.getTime(), globalEnd.getTime()));
+      }
+
+      const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(newEnd)];
+      console.log('🔄 Setting clamped range from user interaction');
+      setXAxisRange(newRange);
+    }
+  }, [xAxisRange, data, setRangeByWidth, formatForPlotly]);
+
+  // Determine which time range button is active
+  const getActiveTimeRange = useCallback(() => {
+    if (!xAxisRange || data.length === 0) return 'all';
+
+    const rangeStart = new Date(xAxisRange[0]);
+    const rangeEnd = new Date(xAxisRange[1]);
+    const rangeHours = (rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60);
+
+    // Check if it's a "latest" view (ends at most recent data)
+    const latestTime = new Date(data[0].timestamp);
+    const isLatestView = Math.abs(rangeEnd.getTime() - latestTime.getTime()) < 60 * 60 * 1000; // 1 hour tolerance
+
+    // Check if this is the full data range (all data) - this also counts as "latest"
+    if (data.length > 0) {
+      const dataStart = new Date(data[data.length - 1].timestamp);
+      const dataEnd = new Date(data[0].timestamp);
+      const isFullRange = Math.abs(rangeStart.getTime() - dataStart.getTime()) < 60 * 1000 && // 1 minute tolerance
+                         Math.abs(rangeEnd.getTime() - dataEnd.getTime()) < 60 * 1000;
+      if (isFullRange) return 'all'; // This will activate both "All" and "Latest" buttons
+    }
+
+    // Check range width with tolerance
+    if (Math.abs(rangeHours - 24) < 2) {
+      return isLatestView ? 'latest-24h' : '24h';
+    }
+    if (Math.abs(rangeHours - (24 * 7)) < 12) {
+      return isLatestView ? 'latest-7d' : '7d';
+    }
+    if (Math.abs(rangeHours - (24 * 30)) < 24) {
+      return isLatestView ? 'latest-30d' : '30d';
+    }
+    return 'custom';
+  }, [xAxisRange, data]);
+
+
+  // Create a string key for xAxisRange to ensure proper dependency tracking
+  const rangeKey = xAxisRange ? `${xAxisRange[0]}-${xAxisRange[1]}` : 'null';
+
+  // First filter the data, then calculate optimal window
+  const { dataToAggregate, selectedWindow } = useMemo(() => {
+    console.log('🔄 Recalculating window - rangeKey:', rangeKey);
+    let filteredData = data;
+
     if (xAxisRange) {
       const [start, end] = xAxisRange;
       const startDate = new Date(start);
       const endDate = new Date(end);
 
-      dataToAggregate = data.filter(record => {
+      filteredData = data.filter(record => {
         const recordDate = new Date(record.timestamp);
         return recordDate >= startDate && recordDate <= endDate;
       });
 
       // Sort filtered data chronologically (oldest first) for proper aggregation
-      dataToAggregate.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      filteredData.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      // Calculate window based on actual visible time range
+      const rangeMinutes = (new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60);
+      console.log('📊 Filtered data points:', filteredData.length, 'Range minutes:', rangeMinutes);
+      const window = findOptimalWindow(filteredData.length, rangeMinutes, filteredData);
+
+      return { dataToAggregate: filteredData, selectedWindow: window };
     }
 
+    // For full dataset view
+    console.log('📊 Using full dataset:', data.length, 'points');
+    const window = findOptimalWindow(data.length, undefined, data);
+    return { dataToAggregate: data, selectedWindow: window };
+  }, [data, rangeKey]);
+
+  const aggregatedData = useMemo(() => {
     return aggregateData(dataToAggregate, selectedWindow.minutes);
-  }, [data, selectedWindow, xAxisRange]);
+  }, [dataToAggregate, selectedWindow]);
 
   const metricConfig = {
     temp: { label: 'Temperature', unit: '°F', color: '#e74c3c' },
@@ -248,7 +412,7 @@ export function AwairChart({ data }: Props) {
     voc: { label: 'VOC', unit: 'ppb', color: '#9b59b6' }
   };
 
-  const config = metricConfig[metric];
+  const config = metricConfig[metric] || metricConfig.temp;
   // Convert timestamps to Plotly's expected format (YYYY-MM-DD HH:MM:SS)
   // This ensures consistent handling of timezones - Plotly returns zoom ranges
   // in this format as local time strings, so we need to provide data the same way
@@ -263,19 +427,14 @@ export function AwairChart({ data }: Props) {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   });
   const avgValues = aggregatedData.map(d => d[`${metric}_avg`]);
-  const minValues = aggregatedData.map(d => d[`${metric}_min`]);
-  const maxValues = aggregatedData.map(d => d[`${metric}_max`]);
+  const stddevValues = aggregatedData.map(d => d[`${metric}_stddev`]);
+  const upperValues = avgValues.map((avg, i) => avg + stddevValues[i]);
+  const lowerValues = avgValues.map((avg, i) => avg - stddevValues[i]);
 
   return (
     <div className="awair-chart">
       <div className="chart-header">
         <h2>Awair Data Visualization</h2>
-        <p>
-          Showing {aggregatedData.length} {selectedWindow.label} windows
-          {xAxisRange && data.length > 1 ? ` (${Math.ceil((new Date(data[0].timestamp).getTime() - new Date(data[data.length - 1].timestamp).getTime()) / (1000 * 60 * selectedWindow.minutes))} total)` : ''} •
-          Metric: {config.label} •
-          {xAxisRange ? 'Zoomed view' : 'Full dataset'}
-        </p>
 
         <div className="chart-controls">
           <div className="control-group">
@@ -288,26 +447,134 @@ export function AwairChart({ data }: Props) {
           </div>
 
           <div className="control-group">
-            <span className="info-text">
-              Window size adapts automatically to zoom level.
-              Drag to select time range, double-click to reset.
-            </span>
+            <label>Range Width:</label>
+            <div className="time-range-buttons">
+              <button
+                className={getActiveTimeRange() === '24h' || getActiveTimeRange() === 'latest-24h' ? 'active' : ''}
+                onClick={() => {
+                  const activeRange = getActiveTimeRange();
+                  if (activeRange.startsWith('latest-') || activeRange === 'all') {
+                    // Stay anchored to latest
+                    handleTimeRangeClick(24);
+                  } else if (xAxisRange && data.length > 0) {
+                    // Preserve current center
+                    const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
+                    setRangeByWidth(24, currentCenter);
+                  } else {
+                    handleTimeRangeClick(24);
+                  }
+                }}
+              >
+                24h
+              </button>
+              <button
+                className={getActiveTimeRange() === '7d' || getActiveTimeRange() === 'latest-7d' ? 'active' : ''}
+                onClick={() => {
+                  const activeRange = getActiveTimeRange();
+                  if (activeRange.startsWith('latest-') || activeRange === 'all') {
+                    // Stay anchored to latest
+                    handleTimeRangeClick(24 * 7);
+                  } else if (xAxisRange && data.length > 0) {
+                    // Preserve current center
+                    const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
+                    setRangeByWidth(24 * 7, currentCenter);
+                  } else {
+                    handleTimeRangeClick(24 * 7);
+                  }
+                }}
+              >
+                7d
+              </button>
+              <button
+                className={getActiveTimeRange() === '30d' || getActiveTimeRange() === 'latest-30d' ? 'active' : ''}
+                onClick={() => {
+                  const activeRange = getActiveTimeRange();
+                  if (activeRange.startsWith('latest-') || activeRange === 'all') {
+                    // Stay anchored to latest
+                    handleTimeRangeClick(24 * 30);
+                  } else if (xAxisRange && data.length > 0) {
+                    // Preserve current center
+                    const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
+                    setRangeByWidth(24 * 30, currentCenter);
+                  } else {
+                    handleTimeRangeClick(24 * 30);
+                  }
+                }}
+              >
+                30d
+              </button>
+              <button
+                className={getActiveTimeRange() === 'all' ? 'active' : ''}
+                onClick={() => {
+                  if (data.length > 0) {
+                    // Explicitly set range to full data bounds
+                    const fullRange: [string, string] = [
+                      formatForPlotly(new Date(data[data.length - 1].timestamp)),
+                      formatForPlotly(new Date(data[0].timestamp))
+                    ];
+                    setXAxisRange(fullRange);
+                  } else {
+                    setXAxisRange(null);
+                  }
+                }}
+              >
+                All
+              </button>
+            </div>
           </div>
+
+          <div className="control-group">
+            <label>Position:</label>
+            <div className="time-range-buttons">
+              <button
+                className={getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}
+                onClick={() => {
+                  if (xAxisRange && data.length > 0) {
+                    const rangeStart = new Date(xAxisRange[0]);
+                    const rangeEnd = new Date(xAxisRange[1]);
+                    const currentWidth = rangeEnd.getTime() - rangeStart.getTime();
+                    const latestTime = new Date(data[0].timestamp);
+                    const newStart = new Date(latestTime.getTime() - currentWidth);
+                    const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)];
+                    setXAxisRange(newRange);
+                  }
+                }}
+              >
+                Latest
+              </button>
+            </div>
+          </div>
+
+          <div className="control-group">
+            <label>Current Range:</label>
+            <div className="range-info">
+              {xAxisRange ? (
+                <div className="range-display">
+                  <span className="range-start">{new Date(xAxisRange[0]).toLocaleString()}</span>
+                  <span className="range-separator"> → </span>
+                  <span className="range-end">{new Date(xAxisRange[1]).toLocaleString()}</span>
+                </div>
+              ) : (
+                <span className="range-display">All data</span>
+              )}
+            </div>
+          </div>
+
         </div>
       </div>
 
       <div className="chart-container">
         <Plot
           data={[
-            // Min-Max filled area
+            // ±1 stddev filled area
             {
               x: [...timestamps, ...timestamps.slice().reverse()],
-              y: [...maxValues, ...minValues.slice().reverse()],
+              y: [...upperValues, ...lowerValues.slice().reverse()],
               fill: 'toself',
               fillcolor: `${config.color}20`,
               line: { color: 'transparent' },
-              name: 'Min/Max Range',
-              showlegend: true,
+              name: '±1σ Range',
+              showlegend: false,
               hoverinfo: 'skip'
             },
             // Average line
@@ -322,47 +589,54 @@ export function AwairChart({ data }: Props) {
                            `Time: %{x}<br>` +
                            `Value: %{y:.1f} ${config.unit}<extra></extra>`
             },
-            // Min line (thin, dashed)
+            // Upper stddev line (thin, dashed) - hidden from legend
             {
               x: timestamps,
-              y: minValues,
+              y: upperValues,
               type: 'scatter',
               mode: 'lines',
-              name: `${config.label} (min)`,
+              name: `${config.label} (+1σ)`,
               line: { color: config.color, width: 1, dash: 'dot' },
               opacity: 0.7,
+              showlegend: false,
               hovertemplate: `<b>%{fullData.name}</b><br>` +
                            `Time: %{x}<br>` +
                            `Value: %{y:.1f} ${config.unit}<extra></extra>`
             },
-            // Max line (thin, dashed)
+            // Lower stddev line (thin, dashed) - hidden from legend
             {
               x: timestamps,
-              y: maxValues,
+              y: lowerValues,
               type: 'scatter',
               mode: 'lines',
-              name: `${config.label} (max)`,
+              name: `${config.label} (-1σ)`,
               line: { color: config.color, width: 1, dash: 'dot' },
               opacity: 0.7,
+              showlegend: false,
               hovertemplate: `<b>%{fullData.name}</b><br>` +
                            `Time: %{x}<br>` +
                            `Value: %{y:.1f} ${config.unit}<extra></extra>`
             }
           ]}
           layout={{
-            width: 1000,
+            autosize: true,
             height: 500,
             xaxis: {
               title: 'Time',
               type: 'date',
-              ...(xAxisRange && { range: xAxisRange })
+              ...(xAxisRange && { range: xAxisRange }),
+              ...(data.length > 0 && {
+                rangeslider: { visible: false },
+                constraintoward: 'center',
+                autorange: false
+              })
             },
             yaxis: {
               title: `${config.label} (${config.unit})`,
               gridcolor: '#f0f0f0',
               fixedrange: true
             },
-            margin: { l: 60, r: 60, t: 60, b: 60 },
+            margin: { l: 80, r: 60, t: 20, b: 60 },
             hovermode: 'x',
             plot_bgcolor: 'white',
             paper_bgcolor: 'white',
@@ -373,17 +647,28 @@ export function AwairChart({ data }: Props) {
               bordercolor: '#ddd',
               borderwidth: 1
             },
-            dragmode: 'zoom',
+            dragmode: 'pan',
             selectdirection: 'horizontal'
           }}
           config={{
             displayModeBar: true,
             displaylogo: false,
             responsive: true,
-            scrollZoom: true
+            scrollZoom: true,
+            modeBarButtonsToRemove: ['select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
           }}
+          useResizeHandler={true}
+          style={{ width: '100%', height: '100%' }}
           onRelayout={handleRelayout}
+          onDoubleClick={handleDoubleClick}
         />
+      </div>
+
+      <div
+        className="chart-status"
+        title="Window size adapts automatically to zoom level. Drag to select time range, double-click to reset."
+      >
+        Showing {aggregatedData.length} {selectedWindow.label} windows
       </div>
     </div>
   );

@@ -38,8 +38,8 @@ function App() {
       </header>
 
       <main>
-        {summary && <DataSummary summary={summary} />}
         {data.length > 0 && <AwairChart data={data} />}
+        {summary && <DataSummary summary={summary} />}
         {data.length > 0 && <DataTable data={data} />}
       </main>
 
