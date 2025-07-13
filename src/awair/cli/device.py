@@ -3,12 +3,11 @@
 import json
 from sys import stdout
 
-from click import command
-
+from .base import awair
 from .config import get, SELF, DEVICES
 
 
-@command
+@awair.command
 def self():
     """Get information about the authenticated user account."""
     res = get(SELF)
@@ -16,7 +15,7 @@ def self():
     print()
 
 
-@command
+@awair.command
 def devices():
     """List all devices associated with the authenticated user account."""
     res = get(DEVICES)

@@ -1,15 +1,15 @@
 """Data analysis and management commands."""
 
-from click import command, option, echo
+from click import option, echo
 import pandas as pd
 
-from .config import err
-from .main import data_path_opt
+from .base import awair
+from .config import err, data_path_opt
 from ..dt import dt_range_opts
 from ..storage import ParquetStorage
 
 
-@command
+@awair.command
 @data_path_opt
 def data_info(data_path: str):
     """Show data file information."""
@@ -25,7 +25,7 @@ def data_info(data_path: str):
         echo('No data in file')
 
 
-@command
+@awair.command
 @data_path_opt
 @dt_range_opts()
 @option('-n', '--count', default=10, help='Number of largest gaps to show')
@@ -110,7 +110,7 @@ def gaps(
         echo(f'{gap_min:5.1f}m gap: {prev_ts} -> {curr_ts}')
 
 
-@command
+@awair.command
 @data_path_opt
 @dt_range_opts()
 def hist(

@@ -6,10 +6,10 @@ from datetime import datetime, timedelta
 from urllib.parse import quote_plus
 
 import requests
-from click import command, option, Choice
+from click import option, Choice
 
-from .config import get_device_info, get, DEVICES, err
-from .main import data_path_opt
+from .base import awair
+from .config import get_device_info, get, DEVICES, err, data_path_opt
 from ..dt import dt_range_opts
 from ..storage import ParquetStorage, FIELDS
 
@@ -181,7 +181,7 @@ def print_fetch_result(result: dict):
         err(f'Average interval: {result["avg_interval_minutes"]:.1f} minutes')
 
 
-@command
+@awair.command
 @option('-a', '--conflict-action', default='warn', type=Choice(['warn', 'error', 'replace']), help='Action on data conflicts: warn (log warning), error (raise exception), replace (overwrite)')
 @data_path_opt
 @dt_range_opts(from_default_days=34, to_default_minutes=10)

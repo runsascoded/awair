@@ -1,13 +1,11 @@
 """Configuration and utility functions for Awair CLI."""
 
-import json
 import requests
 from os import getenv, makedirs
 from os.path import exists, expanduser, join
 from functools import cache, partial
-from urllib.parse import quote_plus
 
-from click import echo
+from click import echo, option
 
 
 err = partial(echo, err=True)
@@ -159,3 +157,7 @@ def get(url: str):
     )
     res.raise_for_status()
     return res.json()
+
+
+# Common click option
+data_path_opt = option('-d', '--data-path', default=get_default_data_path(), help='Data file path')

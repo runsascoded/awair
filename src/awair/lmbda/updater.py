@@ -8,7 +8,6 @@ from awair.cli.raw import fetch_raw_data
 from awair.cli.config import parse_s3_path
 from awair.storage import ParquetStorage
 
-
 def get_s3_config():
     """Get S3 bucket and key from environment variable."""
     data_path = os.getenv('AWAIR_DATA_PATH', 's3://380nwk/awair.parquet')
@@ -18,6 +17,7 @@ def get_s3_config():
 
     bucket, key = parse_s3_path(data_path)
     return bucket, key
+
 
 def update_s3_data():
     """Update the S3 Parquet file with latest data using atomic_edit."""
@@ -96,6 +96,7 @@ def update_s3_data():
     finally:
         # Restore original working directory
         os.chdir(original_cwd)
+
 
 def lambda_handler(event, context):
     """AWS Lambda handler function for scheduled data updates."""

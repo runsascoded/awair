@@ -4,8 +4,9 @@ import sys
 import subprocess
 from os.path import join, dirname, exists
 
-from click import group, option
+from click import option
 
+from .base import awair
 from .config import get_token, err
 import awair.lmbda.deploy as deploy_module
 
@@ -14,7 +15,7 @@ import awair.lmbda.deploy as deploy_module
 LAMBDA_DIR = join(dirname(__file__), '..', 'lmbda')
 
 
-@group
+@awair.group('lambda')
 def cli():
     """AWS Lambda operations for scheduled data updates."""
     pass
