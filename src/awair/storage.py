@@ -1,5 +1,5 @@
 from datetime import datetime
-import os
+from os.path import getsize, exists
 
 import pandas as pd
 
@@ -136,10 +136,8 @@ class ParquetStorage:
             if self._batch_df.empty:
                 return {'count': 0, 'earliest': None, 'latest': None, 'file_size_mb': 0}
 
-            # Get file size (only for local files)
-            file_size_mb = 0
-            if not self.file_path.startswith('s3://') and os.path.exists(self.file_path):
-                file_size_mb = os.path.getsize(self.file_path) / (1024 * 1024)
+            # Get file size
+            file_size_mb = self._get_file_size()
 
             return {
                 'count': len(self._batch_df),
@@ -152,10 +150,8 @@ class ParquetStorage:
         try:
             df = pd.read_parquet(self.file_path)
 
-            # Get file size (only for local files)
-            file_size_mb = 0
-            if not self.file_path.startswith('s3://') and os.path.exists(self.file_path):
-                file_size_mb = os.path.getsize(self.file_path) / (1024 * 1024)
+            # Get file size
+            file_size_mb = self._get_file_size()
 
             if df.empty:
                 return {'count': 0, 'earliest': None, 'latest': None, 'file_size_mb': file_size_mb}
@@ -168,6 +164,27 @@ class ParquetStorage:
             }
         except (FileNotFoundError, OSError):
             return {'count': 0, 'earliest': None, 'latest': None, 'file_size_mb': 0}
+
+    def _get_file_size(self) -> float:
+        """Get file size in MB for local or S3 files."""
+        if self.file_path.startswith('s3://'):
+            # Parse S3 path
+            s3_path = self.file_path[5:]  # Remove 's3://'
+            parts = s3_path.split('/', 1)
+            bucket = parts[0]
+            key = parts[1] if len(parts) > 1 else ''
+
+            try:
+                import boto3
+                s3_client = boto3.client('s3')
+                response = s3_client.head_object(Bucket=bucket, Key=key)
+                return response['ContentLength'] / (1024 * 1024)
+            except ImportError:
+                raise ImportError("boto3 is required to get file size for S3 URIs")
+        elif exists(self.file_path):
+            return getsize(self.file_path) / (1024 * 1024)
+        else:
+            return 0
 
     def read_data(self) -> pd.DataFrame:
         """Read all data as a DataFrame."""
