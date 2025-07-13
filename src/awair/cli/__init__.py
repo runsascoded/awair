@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Awair CLI package."""
 
 from .main import awair

@@ -30,7 +30,13 @@ def data_info(data_path: str):
 @dt_range_opts()
 @option('-n', '--count', default=10, help='Number of largest gaps to show')
 @option('-m', '--min-gap', type=int, help='Minimum gap size in seconds to report')
-def gaps(data_path: str, from_dt: str | None, to_dt: str | None, count: int, min_gap: int | None):
+def gaps(
+    data_path: str,
+    from_dt: str | None,
+    to_dt: str | None,
+    count: int,
+    min_gap: int | None,
+):
     """Find and report the largest timing gaps in the data."""
 
     # Read data

@@ -18,15 +18,15 @@ def awair():
 # Import and register subcommands
 def register_commands():
     """Register all CLI subcommands."""
-    from . import raw_cmd, device_cmd, data_cmd, lambda_cmd
+    from . import raw, device, data, lmbda
 
-    awair.add_command(raw_cmd.raw)
-    awair.add_command(device_cmd.self)
-    awair.add_command(device_cmd.devices)
-    awair.add_command(data_cmd.data_info)
-    awair.add_command(data_cmd.gaps)
-    awair.add_command(data_cmd.hist)
-    awair.add_command(lambda_cmd.cli, name='lambda')
+    awair.add_command(raw.raw)
+    awair.add_command(device.self)
+    awair.add_command(device.devices)
+    awair.add_command(data.data_info)
+    awair.add_command(data.gaps)
+    awair.add_command(data.hist)
+    awair.add_command(lmbda.cli, name='lambda')
 
 
 # Register commands when module is imported
