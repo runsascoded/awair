@@ -8,6 +8,7 @@ from click import option
 
 from .base import awair
 from .config import get_token, err
+from .common_opts import version_opt
 import awair.lmbda.deploy as deploy_module
 
 
@@ -23,7 +24,7 @@ def cli():
 
 @cli.command
 @option('-n', '--dry-run', is_flag=True, help='Build package only, do not deploy')
-@option('-v', '--version', help='Version to deploy: PyPI version (e.g., "0.0.1") or "source"/"src" for local source')
+@version_opt
 def deploy(version: str = None, dry_run: bool = False):
     """Deploy the scheduled Lambda updater to AWS using CDK."""
     # Validate token via unified flow and pass to subprocess
@@ -99,7 +100,7 @@ def synth():
 
 
 @cli.command
-@option('-v', '--version', help='Version to package: PyPI version (e.g., "0.0.1") or "source"/"src" for local source')
+@version_opt
 def package(version: str = None):
     """Create Lambda deployment package only (without deploying)."""
     try:
