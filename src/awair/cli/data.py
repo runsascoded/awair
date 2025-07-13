@@ -9,9 +9,9 @@ from ..dt import dt_range_opts
 from ..storage import ParquetStorage
 
 
-@awair.group()
+@awair.group
 def data():
-    """Data analysis and management commands."""
+    """Analyze archived data."""
     pass
 
 

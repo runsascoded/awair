@@ -1,17 +1,24 @@
-"""Raw data fetching commands."""
+"""API-related commands for direct interaction with Awair services."""
 
 import json
 import time
 from datetime import datetime, timedelta
+from sys import stdout
 from urllib.parse import quote_plus
 
 import requests
 from click import option, Choice
 
 from .base import awair
-from .config import get_device_info, get, DEVICES, err, data_path_opt
+from .config import get_device_info, get, DEVICES, err, data_path_opt, SELF
 from ..dt import dt_range_opts
 from ..storage import ParquetStorage, FIELDS
+
+
+@awair.group
+def api():
+    """Direct API interaction commands."""
+    pass
 
 
 def fetch_raw_data(
@@ -181,7 +188,7 @@ def print_fetch_result(result: dict):
         err(f'Average interval: {result["avg_interval_minutes"]:.1f} minutes')
 
 
-@awair.command
+@api.command
 @option('-a', '--conflict-action', default='warn', type=Choice(['warn', 'error', 'replace']), help='Action on data conflicts: warn (log warning), error (raise exception), replace (overwrite)')
 @data_path_opt
 @dt_range_opts(from_default_days=34, to_default_minutes=10)
@@ -212,3 +219,21 @@ def raw(
                 else:
                     err(f'No existing data found; reading from {from_dt}')
             fetch_date_range(from_dt, to_dt, limit, sleep_s, storage)
+
+
+@api.command
+def self():
+    """Get information about the authenticated user account."""
+    res = get(SELF)
+    json.dump(res, stdout, indent=2)
+    print()
+
+
+@api.command
+def devices():
+    """List all devices associated with the authenticated user account."""
+    res = get(DEVICES)
+    devices = res['devices']
+    for device in devices:
+        json.dump(device, stdout, indent=2)
+        print()
