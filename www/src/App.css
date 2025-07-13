@@ -390,6 +390,13 @@ footer p {
   justify-content: center;
 }
 
+.info-text {
+  color: #7f8c8d;
+  font-style: italic;
+  font-size: 0.9rem;
+  align-self: center;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   header {

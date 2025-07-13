@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import Plot from 'react-plotly.js';
 import type { AwairRecord } from '../types/awair';
 
@@ -79,7 +79,7 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
     groups[key].push(record);
   });
 
-  // Aggregate each group
+  // Aggregate each group and ensure chronological order
   return Object.entries(groups)
     .map(([timestamp, records]) => {
       const temps = records.map(r => r.temp);
@@ -110,22 +110,122 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }
 
-function findOptimalWindow(dataLength: number): TimeWindow {
-  // Find the smallest window that results in < 200 data points
-  for (const window of TIME_WINDOWS) {
-    const estimatedPoints = dataLength / (window.minutes * 5); // Assuming 5min intervals
-    if (estimatedPoints < 200) {
-      return window;
+function findOptimalWindow(dataLength: number, timeRangeMinutes?: number): TimeWindow {
+  if (timeRangeMinutes) {
+    // Find the smallest window that results in < 200 data points for the visible range
+    const pointsInRange = Math.ceil(timeRangeMinutes / 5); // Assuming 5min intervals
+    for (const window of TIME_WINDOWS) {
+      const estimatedPoints = pointsInRange / (window.minutes / 5);
+      if (estimatedPoints < 200) {
+        return window;
+      }
     }
+    return TIME_WINDOWS[TIME_WINDOWS.length - 1];
+  } else {
+    // Find the smallest window that results in < 200 data points for all data
+    for (const window of TIME_WINDOWS) {
+      const estimatedPoints = dataLength / (window.minutes * 5); // Assuming 5min intervals
+      if (estimatedPoints < 200) {
+        return window;
+      }
+    }
+    return TIME_WINDOWS[TIME_WINDOWS.length - 1]; // Use largest window if all exceed 200
   }
-  return TIME_WINDOWS[TIME_WINDOWS.length - 1]; // Use largest window if all exceed 200
 }
 
 export function AwairChart({ data }: Props) {
   const [metric, setMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc'>('temp');
+  const [xAxisRange, setXAxisRange] = useState<[string, string] | null>(null);
+  const plotRef = useRef<any>(null);
 
-  const optimalWindow = useMemo(() => findOptimalWindow(data.length), [data.length]);
-  const [selectedWindow, setSelectedWindow] = useState<TimeWindow>(optimalWindow);
+  console.log('AwairChart render - data length:', data.length);
+  console.log('Current xAxisRange:', xAxisRange);
+
+  const handleRelayout = useCallback((eventData: any) => {
+    console.log('=== RELAYOUT EVENT FIRED ===');
+    console.log('Full event data:', eventData);
+    console.log('Event keys:', Object.keys(eventData));
+
+    // Try different possible keys for the range
+    const xRange0 = eventData['xaxis.range[0]'] || (eventData['xaxis.range'] && eventData['xaxis.range'][0]);
+    const xRange1 = eventData['xaxis.range[1]'] || (eventData['xaxis.range'] && eventData['xaxis.range'][1]);
+
+    console.log('xaxis.range[0]:', eventData['xaxis.range[0]']);
+    console.log('xaxis.range[1]:', eventData['xaxis.range[1]']);
+    console.log('xaxis.range:', eventData['xaxis.range']);
+    console.log('xaxis.autorange:', eventData['xaxis.autorange']);
+
+    if (xRange0 && xRange1) {
+      // User zoomed or panned
+      const startTime = new Date(xRange0);
+      const endTime = new Date(xRange1);
+      const rangeMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+
+      console.log('X-axis range changed via relayout:');
+      console.log('  Start:', startTime.toLocaleString());
+      console.log('  End:', endTime.toLocaleString());
+      console.log('  Range (minutes):', rangeMinutes);
+
+      // Only update if actually different to prevent loops
+      if (!xAxisRange || xAxisRange[0] !== xRange0 || xAxisRange[1] !== xRange1) {
+        console.log('Updating xAxisRange state');
+        setXAxisRange([xRange0, xRange1]);
+      }
+    } else if (eventData['xaxis.autorange'] === true) {
+      // User clicked "reset zoom" or similar
+      console.log('X-axis reset to autorange');
+      setXAxisRange(null);
+    } else {
+      console.log('No recognized range change detected in relayout');
+    }
+  }, [xAxisRange]);
+
+  const handleRestyle = useCallback((eventData: any) => {
+    console.log('=== RESTYLE EVENT FIRED ===');
+    console.log('Restyle data:', eventData);
+  }, []);
+
+  const handleRedraw = useCallback(() => {
+    console.log('=== REDRAW EVENT FIRED ===');
+  }, []);
+
+  const handleSelected = useCallback((eventData: any) => {
+    console.log('=== SELECTED EVENT FIRED ===');
+    console.log('Selected data:', eventData);
+
+    if (eventData && eventData.range && eventData.range.x) {
+      const [start, end] = eventData.range.x;
+      console.log('Selected X range:', start, 'to', end);
+
+      // Only update if actually different
+      if (!xAxisRange || xAxisRange[0] !== start || xAxisRange[1] !== end) {
+        console.log('Updating range from selection:', [start, end]);
+        setXAxisRange([start, end]);
+      }
+    }
+  }, [xAxisRange]);
+
+  const handleDeselect = useCallback(() => {
+    console.log('=== DESELECTED EVENT FIRED ===');
+    // Don't reset on deselect - user might want to keep the zoom
+  }, []);
+
+
+  // Calculate optimal window based on visible range or full data
+  const selectedWindow = useMemo(() => {
+    if (xAxisRange) {
+      const [start, end] = xAxisRange;
+      const startTime = new Date(start).getTime();
+      const endTime = new Date(end).getTime();
+      const rangeMinutes = (endTime - startTime) / (1000 * 60);
+      const window = findOptimalWindow(data.length, rangeMinutes);
+      console.log('Calculated optimal window for range:', window.label, 'for', rangeMinutes, 'minutes');
+      return window;
+    }
+    const window = findOptimalWindow(data.length);
+    console.log('Calculated optimal window for full data:', window.label);
+    return window;
+  }, [data.length, xAxisRange]);
 
   const aggregatedData = useMemo(() =>
     aggregateData(data, selectedWindow.minutes),
@@ -152,8 +252,9 @@ export function AwairChart({ data }: Props) {
         <h2>Awair Data Visualization</h2>
         <p>
           Showing {aggregatedData.length} data points •
-          Window: {selectedWindow.label} •
-          Metric: {config.label}
+          Auto window: {selectedWindow.label} •
+          Metric: {config.label} •
+          {xAxisRange ? 'Zoomed view' : 'Full dataset'}
         </p>
 
         <div className="chart-controls">
@@ -167,26 +268,37 @@ export function AwairChart({ data }: Props) {
           </div>
 
           <div className="control-group">
-            <label>Time Window:</label>
-            <select
-              value={selectedWindow.label}
-              onChange={(e) => {
-                const window = TIME_WINDOWS.find(w => w.label === e.target.value);
-                if (window) setSelectedWindow(window);
+            <span className="info-text">
+              Window size adapts automatically to zoom level.
+              Drag to select time range, double-click to reset.
+            </span>
+          </div>
+
+          <div className="control-group">
+            <button
+              onClick={() => {
+                console.log('Testing manual zoom...');
+                if (data.length > 0) {
+                  // Get a middle section of the data (data is sorted newest first)
+                  const startIdx = Math.floor(data.length * 0.4);
+                  const endIdx = Math.floor(data.length * 0.6);
+                  const start = new Date(data[endIdx]?.timestamp); // Earlier time
+                  const end = new Date(data[startIdx]?.timestamp);   // Later time
+                  console.log('Manual zoom range:', start.toLocaleString(), 'to', end.toLocaleString());
+                  setXAxisRange([start.toISOString(), end.toISOString()]);
+                }
               }}
             >
-              {TIME_WINDOWS.map(window => (
-                <option key={window.label} value={window.label}>
-                  {window.label}
-                </option>
-              ))}
-            </select>
+              Test Zoom (manual)
+            </button>
           </div>
         </div>
       </div>
 
       <div className="chart-container">
         <Plot
+          key="awair-chart" // Stable key to prevent reinitialization
+          ref={plotRef}
           data={[
             // Min-Max filled area
             {
@@ -243,11 +355,13 @@ export function AwairChart({ data }: Props) {
             height: 500,
             xaxis: {
               title: 'Time',
-              type: 'date'
+              type: 'date',
+              ...(xAxisRange && { range: xAxisRange })
             },
             yaxis: {
               title: `${config.label} (${config.unit})`,
-              gridcolor: '#f0f0f0'
+              gridcolor: '#f0f0f0',
+              fixedrange: true
             },
             margin: { l: 60, r: 60, t: 60, b: 60 },
             hovermode: 'x',
@@ -259,14 +373,39 @@ export function AwairChart({ data }: Props) {
               bgcolor: 'rgba(255,255,255,0.8)',
               bordercolor: '#ddd',
               borderwidth: 1
-            }
+            },
+            dragmode: 'zoom',
+            selectdirection: 'horizontal'
           }}
           config={{
             displayModeBar: true,
             displaylogo: false,
-            modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d'],
-            responsive: true
+            responsive: true,
+            scrollZoom: true
           }}
+          onInitialized={(figure, graphDiv) => {
+            console.log('Plot initialized, trying to bind events manually...');
+            console.log('Figure:', figure);
+            console.log('GraphDiv:', graphDiv);
+
+            // Try to manually verify the plot can handle events
+            if (graphDiv && graphDiv.on) {
+              console.log('GraphDiv has event binding capability');
+              const testHandler = (eventData: any) => {
+                console.log('Manual relayout event detected:', eventData);
+                handleRelayout(eventData);
+              };
+              graphDiv.on('plotly_relayout', testHandler);
+            } else {
+              console.log('GraphDiv does not have event binding capability');
+            }
+          }}
+          onRelayout={handleRelayout}
+          onRestyle={handleRestyle}
+          onRedraw={handleRedraw}
+          onClick={(data) => console.log('CLICK:', data)}
+          onSelected={handleSelected}
+          onDeselect={handleDeselect}
         />
       </div>
     </div>
