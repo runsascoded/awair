@@ -2,26 +2,25 @@
 
 import sys
 import subprocess
-import importlib
-from os import environ
 from os.path import join, dirname, exists
 
-from click import group, command, option
+from click import group, option
 
-from .config import get_token, get_default_data_path, err
+from .config import get_token, err
+import awair.lmbda.deploy as deploy_module
 
 
 # Common paths
-LAMBDA_DIR = join(dirname(__file__), '..', 'lambda')
+LAMBDA_DIR = join(dirname(__file__), '..', 'lmbda')
 
 
-@group()
-def lambda_cli():
+@group
+def cli():
     """AWS Lambda operations for scheduled data updates."""
     pass
 
 
-@lambda_cli.command
+@cli.command
 @option('-n', '--dry-run', is_flag=True, help='Build package only, do not deploy')
 @option('-v', '--version', help='Version to deploy: PyPI version (e.g., "0.0.1") or "source"/"src" for local source')
 def deploy(version: str = None, dry_run: bool = False):
@@ -48,7 +47,6 @@ def deploy(version: str = None, dry_run: bool = False):
         return
 
     try:
-        deploy_module = importlib.import_module('awair.lambda.deploy')
         if dry_run:
             deploy_module.package_lambda(version)
         else:
@@ -59,7 +57,7 @@ def deploy(version: str = None, dry_run: bool = False):
         sys.exit(1)
 
 
-@lambda_cli.command
+@cli.command
 def test():
     """Test the Lambda updater locally (without S3)."""
     test_script = join(LAMBDA_DIR, 'test_updater.py')
@@ -75,7 +73,7 @@ def test():
         sys.exit(1)
 
 
-@lambda_cli.command
+@cli.command
 def synth():
     """Synthesize CloudFormation template from CDK (without deploying)."""
     # Validate token via unified flow and pass to subprocess
@@ -92,7 +90,6 @@ def synth():
         return
 
     try:
-        deploy_module = importlib.import_module('awair.lambda.deploy')
         deploy_module.synth_lambda()
 
     except Exception as e:
@@ -100,19 +97,18 @@ def synth():
         sys.exit(1)
 
 
-@lambda_cli.command
+@cli.command
 @option('-v', '--version', help='Version to package: PyPI version (e.g., "0.0.1") or "source"/"src" for local source')
 def package(version: str = None):
     """Create Lambda deployment package only (without deploying)."""
     try:
-        deploy_module = importlib.import_module('awair.lambda.deploy')
         deploy_module.package_lambda(version)
     except Exception as e:
         err(f'Package creation failed: {e}')
         sys.exit(1)
 
 
-@lambda_cli.command
+@cli.command
 @option('--follow', '-f', is_flag=True, help='Follow logs in real-time')
 @option('--stack-name', default='awair-data-updater', help='CloudFormation stack name')
 def logs(follow: bool, stack_name: str):

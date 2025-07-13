@@ -112,15 +112,15 @@ def create_lambda_package(package_type: str = "source", version: str = None) -> 
                 cwd=Path(__file__).parent)
 
             print("Copying source files...")
-            # Copy awair module (excluding lambda directory)
-            # Path: /Users/ryan/c/380nwk/awair/src/awair/lambda/deploy.py
+            # Copy awair module (excluding lmbda directory)
+            # Path: /Users/ryan/c/380nwk/awair/src/awair/lmbda/deploy.py
             # We want: /Users/ryan/c/380nwk/awair/src/awair
             awair_src = Path(__file__).parent.parent
             awair_dest = package_dir / "awair"
 
             run("mkdir", "-p", str(awair_dest))
             for item in awair_src.iterdir():
-                if item.name != "lambda":  # Skip lambda directory to avoid recursion
+                if item.name != "lmbda":  # Skip lmbda directory to avoid recursion
                     if item.is_dir():
                         run("cp", "-r", str(item), str(awair_dest))
                     else:

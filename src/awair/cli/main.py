@@ -26,7 +26,7 @@ def register_commands():
     awair.add_command(data_cmd.data_info)
     awair.add_command(data_cmd.gaps)
     awair.add_command(data_cmd.hist)
-    awair.add_command(lambda_cmd.lambda_cli, name='lambda')
+    awair.add_command(lambda_cmd.cli, name='lambda')
 
 
 # Register commands when module is imported
