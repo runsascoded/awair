@@ -1,6 +1,7 @@
 import { useAwairData } from './hooks/useAwairData';
 import { DataSummary } from './components/DataSummary';
 import { DataTable } from './components/DataTable';
+import { ChartComparison } from './components/ChartComparison';
 import './App.css';
 
 function App() {
@@ -38,6 +39,7 @@ function App() {
 
       <main>
         {summary && <DataSummary summary={summary} />}
+        {data.length > 0 && <ChartComparison data={data} />}
         {data.length > 0 && <DataTable data={data} />}
       </main>
 
