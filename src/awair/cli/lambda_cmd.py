@@ -2,6 +2,7 @@
 
 import sys
 import subprocess
+import importlib
 from os import environ
 from os.path import join, dirname, exists
 
@@ -47,24 +48,13 @@ def deploy(version: str = None, dry_run: bool = False):
         return
 
     try:
-        # Set token and data path in environment for subprocess
-        env = environ.copy()
-        env['AWAIR_TOKEN'] = token
-        env['AWAIR_DATA_PATH'] = get_default_data_path()
-
+        deploy_module = importlib.import_module('awair.lambda.deploy')
         if dry_run:
-            cmd = [sys.executable, deploy_script, 'package']
+            deploy_module.package_lambda(version)
         else:
-            cmd = [sys.executable, deploy_script, 'deploy']
+            deploy_module.deploy_lambda(version)
 
-        # Add version parameter if specified
-        if version:
-            cmd.extend(['--version', version])
-
-        print(f"Deploying using {deployment_type}...")
-        subprocess.run(cmd, check=True, env=env, cwd=LAMBDA_DIR)
-
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         err(f'{deployment_type} deployment failed: {e}')
         sys.exit(1)
 
@@ -102,16 +92,23 @@ def synth():
         return
 
     try:
-        # Set token and data path in environment for subprocess
-        env = environ.copy()
-        env['AWAIR_TOKEN'] = token
-        env['AWAIR_DATA_PATH'] = get_default_data_path()
+        deploy_module = importlib.import_module('awair.lambda.deploy')
+        deploy_module.synth_lambda()
 
-        cmd = [sys.executable, deploy_script, 'synth']
-        subprocess.run(cmd, check=True, env=env, cwd=LAMBDA_DIR)
-
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         err(f'Synthesis failed: {e}')
+        sys.exit(1)
+
+
+@lambda_cli.command
+@option('-v', '--version', help='Version to package: PyPI version (e.g., "0.0.1") or "source"/"src" for local source')
+def package(version: str = None):
+    """Create Lambda deployment package only (without deploying)."""
+    try:
+        deploy_module = importlib.import_module('awair.lambda.deploy')
+        deploy_module.package_lambda(version)
+    except Exception as e:
+        err(f'Package creation failed: {e}')
         sys.exit(1)
 
 

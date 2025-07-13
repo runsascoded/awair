@@ -7,8 +7,7 @@ import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import click
-from click import group, echo, pass_context, Abort, option
+from click import echo, Abort
 from utz.proc import run, output, check
 
 
@@ -210,18 +209,7 @@ def synthesize_cloudformation(awair_token: str, data_path: str, stack_name: str 
                   env=env, cwd=lambda_dir).decode()
 
 
-@group(invoke_without_command=True)
-@pass_context
-def main(ctx):
-    """CDK deployment for Awair Lambda infrastructure."""
-    if ctx.invoked_subcommand is None:
-        # Default to deploy
-        ctx.invoke(deploy)
-
-
-@main.command
-@option('-v', '--version', help='Version to deploy: PyPI version or "source"/"src"')
-def deploy(version: str = None):
+def deploy_lambda(version: str = None):
     """Deploy the stack."""
     try:
         # Get token and data path via unified flows
@@ -252,8 +240,7 @@ def deploy(version: str = None):
         raise Abort()
 
 
-@main.command
-def synth():
+def synth_lambda():
     """Synthesize CloudFormation template."""
     try:
         # Get token and data path via unified flows
@@ -272,9 +259,7 @@ def synth():
         raise Abort()
 
 
-@main.command
-@option('-v', '--version', help='Version to package: PyPI version or "source"/"src"')
-def package(version: str = None):
+def package_lambda(version: str = None):
     """Create Lambda package only."""
     try:
         # Determine package type: source if version is "source"/"src", otherwise PyPI
@@ -294,5 +279,3 @@ def package(version: str = None):
         raise Abort()
 
 
-if __name__ == "__main__":
-    main()
