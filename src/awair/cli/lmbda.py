@@ -111,12 +111,13 @@ def package(version: str = None):
 @cli.command
 @option('--follow', '-f', is_flag=True, help='Follow logs in real-time')
 @option('--stack-name', default='awair-data-updater', help='CloudFormation stack name')
-def logs(follow: bool, stack_name: str):
+@option('--since', '-s', default='1h', help='Show logs since this time (e.g., "1h", "30m", "2d")')
+def logs(follow: bool, stack_name: str, since: str):
     """View Lambda function logs."""
     function_name = stack_name
     log_group = f'/aws/lambda/{function_name}'
 
-    cmd = ['aws', 'logs', 'tail', log_group]
+    cmd = ['aws', 'logs', 'tail', log_group, '--since', since]
     if follow:
         cmd.append('--follow')
 
