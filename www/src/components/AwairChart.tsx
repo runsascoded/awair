@@ -1,9 +1,77 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
+import {
+  useFloating,
+  autoUpdate,
+  offset,
+  flip,
+  shift,
+  useHover,
+  useFocus,
+  useDismiss,
+  useRole,
+  useInteractions,
+  FloatingPortal
+} from '@floating-ui/react';
 import type { AwairRecord } from '../types/awair';
 
 interface Props {
   data: AwairRecord[];
+}
+
+// Simple tooltip component using Floating UI
+function Tooltip({ children, content }: { children: React.ReactElement; content: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const { refs, floatingStyles, context } = useFloating({
+    open: isOpen,
+    onOpenChange: setIsOpen,
+    placement: 'top',
+    middleware: [
+      offset(5),
+      flip(),
+      shift()
+    ],
+    whileElementsMounted: autoUpdate,
+  });
+
+  const hover = useHover(context);
+  const focus = useFocus(context);
+  const dismiss = useDismiss(context);
+  const role = useRole(context, { role: 'tooltip' });
+
+  const { getReferenceProps, getFloatingProps } = useInteractions([
+    hover,
+    focus,
+    dismiss,
+    role,
+  ]);
+
+  return (
+    <>
+      {React.cloneElement(children, getReferenceProps({ ref: refs.setReference, ...children.props }))}
+      {isOpen && (
+        <FloatingPortal>
+          <div
+            ref={refs.setFloating}
+            style={{
+              ...floatingStyles,
+              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+              color: 'white',
+              padding: '6px 10px',
+              borderRadius: '4px',
+              fontSize: '13px',
+              maxWidth: '300px',
+              zIndex: 1000,
+            }}
+            {...getFloatingProps()}
+          >
+            {content}
+          </div>
+        </FloatingPortal>
+      )}
+    </>
+  );
 }
 
 interface TimeWindow {
@@ -139,22 +207,17 @@ function findOptimalWindow(dataLength: number, timeRangeMinutes?: number, data?:
 
   if (timeRangeMinutes) {
     // When zoomed: calculate window size based on visible time range
-    console.log(`🔧 Finding window for ${timeRangeMinutes.toFixed(1)} minutes`);
-
     // Go from smallest to largest to find the smallest window that keeps us under target
     for (let i = 0; i < TIME_WINDOWS.length; i++) {
       const window = TIME_WINDOWS[i];
       const estimatedPoints = Math.ceil(timeRangeMinutes / window.minutes);
-      console.log(`  ${window.label}: ${estimatedPoints} points`);
 
       if (estimatedPoints <= targetPoints) {
-        console.log(`  → Selected: ${window.label}`);
         return window;
       }
     }
 
     // If even the largest window gives too many points, use it anyway
-    console.log(`  → Fallback: ${TIME_WINDOWS[TIME_WINDOWS.length - 1].label}`);
     return TIME_WINDOWS[TIME_WINDOWS.length - 1];
   } else if (data && data.length > 1) {
     // Full dataset: calculate window based on total time span
@@ -195,9 +258,21 @@ export function AwairChart({ data }: Props) {
     return stored ? JSON.parse(stored) : null;
   });
 
+  const [hasSetDefaultRange, setHasSetDefaultRange] = useState(false);
+
   // Flag to ignore the next relayout event from double-click
   const ignoreNextRelayoutRef = useRef(false);
 
+  // Format date for Plotly (YYYY-MM-DD HH:MM:SS)
+  const formatForPlotly = useCallback((date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }, []);
 
   // Save to session storage when values change
   useEffect(() => {
@@ -212,15 +287,25 @@ export function AwairChart({ data }: Props) {
     }
   }, [xAxisRange]);
 
-  // Format date for Plotly (YYYY-MM-DD HH:MM:SS)
-  const formatForPlotly = useCallback((date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+  // Set default range to latest 3d on first load
+  useEffect(() => {
+    if (!hasSetDefaultRange && data.length > 0 && !xAxisRange) {
+      const latestTime = new Date(data[0].timestamp);
+      const earliestTime = new Date(latestTime.getTime() - (3 * 24 * 60 * 60 * 1000));
+      const defaultRange: [string, string] = [formatForPlotly(earliestTime), formatForPlotly(latestTime)];
+      setXAxisRange(defaultRange);
+      setHasSetDefaultRange(true);
+    }
+  }, [data, xAxisRange, hasSetDefaultRange, formatForPlotly]);
+
+  // Compact date formatter for display
+  const formatCompactDate = useCallback((date: Date) => {
+    const year = String(date.getFullYear()).slice(-2);
+    const month = String(date.getMonth() + 1);
+    const day = String(date.getDate());
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    return `${month}/${day}/${year} ${hours}:${minutes}`;
   }, []);
 
   const handleTimeRangeClick = useCallback((hours: number) => {
@@ -267,14 +352,12 @@ export function AwairChart({ data }: Props) {
   }, [data, formatForPlotly]);
 
   const handleDoubleClick = useCallback(() => {
-    console.log('🔄 Double-click detected - setting full range');
     if (data.length > 0) {
       // Set our desired full range
       const fullRange: [string, string] = [
         formatForPlotly(new Date(data[data.length - 1].timestamp)),
         formatForPlotly(new Date(data[0].timestamp))
       ];
-      console.log('🔍 Setting full range via double-click:', fullRange);
 
       // Set the flag BEFORE setting the range
       ignoreNextRelayoutRef.current = true;
@@ -283,13 +366,8 @@ export function AwairChart({ data }: Props) {
   }, [data, formatForPlotly]);
 
   const handleRelayout = useCallback((eventData: any) => {
-    console.log('🎯 Relayout event:', eventData);
-    console.log('🎯 Current xAxisRange at event start:', xAxisRange);
-    console.log('🎯 ignoreNextRelayout flag:', ignoreNextRelayoutRef.current);
-
     // Check if we should ignore this event (from double-click)
     if (ignoreNextRelayoutRef.current) {
-      console.log('🚫 Ignoring relayout event after double-click');
       ignoreNextRelayoutRef.current = false;
       return;
     }
@@ -325,7 +403,6 @@ export function AwairChart({ data }: Props) {
       }
 
       const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(newEnd)];
-      console.log('🔄 Setting clamped range from user interaction');
       setXAxisRange(newRange);
     }
   }, [xAxisRange, data, setRangeByWidth, formatForPlotly]);
@@ -351,17 +428,25 @@ export function AwairChart({ data }: Props) {
       if (isFullRange) return 'all'; // This will activate both "All" and "Latest" buttons
     }
 
-    // Check range width with tolerance
+    // Check range width with tolerance and return latest version if applicable
     if (Math.abs(rangeHours - 24) < 2) {
       return isLatestView ? 'latest-24h' : '24h';
+    }
+    if (Math.abs(rangeHours - (24 * 3)) < 6) {
+      return isLatestView ? 'latest-3d' : '3d';
     }
     if (Math.abs(rangeHours - (24 * 7)) < 12) {
       return isLatestView ? 'latest-7d' : '7d';
     }
-    if (Math.abs(rangeHours - (24 * 30)) < 24) {
+    if (Math.abs(rangeHours - (24 * 14)) < 24) {
+      return isLatestView ? 'latest-14d' : '14d';
+    }
+    if (Math.abs(rangeHours - (24 * 30)) < 48) {
       return isLatestView ? 'latest-30d' : '30d';
     }
-    return 'custom';
+
+    // For custom ranges, still check if they end at latest
+    return isLatestView ? 'latest-custom' : 'custom';
   }, [xAxisRange, data]);
 
 
@@ -370,7 +455,6 @@ export function AwairChart({ data }: Props) {
 
   // First filter the data, then calculate optimal window
   const { dataToAggregate, selectedWindow } = useMemo(() => {
-    console.log('🔄 Recalculating window - rangeKey:', rangeKey);
     let filteredData = data;
 
     if (xAxisRange) {
@@ -388,14 +472,12 @@ export function AwairChart({ data }: Props) {
 
       // Calculate window based on actual visible time range
       const rangeMinutes = (new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60);
-      console.log('📊 Filtered data points:', filteredData.length, 'Range minutes:', rangeMinutes);
       const window = findOptimalWindow(filteredData.length, rangeMinutes, filteredData);
 
       return { dataToAggregate: filteredData, selectedWindow: window };
     }
 
     // For full dataset view
-    console.log('📊 Using full dataset:', data.length, 'points');
     const window = findOptimalWindow(data.length, undefined, data);
     return { dataToAggregate: data, selectedWindow: window };
   }, [data, rangeKey]);
@@ -468,6 +550,24 @@ export function AwairChart({ data }: Props) {
                 24h
               </button>
               <button
+                className={getActiveTimeRange() === '3d' || getActiveTimeRange() === 'latest-3d' ? 'active' : ''}
+                onClick={() => {
+                  const activeRange = getActiveTimeRange();
+                  if (activeRange.startsWith('latest-') || activeRange === 'all') {
+                    // Stay anchored to latest
+                    handleTimeRangeClick(24 * 3);
+                  } else if (xAxisRange && data.length > 0) {
+                    // Preserve current center
+                    const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
+                    setRangeByWidth(24 * 3, currentCenter);
+                  } else {
+                    handleTimeRangeClick(24 * 3);
+                  }
+                }}
+              >
+                3d
+              </button>
+              <button
                 className={getActiveTimeRange() === '7d' || getActiveTimeRange() === 'latest-7d' ? 'active' : ''}
                 onClick={() => {
                   const activeRange = getActiveTimeRange();
@@ -484,6 +584,24 @@ export function AwairChart({ data }: Props) {
                 }}
               >
                 7d
+              </button>
+              <button
+                className={getActiveTimeRange() === '14d' || getActiveTimeRange() === 'latest-14d' ? 'active' : ''}
+                onClick={() => {
+                  const activeRange = getActiveTimeRange();
+                  if (activeRange.startsWith('latest-') || activeRange === 'all') {
+                    // Stay anchored to latest
+                    handleTimeRangeClick(24 * 14);
+                  } else if (xAxisRange && data.length > 0) {
+                    // Preserve current center
+                    const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
+                    setRangeByWidth(24 * 14, currentCenter);
+                  } else {
+                    handleTimeRangeClick(24 * 14);
+                  }
+                }}
+              >
+                14d
               </button>
               <button
                 className={getActiveTimeRange() === '30d' || getActiveTimeRange() === 'latest-30d' ? 'active' : ''}
@@ -546,14 +664,16 @@ export function AwairChart({ data }: Props) {
           </div>
 
           <div className="control-group">
-            <label>Current Range:</label>
+            <label>Range:</label>
             <div className="range-info">
               {xAxisRange ? (
-                <div className="range-display">
-                  <span className="range-start">{new Date(xAxisRange[0]).toLocaleString()}</span>
-                  <span className="range-separator"> → </span>
-                  <span className="range-end">{new Date(xAxisRange[1]).toLocaleString()}</span>
-                </div>
+                <Tooltip content={`${new Date(xAxisRange[0]).toLocaleString()} → ${new Date(xAxisRange[1]).toLocaleString()}`}>
+                  <div className="range-display">
+                    <span className="range-start">{formatCompactDate(new Date(xAxisRange[0]))}</span>
+                    <span className="range-separator"> → </span>
+                    <span className="range-end">{formatCompactDate(new Date(xAxisRange[1]))}</span>
+                  </div>
+                </Tooltip>
               ) : (
                 <span className="range-display">All data</span>
               )}
@@ -577,19 +697,26 @@ export function AwairChart({ data }: Props) {
               showlegend: false,
               hoverinfo: 'skip'
             },
-            // Average line
+            // Average line with comprehensive hover
             {
               x: timestamps,
               y: avgValues,
               type: 'scatter',
               mode: 'lines',
-              name: `${config.label} (avg)`,
+              name: `${config.label}`,
               line: { color: config.color, width: 3 },
-              hovertemplate: `<b>%{fullData.name}</b><br>` +
-                           `Time: %{x}<br>` +
-                           `Value: %{y:.1f} ${config.unit}<extra></extra>`
+              customdata: aggregatedData.map((d, i) => ({
+                avg: avgValues[i],
+                upper: upperValues[i],
+                lower: lowerValues[i],
+                stddev: stddevValues[i]
+              })),
+              hovertemplate: `<b>%{x}</b><br>` +
+                           `Avg: %{y:.1f} ${config.unit}<br>` +
+                           `±1σ: %{customdata.lower:.1f} - %{customdata.upper:.1f} ${config.unit}<br>` +
+                           `σ: %{customdata.stddev:.1f} ${config.unit}<extra></extra>`
             },
-            // Upper stddev line (thin, dashed) - hidden from legend
+            // Upper stddev line (thin, dashed) - hidden hover
             {
               x: timestamps,
               y: upperValues,
@@ -599,11 +726,9 @@ export function AwairChart({ data }: Props) {
               line: { color: config.color, width: 1, dash: 'dot' },
               opacity: 0.7,
               showlegend: false,
-              hovertemplate: `<b>%{fullData.name}</b><br>` +
-                           `Time: %{x}<br>` +
-                           `Value: %{y:.1f} ${config.unit}<extra></extra>`
+              hoverinfo: 'skip'
             },
-            // Lower stddev line (thin, dashed) - hidden from legend
+            // Lower stddev line (thin, dashed) - hidden hover
             {
               x: timestamps,
               y: lowerValues,
@@ -613,9 +738,7 @@ export function AwairChart({ data }: Props) {
               line: { color: config.color, width: 1, dash: 'dot' },
               opacity: 0.7,
               showlegend: false,
-              hovertemplate: `<b>%{fullData.name}</b><br>` +
-                           `Time: %{x}<br>` +
-                           `Value: %{y:.1f} ${config.unit}<extra></extra>`
+              hoverinfo: 'skip'
             }
           ]}
           layout={{
@@ -636,7 +759,7 @@ export function AwairChart({ data }: Props) {
               gridcolor: '#f0f0f0',
               fixedrange: true
             },
-            margin: { l: 80, r: 60, t: 20, b: 60 },
+            margin: { l: 80, r: 80, t: 40, b: 60 },
             hovermode: 'x',
             plot_bgcolor: 'white',
             paper_bgcolor: 'white',
@@ -648,6 +771,13 @@ export function AwairChart({ data }: Props) {
               borderwidth: 1
             },
             dragmode: 'pan',
+            selectdirection: 'horizontal',
+            // Mobile-friendly touch interactions
+            showlegend: true,
+            autosize: true,
+            // Enable touch interactions
+            hovermode: 'closest',
+            // Prevent text selection on mobile
             selectdirection: 'horizontal'
           }}
           config={{
@@ -655,7 +785,16 @@ export function AwairChart({ data }: Props) {
             displaylogo: false,
             responsive: true,
             scrollZoom: true,
-            modeBarButtonsToRemove: ['select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
+            doubleClick: false,
+            showTips: false,
+            modeBarButtonsToRemove: ['select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
+            toImageButtonOptions: {
+              format: 'png',
+              filename: 'awair-chart',
+              height: 500,
+              width: 1000,
+              scale: 1
+            }
           }}
           useResizeHandler={true}
           style={{ width: '100%', height: '100%' }}
@@ -664,12 +803,11 @@ export function AwairChart({ data }: Props) {
         />
       </div>
 
-      <div
-        className="chart-status"
-        title="Window size adapts automatically to zoom level. Drag to select time range, double-click to reset."
-      >
-        Showing {aggregatedData.length} {selectedWindow.label} windows
-      </div>
+      <Tooltip content="Window size adapts automatically to zoom level. Drag to pan, wheel to zoom, double-click to show all data.">
+        <div className="chart-status">
+          Showing {aggregatedData.length} {selectedWindow.label} windows
+        </div>
+      </Tooltip>
     </div>
   );
 }

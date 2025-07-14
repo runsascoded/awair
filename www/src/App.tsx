@@ -33,8 +33,7 @@ function App() {
   return (
     <div className="app">
       <header>
-        <h1>Awair Air Quality Dashboard</h1>
-        <p>Real-time air quality monitoring data</p>
+        <h1>Awair Dashboard</h1>
       </header>
 
       <main>

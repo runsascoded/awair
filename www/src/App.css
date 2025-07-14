@@ -22,14 +22,14 @@ body {
 header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 2rem;
+  padding: 1rem;
   text-align: center;
 }
 
 header h1 {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-  font-weight: 700;
+  font-size: 2rem;
+  margin-bottom: 0;
+  font-weight: 600;
 }
 
 header p {
@@ -453,18 +453,25 @@ footer p {
 }
 
 .range-display {
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: #495057;
-  background: #f8f9fa;
-  padding: 0.5rem;
-  border-radius: 4px;
-  border: 1px solid #dee2e6;
+  cursor: help;
 }
 
 .range-separator {
   color: #6c757d;
   margin: 0 0.5rem;
+}
+
+/* Mobile touch optimization */
+.awair-chart .chart-container {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 /* Responsive design */
@@ -505,5 +512,21 @@ footer p {
 
   th, td {
     padding: 0.75rem 0.5rem;
+  }
+
+  /* Mobile chart adjustments */
+  .chart-controls {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .time-range-buttons {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .time-range-buttons button {
+    min-width: 60px;
   }
 }
