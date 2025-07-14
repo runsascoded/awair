@@ -548,7 +548,7 @@ export function AwairChart({ data }: Props) {
                   }
                 }}
               >
-                24h
+                1d
               </button>
               <button
                 className={getActiveTimeRange() === '3d' || getActiveTimeRange() === 'latest-3d' ? 'active' : ''}
@@ -643,10 +643,21 @@ export function AwairChart({ data }: Props) {
           </div>
 
           <div className="control-group">
-            <label>Position:</label>
-            <div className="time-range-buttons">
+            <label>Range:</label>
+            <div className="range-info">
+              {xAxisRange ? (
+                <Tooltip content={`${new Date(xAxisRange[0]).toLocaleString()} → ${new Date(xAxisRange[1]).toLocaleString()}`}>
+                  <div className="range-display">
+                    <span className="range-start">{formatCompactDate(new Date(xAxisRange[0]))}</span>
+                    <span className="range-separator"> → </span>
+                    <span className="range-end">{formatCompactDate(new Date(xAxisRange[1]))}</span>
+                  </div>
+                </Tooltip>
+              ) : (
+                <span className="range-display">All data</span>
+              )}
               <button
-                className={getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}
+                className={`latest-button ${getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
                 onClick={() => {
                   if (xAxisRange && data.length > 0) {
                     const rangeStart = new Date(xAxisRange[0]);
@@ -661,23 +672,6 @@ export function AwairChart({ data }: Props) {
               >
                 Latest
               </button>
-            </div>
-          </div>
-
-          <div className="control-group">
-            <label>Range:</label>
-            <div className="range-info">
-              {xAxisRange ? (
-                <Tooltip content={`${new Date(xAxisRange[0]).toLocaleString()} → ${new Date(xAxisRange[1]).toLocaleString()}`}>
-                  <div className="range-display">
-                    <span className="range-start">{formatCompactDate(new Date(xAxisRange[0]))}</span>
-                    <span className="range-separator"> → </span>
-                    <span className="range-end">{formatCompactDate(new Date(xAxisRange[1]))}</span>
-                  </div>
-                </Tooltip>
-              ) : (
-                <span className="range-display">All data</span>
-              )}
             </div>
           </div>
 
@@ -812,8 +806,20 @@ export function AwairChart({ data }: Props) {
       <DataTable
         data={aggregatedData}
         formatCompactDate={formatCompactDate}
-        totalDataCount={data.length}
+        totalDataCount={useMemo(() => {
+          // Calculate total possible windows for the entire dataset with current window size
+          if (data.length === 0) return 0;
+          const firstTime = new Date(data[data.length - 1].timestamp).getTime();
+          const lastTime = new Date(data[0].timestamp).getTime();
+          const totalMinutes = (lastTime - firstTime) / (1000 * 60);
+          return Math.ceil(totalMinutes / selectedWindow.minutes);
+        }, [data, selectedWindow])}
         windowLabel={selectedWindow.label}
+        plotStartTime={xAxisRange?.[0]}
+        plotEndTime={xAxisRange?.[1]}
+        fullDataStartTime={data.length > 0 ? data[data.length - 1].timestamp : undefined}
+        fullDataEndTime={data.length > 0 ? data[0].timestamp : undefined}
+        windowMinutes={selectedWindow.minutes}
       />
     </div>
   );

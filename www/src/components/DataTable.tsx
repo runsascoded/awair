@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   useFloating,
   autoUpdate,
@@ -32,6 +32,11 @@ interface Props {
   formatCompactDate: (date: Date) => string;
   totalDataCount: number;
   windowLabel: string;
+  plotStartTime?: string;
+  plotEndTime?: string;
+  fullDataStartTime?: string;
+  fullDataEndTime?: string;
+  windowMinutes: number;
 }
 
 // Simple tooltip component for table values
@@ -89,7 +94,7 @@ function ValueTooltip({ children, content }: { children: React.ReactElement; con
   );
 }
 
-export function DataTable({ data, formatCompactDate, totalDataCount, windowLabel }: Props) {
+export function DataTable({ data, formatCompactDate, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes }: Props) {
   const [page, setPage] = useState(0);
   const pageSize = 20;
 
@@ -101,25 +106,60 @@ export function DataTable({ data, formatCompactDate, totalDataCount, windowLabel
   const endIdx = Math.min(startIdx + pageSize, reversedData.length);
   const pageData = reversedData.slice(startIdx, endIdx);
 
+  // Calculate position within total dataset (reverse chronological)
+  const { globalStartIdx, globalEndIdx } = useMemo(() => {
+    if (!plotStartTime || !plotEndTime || !fullDataStartTime || !fullDataEndTime) {
+      return { globalStartIdx: startIdx + 1, globalEndIdx: endIdx };
+    }
+
+    // Calculate how many windows from the end of full dataset to end of plot
+    const fullEnd = new Date(fullDataEndTime).getTime();
+    const plotEnd = new Date(plotEndTime).getTime();
+    const windowsAfterPlot = Math.floor((fullEnd - plotEnd) / (windowMinutes * 60 * 1000));
+
+    // In reverse chronological order, latest data has lowest indices
+    // The current page shows windows starting from windowsAfterPlot + startIdx
+    const globalStart = windowsAfterPlot + startIdx + 1;
+    const globalEnd = windowsAfterPlot + endIdx;
+
+    return { globalStartIdx: globalStart, globalEndIdx: globalEnd };
+  }, [plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, startIdx, endIdx]);
+
   return (
     <div className="data-table">
       <div className="table-header">
         <h3>Aggregated Data</h3>
         <div className="pagination">
           <button
+            onClick={() => setPage(0)}
+            disabled={page === 0}
+            title="First page"
+          >
+            ⏮️
+          </button>
+          <button
             onClick={() => setPage(p => Math.max(0, p - 1))}
             disabled={page === 0}
+            title="Previous page"
           >
-            Newer
+            ⏪
           </button>
           <span>
-            {startIdx + 1}-{endIdx} of {totalDataCount} {windowLabel}
+            {globalStartIdx.toLocaleString()}-{globalEndIdx.toLocaleString()} of {totalDataCount.toLocaleString()} × {windowLabel}
           </span>
           <button
             onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
             disabled={page >= totalPages - 1}
+            title="Next page"
           >
-            Older
+            ⏩
+          </button>
+          <button
+            onClick={() => setPage(totalPages - 1)}
+            disabled={page >= totalPages - 1}
+            title="Last page"
+          >
+            ⏭️
           </button>
         </div>
       </div>
