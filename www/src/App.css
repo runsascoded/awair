@@ -5,11 +5,55 @@
   box-sizing: border-box;
 }
 
+/* CSS Variables for theming */
+:root {
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f8f9fa;
+  --text-primary: #333333;
+  --text-secondary: #7f8c8d;
+  --text-tertiary: #2c3e50;
+  --border-primary: #ecf0f1;
+  --border-secondary: #dee2e6;
+  --border-tertiary: #e9ecef;
+  --accent-primary: #3498db;
+  --accent-secondary: #2980b9;
+  --accent-tertiary: #e7f3ff;
+  --accent-quaternary: #f1f8ff;
+  --disabled-bg: #bdc3c7;
+  --disabled-text: #e9ecef;
+  --shadow: rgba(0, 0, 0, 0.1);
+  --plot-bg: white;
+  --plot-grid: #ddd;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #3a3a3a;
+  --text-primary: #e0e0e0;
+  --text-secondary: #b0b0b0;
+  --text-tertiary: #ffffff;
+  --border-primary: #404040;
+  --border-secondary: #505050;
+  --border-tertiary: #606060;
+  --accent-primary: #4aa3df;
+  --accent-secondary: #3498db;
+  --accent-tertiary: #2a4a5a;
+  --accent-quaternary: #1e3a4a;
+  --disabled-bg: #505050;
+  --disabled-text: #404040;
+  --shadow: rgba(0, 0, 0, 0.3);
+  --plot-bg: #2d2d2d;
+  --plot-grid: #505050;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   line-height: 1.6;
-  color: #333;
-  background-color: #f5f7fa;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .app {
@@ -50,6 +94,7 @@ main {
 .loading, .error {
   text-align: center;
   padding: 4rem 2rem;
+  color: var(--text-primary);
 }
 
 .error button {
@@ -70,15 +115,16 @@ main {
 
 /* Data Summary */
 .data-summary {
-  background: white;
+  background: var(--bg-secondary);
   padding: 2rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
   margin-bottom: 2rem;
+  transition: background-color 0.3s ease;
 }
 
 .data-summary h2 {
-  color: #2c3e50;
+  color: var(--text-tertiary);
   margin-bottom: 1.5rem;
   font-size: 1.8rem;
 }
@@ -97,7 +143,7 @@ main {
 
 .summary-item .label {
   font-weight: 600;
-  color: #7f8c8d;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -106,15 +152,16 @@ main {
 .summary-item .value {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--text-tertiary);
 }
 
 /* Data Table */
 .data-table {
-  background: white;
+  background: var(--bg-secondary);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
   overflow: hidden;
+  transition: background-color 0.3s ease;
 }
 
 .table-header {
@@ -122,11 +169,11 @@ main {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid #ecf0f1;
+  border-bottom: 1px solid var(--border-primary);
 }
 
 .table-header h3 {
-  color: #2c3e50;
+  color: var(--text-tertiary);
   font-size: 1.5rem;
 }
 
@@ -139,28 +186,26 @@ main {
 .pagination-btn {
   padding: 0.3rem 0.5rem;
   background: transparent;
-  color: #3498db;
-  border: 1px solid #3498db;
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
   font-size: 0.9rem;
-  /*width: 2.5rem;*/
-  /*height: 2.5rem;*/
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .pagination-btn:hover:not(:disabled) {
-  background: #3498db;
+  background: var(--accent-primary);
   color: white;
 }
 
 .pagination-btn:disabled {
-  color: #e9ecef;
-  border-color: #e9ecef;
-  background: #f8f9fa;
+  color: var(--disabled-text);
+  border-color: var(--disabled-text);
+  background: var(--bg-tertiary);
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -192,19 +237,19 @@ table {
 th, td {
   padding: 0.2rem 1rem;
   text-align: left;
-  border-bottom: 1px solid #ecf0f1;
+  border-bottom: 1px solid var(--border-primary);
 }
 
 th {
-  background: #f8f9fa;
+  background: var(--bg-tertiary);
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-tertiary);
   position: sticky;
   top: 0;
 }
 
 tr:hover {
-  background: #f8f9fa;
+  background: var(--bg-tertiary);
 }
 
 td {
@@ -346,26 +391,27 @@ footer p {
 
 /* Awair Chart */
 .awair-chart {
-  background: white;
+  background: var(--bg-secondary);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow);
   margin-bottom: 2rem;
   overflow: hidden;
+  transition: background-color 0.3s ease;
 }
 
 .chart-header {
   padding: 2rem;
-  border-bottom: 1px solid #ecf0f1;
+  border-bottom: 1px solid var(--border-primary);
 }
 
 .chart-header h2 {
-  color: #2c3e50;
+  color: var(--text-tertiary);
   margin-bottom: 0.5rem;
   font-size: 1.8rem;
 }
 
 .chart-header p {
-  color: #7f8c8d;
+  color: var(--text-secondary);
   margin-bottom: 1.5rem;
 }
 
@@ -384,7 +430,7 @@ footer p {
 
 .control-group label {
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-tertiary);
   font-size: 0.9rem;
 }
 
@@ -502,12 +548,12 @@ footer p {
 
 .range-display {
   font-size: 0.9rem;
-  color: #495057;
+  color: var(--text-primary);
   cursor: help;
 }
 
 .range-separator {
-  color: #6c757d;
+  color: var(--text-secondary);
   margin: 0 0;
 }
 
@@ -576,5 +622,57 @@ footer p {
 
   .time-range-buttons button {
     min-width: 40px;
+  }
+}
+
+/* Theme Toggle */
+.theme-toggle {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-secondary);
+  box-shadow: 0 4px 12px var(--shadow);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  opacity: 0;
+  transform: translateY(100px);
+  pointer-events: none;
+}
+
+.theme-toggle.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.theme-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--shadow);
+}
+
+.theme-toggle .theme-icon {
+  transition: transform 0.2s ease;
+}
+
+.theme-toggle:hover .theme-icon {
+  transform: scale(1.1);
+}
+
+@media (max-width: 768px) {
+  .theme-toggle {
+    bottom: 1rem;
+    right: 1rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1rem;
   }
 }

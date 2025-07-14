@@ -1,9 +1,11 @@
 import { useAwairData } from './hooks/useAwairData';
 import { DataSummary } from './components/DataSummary';
 import { AwairChart } from './components/AwairChart';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { ThemeToggle } from './components/ThemeToggle';
 import './App.css';
 
-function App() {
+function AppContent() {
   const { data, summary, loading, error } = useAwairData();
 
   if (loading) {
@@ -35,8 +37,16 @@ function App() {
         {data.length > 0 && <AwairChart data={data} />}
         {summary && <DataSummary summary={summary} />}
       </main>
-
+      <ThemeToggle />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
 

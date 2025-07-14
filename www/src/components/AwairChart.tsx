@@ -513,7 +513,39 @@ export function AwairChart({ data }: Props) {
     return aggregateData(dataToAggregate, selectedWindow.minutes);
   }, [dataToAggregate, selectedWindow]);
 
-  const gridcolor = '#ddd'
+  // Theme-aware plot colors that update when theme changes
+  const [plotColors, setPlotColors] = useState(() => ({
+    gridcolor: getComputedStyle(document.documentElement).getPropertyValue('--plot-grid').trim() || '#ddd',
+    plotBg: getComputedStyle(document.documentElement).getPropertyValue('--plot-bg').trim() || 'white',
+    legendBg: getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || 'white'
+  }));
+
+  // Update plot colors when theme changes
+  useEffect(() => {
+    const updatePlotColors = () => {
+      setPlotColors({
+        gridcolor: getComputedStyle(document.documentElement).getPropertyValue('--plot-grid').trim() || '#ddd',
+        plotBg: getComputedStyle(document.documentElement).getPropertyValue('--plot-bg').trim() || 'white',
+        legendBg: getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || 'white'
+      });
+    };
+
+    // Listen for theme changes by observing the data-theme attribute
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+          updatePlotColors();
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme']
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const metricConfig = {
     temp: { label: 'Temperature', unit: '°F', color: '#e74c3c' },
@@ -783,23 +815,24 @@ export function AwairChart({ data }: Props) {
                 constraintoward: 'center',
                 autorange: false
               }),
-              gridcolor,
+              gridcolor: plotColors.gridcolor,
             },
             yaxis: {
               title: `${config.label} (${config.unit})`,
-              gridcolor,
+              gridcolor: plotColors.gridcolor,
               fixedrange: true
             },
             margin: { l: 30, r: 10, t: 40, b: 60 },
             hovermode: 'x',
-            plot_bgcolor: 'white',
-            paper_bgcolor: 'white',
+            plot_bgcolor: plotColors.plotBg,
+            paper_bgcolor: plotColors.plotBg,
             legend: {
               x: 0.02,
               y: 0.98,
-              bgcolor: 'rgba(255,255,255,0.8)',
-              bordercolor: '#ddd',
-              borderwidth: 1
+              bgcolor: plotColors.legendBg + '80', // Add transparency
+              bordercolor: plotColors.gridcolor,
+              borderwidth: 1,
+              font: { color: plotColors.textColor }
             },
             dragmode: 'pan',
             // Mobile-friendly touch interactions
