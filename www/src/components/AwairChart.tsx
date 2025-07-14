@@ -820,6 +820,51 @@ export function AwairChart({ data }: Props) {
         fullDataStartTime={data.length > 0 ? data[data.length - 1].timestamp : undefined}
         fullDataEndTime={data.length > 0 ? data[0].timestamp : undefined}
         windowMinutes={selectedWindow.minutes}
+        onPageChange={useCallback((pageOffset: number) => {
+          if (!xAxisRange || data.length === 0) return;
+
+          // Calculate how much time to shift based on page offset and page size
+          const pageSize = 20; // Should match DataTable pageSize
+          const timeShiftMinutes = pageOffset * pageSize * selectedWindow.minutes;
+          const timeShiftMs = timeShiftMinutes * 60 * 1000;
+
+          // Get current range width
+          const currentStart = new Date(xAxisRange[0]);
+          const currentEnd = new Date(xAxisRange[1]);
+          const rangeWidth = currentEnd.getTime() - currentStart.getTime();
+
+          // Shift the end time (since table is reverse chronological, forward in table = back in time)
+          const newEnd = new Date(currentEnd.getTime() - timeShiftMs);
+          const newStart = new Date(newEnd.getTime() - rangeWidth);
+
+          // Clamp to data bounds
+          const globalStart = new Date(data[data.length - 1].timestamp);
+          const globalEnd = new Date(data[0].timestamp);
+
+          const clampedStart = new Date(Math.max(newStart.getTime(), globalStart.getTime()));
+          const clampedEnd = new Date(Math.min(newEnd.getTime(), globalEnd.getTime()));
+
+          // If we hit bounds, maintain range width if possible
+          if (clampedStart.getTime() === globalStart.getTime()) {
+            const adjustedEnd = new Date(clampedStart.getTime() + rangeWidth);
+            if (adjustedEnd <= globalEnd) {
+              const newRange: [string, string] = [formatForPlotly(clampedStart), formatForPlotly(adjustedEnd)];
+              setXAxisRange(newRange);
+              return;
+            }
+          }
+          if (clampedEnd.getTime() === globalEnd.getTime()) {
+            const adjustedStart = new Date(clampedEnd.getTime() - rangeWidth);
+            if (adjustedStart >= globalStart) {
+              const newRange: [string, string] = [formatForPlotly(adjustedStart), formatForPlotly(clampedEnd)];
+              setXAxisRange(newRange);
+              return;
+            }
+          }
+
+          const newRange: [string, string] = [formatForPlotly(clampedStart), formatForPlotly(clampedEnd)];
+          setXAxisRange(newRange);
+        }, [xAxisRange, data, selectedWindow, formatForPlotly])}
       />
     </div>
   );

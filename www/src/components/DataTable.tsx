@@ -37,6 +37,7 @@ interface Props {
   fullDataStartTime?: string;
   fullDataEndTime?: string;
   windowMinutes: number;
+  onPageChange?: (pageOffset: number) => void;
 }
 
 // Simple tooltip component for table values
@@ -94,8 +95,16 @@ function ValueTooltip({ children, content }: { children: React.ReactElement; con
   );
 }
 
-export function DataTable({ data, formatCompactDate, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes }: Props) {
+export function DataTable({ data, formatCompactDate, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, onPageChange }: Props) {
   const [page, setPage] = useState(0);
+
+  const handlePageChange = (newPage: number) => {
+    const pageOffset = newPage - page;
+    setPage(newPage);
+    if (onPageChange && pageOffset !== 0) {
+      onPageChange(pageOffset);
+    }
+  };
   const pageSize = 20;
 
   // Reverse the data to show most recent first (reverse chronological)
@@ -131,35 +140,39 @@ export function DataTable({ data, formatCompactDate, totalDataCount, windowLabel
         <h3>Aggregated Data</h3>
         <div className="pagination">
           <button
-            onClick={() => setPage(0)}
-            disabled={page === 0}
-            title="First page"
+            onClick={() => handlePageChange(totalPages - 1)}
+            disabled={page >= totalPages - 1}
+            title="Oldest data"
+            className="pagination-btn"
           >
-            ⏮️
+            <i className="fas fa-angles-left"></i>
           </button>
           <button
-            onClick={() => setPage(p => Math.max(0, p - 1))}
-            disabled={page === 0}
-            title="Previous page"
+            onClick={() => handlePageChange(Math.min(totalPages - 1, page + 1))}
+            disabled={page >= totalPages - 1}
+            title="Older data"
+            className="pagination-btn"
           >
-            ⏪
+            <i className="fas fa-angle-left"></i>
           </button>
           <span>
             {globalStartIdx.toLocaleString()}-{globalEndIdx.toLocaleString()} of {totalDataCount.toLocaleString()} × {windowLabel}
           </span>
           <button
-            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-            disabled={page >= totalPages - 1}
-            title="Next page"
+            onClick={() => handlePageChange(Math.max(0, page - 1))}
+            disabled={page === 0}
+            title="Newer data"
+            className="pagination-btn"
           >
-            ⏩
+            <i className="fas fa-angle-right"></i>
           </button>
           <button
-            onClick={() => setPage(totalPages - 1)}
-            disabled={page >= totalPages - 1}
-            title="Last page"
+            onClick={() => handlePageChange(0)}
+            disabled={page === 0}
+            title="Newest data"
+            className="pagination-btn"
           >
-            ⏭️
+            <i className="fas fa-angles-right"></i>
           </button>
         </div>
       </div>
