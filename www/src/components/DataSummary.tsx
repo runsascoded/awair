@@ -110,7 +110,7 @@ export function DataSummary({ summary }: Props) {
 
   return (
     <div className="data-summary">
-      <Tooltip content="Data updated every 5 minutes">
+      <Tooltip content="Data updated every 3 minutes">
         <h2 style={{ cursor: 'help' }}>Awair Data Summary</h2>
       </Tooltip>
       <div className="summary-grid">

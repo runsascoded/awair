@@ -9,7 +9,12 @@ from click import option
 from .base import awair
 from .config import get_token, err
 from .common_opts import version_opt
-import awair.lmbda.deploy as deploy_module
+# Import deploy module conditionally - only when actually needed
+# This prevents import errors when running in Lambda where lmbda directory is excluded
+try:
+    import awair.lmbda.deploy as deploy_module
+except ImportError:
+    deploy_module = None
 
 
 # Common paths
@@ -24,8 +29,9 @@ def cli():
 
 @cli.command
 @option('-n', '--dry-run', is_flag=True, help='Build package only, do not deploy')
+@option('-r', '--refresh-interval', type=int, default=3, help='Update interval in minutes (default: 3)')
 @version_opt
-def deploy(version: str = None, dry_run: bool = False):
+def deploy(version: str = None, dry_run: bool = False, refresh_interval: int = 3):
     """Deploy the scheduled Lambda updater to AWS using CDK."""
     # Validate token via unified flow and pass to subprocess
     try:
@@ -49,10 +55,14 @@ def deploy(version: str = None, dry_run: bool = False):
         return
 
     try:
+        if deploy_module is None:
+            err('Lambda deployment module not available (lmbda directory not found)')
+            sys.exit(1)
+
         if dry_run:
             deploy_module.package_lambda(version)
         else:
-            deploy_module.deploy_lambda(version)
+            deploy_module.deploy_lambda(version, refresh_interval)
 
     except Exception as e:
         err(f'{deployment_type} deployment failed: {e}')
@@ -92,6 +102,10 @@ def synth():
         return
 
     try:
+        if deploy_module is None:
+            err('Lambda deployment module not available (lmbda directory not found)')
+            sys.exit(1)
+
         deploy_module.synth_lambda()
 
     except Exception as e:
@@ -104,6 +118,10 @@ def synth():
 def package(version: str = None):
     """Create Lambda deployment package only (without deploying)."""
     try:
+        if deploy_module is None:
+            err('Lambda deployment module not available (lmbda directory not found)')
+            sys.exit(1)
+
         deploy_module.package_lambda(version)
     except Exception as e:
         err(f'Package creation failed: {e}')

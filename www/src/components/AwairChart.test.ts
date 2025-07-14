@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readParquet } from 'hyparquet';
+import {S3_PARQUET_URL} from "../hooks/useAwairData.ts";
 
 // Mock data that matches the structure we expect
 const mockData = [

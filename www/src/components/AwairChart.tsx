@@ -517,7 +517,8 @@ export function AwairChart({ data }: Props) {
   const [plotColors, setPlotColors] = useState(() => ({
     gridcolor: getComputedStyle(document.documentElement).getPropertyValue('--plot-grid').trim() || '#ddd',
     plotBg: getComputedStyle(document.documentElement).getPropertyValue('--plot-bg').trim() || 'white',
-    legendBg: getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || 'white'
+    legendBg: getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || 'white',
+    textColor: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333'
   }));
 
   // Update plot colors when theme changes
@@ -526,7 +527,8 @@ export function AwairChart({ data }: Props) {
       setPlotColors({
         gridcolor: getComputedStyle(document.documentElement).getPropertyValue('--plot-grid').trim() || '#ddd',
         plotBg: getComputedStyle(document.documentElement).getPropertyValue('--plot-bg').trim() || 'white',
-        legendBg: getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || 'white'
+        legendBg: getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || 'white',
+        textColor: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333'
       });
     };
 
@@ -807,7 +809,10 @@ export function AwairChart({ data }: Props) {
             autosize: true,
             height: 500,
             xaxis: {
-              title: 'Time',
+              title: {
+                text: 'Time',
+                font: { color: plotColors.textColor }
+              },
               type: 'date',
               ...(xAxisRange && { range: xAxisRange }),
               ...(data.length > 0 && {
@@ -816,13 +821,22 @@ export function AwairChart({ data }: Props) {
                 autorange: false
               }),
               gridcolor: plotColors.gridcolor,
+              tickfont: { color: plotColors.textColor },
+              linecolor: plotColors.gridcolor,
+              zerolinecolor: plotColors.gridcolor
             },
             yaxis: {
-              title: `${config.label} (${config.unit})`,
+              title: {
+                text: `${config.label} (${config.unit})`,
+                font: { color: plotColors.textColor }
+              },
               gridcolor: plotColors.gridcolor,
-              fixedrange: true
+              fixedrange: true,
+              tickfont: { color: plotColors.textColor },
+              linecolor: plotColors.gridcolor,
+              zerolinecolor: plotColors.gridcolor
             },
-            margin: { l: 30, r: 10, t: 40, b: 60 },
+            margin: { l: 40, r: 10, t: 40, b: 60 },
             hovermode: 'x',
             plot_bgcolor: plotColors.plotBg,
             paper_bgcolor: plotColors.plotBg,

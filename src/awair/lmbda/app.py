@@ -19,7 +19,8 @@ class AwairLambdaStack(Stack):
     """Stack for Awair scheduled data updater Lambda."""
 
     def __init__(self, scope: Construct, construct_id: str, awair_token: str, data_path: str,
-                 package_type: str = "source", version: str = None, **kwargs) -> None:
+                 package_type: str = "source", version: str = None,
+                 refresh_interval_minutes: int = 3, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Parse S3 path for IAM permissions
@@ -84,7 +85,8 @@ class AwairLambdaStack(Stack):
             environment={
                 "AWAIR_TOKEN": awair_token,
                 "AWAIR_DATA_PATH": data_path,
-                "AWAIR_VERSION": version or "unknown"
+                "AWAIR_VERSION": version or "unknown",
+                "AWAIR_REFRESH_INTERVAL_MINUTES": str(refresh_interval_minutes)
             },
             layers=[
                 _lambda.LayerVersion.from_layer_version_arn(
@@ -93,15 +95,15 @@ class AwairLambdaStack(Stack):
                 )
             ],
             role=lambda_role,
-            description=f"Scheduled Awair data updater - fetches sensor data every 5 minutes{description_suffix}"
+            description=f"Scheduled Awair data updater - fetches sensor data every {refresh_interval_minutes} minutes{description_suffix}"
         )
 
         # EventBridge rule for scheduling
         schedule_rule = events.Rule(
             self, "UpdateScheduleRule",
             rule_name=f"{construct_id}-schedule",
-            description="Trigger Awair data update every 5 minutes",
-            schedule=events.Schedule.rate(Duration.minutes(5)),
+            description=f"Trigger Awair data update every {refresh_interval_minutes} minutes",
+            schedule=events.Schedule.rate(Duration.minutes(refresh_interval_minutes)),
             enabled=True
         )
 
@@ -141,7 +143,8 @@ class AwairCdkApp(cdk.App):
     """CDK App for Awair infrastructure."""
 
     def __init__(self, awair_token: str, data_path: str, stack_name: str = "awair-data-updater",
-                 package_type: str = "source", version: str = None):
+                 package_type: str = "source", version: str = None,
+                 refresh_interval_minutes: int = 3):
         super().__init__()
 
         # Create the stack
@@ -151,6 +154,7 @@ class AwairCdkApp(cdk.App):
             data_path=data_path,
             package_type=package_type,
             version=version,
+            refresh_interval_minutes=refresh_interval_minutes,
             description="Awair Data Updater - Scheduled Lambda for S3 updates",
             env=cdk.Environment(
                 # Use default AWS credentials/region
@@ -161,9 +165,10 @@ class AwairCdkApp(cdk.App):
 
 
 def create_app(awair_token: str, data_path: str, stack_name: str = "awair-data-updater",
-               package_type: str = "source", version: str = None) -> AwairCdkApp:
+               package_type: str = "source", version: str = None,
+               refresh_interval_minutes: int = 3) -> AwairCdkApp:
     """Create and return the CDK app."""
-    return AwairCdkApp(awair_token, data_path, stack_name, package_type, version)
+    return AwairCdkApp(awair_token, data_path, stack_name, package_type, version, refresh_interval_minutes)
 
 
 if __name__ == "__main__":
@@ -175,16 +180,18 @@ if __name__ == "__main__":
         token = get_token()
         data_path = get_default_data_path()
 
-        # Check for PyPI deployment environment variables
+        # Check for deployment configuration environment variables
         package_type = os.getenv('AWAIR_LAMBDA_PACKAGE', 'source')
         version = os.getenv('AWAIR_VERSION')
+        refresh_interval = int(os.getenv('AWAIR_REFRESH_INTERVAL_MINUTES', '3'))
 
     except ValueError as e:
         print(f"Configuration error: {e}")
         import sys
         sys.exit(1)
 
-    app = create_app(token, data_path, package_type=package_type, version=version)
+    app = create_app(token, data_path, package_type=package_type, version=version,
+                     refresh_interval_minutes=refresh_interval)
 
     # Synthesize the app (generate CloudFormation)
     app.synth()
