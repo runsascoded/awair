@@ -444,14 +444,14 @@ export function AwairChart({ data }: Props) {
 
     // Check if it's a "latest" view (ends at most recent data)
     const latestTime = new Date(data[0].timestamp);
-    const isLatestView = Math.abs(rangeEnd.getTime() - latestTime.getTime()) < 60 * 60 * 1000; // 1 hour tolerance
+    const isLatestView = Math.abs(rangeEnd.getTime() - latestTime.getTime()) < 5 * 60 * 1000; // 5 minute tolerance
 
     // Check if this is the full data range (all data) - this also counts as "latest"
     if (data.length > 0) {
       const dataStart = new Date(data[data.length - 1].timestamp);
       const dataEnd = new Date(data[0].timestamp);
-      const isFullRange = Math.abs(rangeStart.getTime() - dataStart.getTime()) < 60 * 1000 && // 1 minute tolerance
-                         Math.abs(rangeEnd.getTime() - dataEnd.getTime()) < 60 * 1000;
+      const isFullRange = Math.abs(rangeStart.getTime() - dataStart.getTime()) < 30 * 1000 && // 30 second tolerance
+                         Math.abs(rangeEnd.getTime() - dataEnd.getTime()) < 30 * 1000;
       if (isFullRange) return 'all'; // This will activate both "All" and "Latest" buttons
     }
 
