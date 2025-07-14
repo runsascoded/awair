@@ -1,6 +1,5 @@
 import { useAwairData } from './hooks/useAwairData';
 import { DataSummary } from './components/DataSummary';
-import { DataTable } from './components/DataTable';
 import { AwairChart } from './components/AwairChart';
 import './App.css';
 
@@ -32,14 +31,9 @@ function App() {
 
   return (
     <div className="app">
-      <header>
-        <h1>Awair Dashboard</h1>
-      </header>
-
       <main>
         {data.length > 0 && <AwairChart data={data} />}
         {summary && <DataSummary summary={summary} />}
-        {data.length > 0 && <DataTable data={data} />}
       </main>
 
       <footer>

@@ -13,6 +13,7 @@ import {
   useInteractions,
   FloatingPortal
 } from '@floating-ui/react';
+import { DataTable } from './DataTable';
 import type { AwairRecord } from '../types/awair';
 
 interface Props {
@@ -303,7 +304,7 @@ export function AwairChart({ data }: Props) {
     const year = String(date.getFullYear()).slice(-2);
     const month = String(date.getMonth() + 1);
     const day = String(date.getDate());
-    const hours = String(date.getHours()).padStart(2, '0');
+    const hours = String(date.getHours());
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${month}/${day}/${year} ${hours}:${minutes}`;
   }, []);
@@ -759,7 +760,7 @@ export function AwairChart({ data }: Props) {
               gridcolor: '#f0f0f0',
               fixedrange: true
             },
-            margin: { l: 80, r: 80, t: 40, b: 60 },
+            margin: { l: 80, r: 20, t: 40, b: 60 },
             hovermode: 'x',
             plot_bgcolor: 'white',
             paper_bgcolor: 'white',
@@ -771,7 +772,6 @@ export function AwairChart({ data }: Props) {
               borderwidth: 1
             },
             dragmode: 'pan',
-            selectdirection: 'horizontal',
             // Mobile-friendly touch interactions
             showlegend: true,
             autosize: true,
@@ -808,6 +808,13 @@ export function AwairChart({ data }: Props) {
           Showing {aggregatedData.length} {selectedWindow.label} windows
         </div>
       </Tooltip>
+
+      <DataTable
+        data={aggregatedData}
+        formatCompactDate={formatCompactDate}
+        totalDataCount={data.length}
+        windowLabel={selectedWindow.label}
+      />
     </div>
   );
 }
