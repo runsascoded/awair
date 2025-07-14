@@ -257,7 +257,7 @@ export function AwairChart({ data }: Props) {
   const [secondaryMetric, setSecondaryMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none'>(() => {
     const stored = sessionStorage.getItem('awair-secondary-metric') as 'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none';
     const validMetrics = ['temp', 'co2', 'humid', 'pm25', 'voc', 'none'];
-    return validMetrics.includes(stored) ? stored : 'none';
+    return validMetrics.includes(stored) ? stored : 'humid';
   });
   const [xAxisRange, setXAxisRange] = useState<[string, string] | null>(() => {
     const stored = sessionStorage.getItem('awair-time-range');
@@ -507,6 +507,98 @@ export function AwairChart({ data }: Props) {
       }
     }
   }, [data, xAxisRange, hasSetDefaultRange, getActiveTimeRange, formatForPlotly]);
+
+  // Keyboard shortcuts for metric selection and Latest button
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Only handle keypresses when not typing in an input/textarea/select
+      if (event.target instanceof HTMLInputElement ||
+          event.target instanceof HTMLTextAreaElement ||
+          event.target instanceof HTMLSelectElement) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const isShift = event.shiftKey;
+
+      // Map keys to metrics
+      const keyToMetric: { [key: string]: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc' } = {
+        't': 'temp',
+        'c': 'co2',
+        'h': 'humid',
+        'p': 'pm25',
+        'v': 'voc'
+      };
+
+      if (key in keyToMetric) {
+        const selectedMetric = keyToMetric[key];
+
+        if (isShift) {
+          // Capital letter = swap primary and secondary if same metric
+          if (selectedMetric === metric && secondaryMetric !== 'none') {
+            // Swap primary and secondary
+            setMetric(secondaryMetric as 'temp' | 'co2' | 'humid' | 'pm25' | 'voc');
+            setSecondaryMetric(selectedMetric);
+          } else if (selectedMetric !== metric) {
+            // Different metric, set as secondary
+            setSecondaryMetric(selectedMetric);
+          }
+          // If same metric and no secondary, it's a no-op
+        } else {
+          // Lowercase = primary metric
+          setMetric(selectedMetric);
+          // If secondary was the same, set it to none
+          if (secondaryMetric === selectedMetric) {
+            setSecondaryMetric('none');
+          }
+        }
+        event.preventDefault();
+      } else if (key === 'n' && isShift) {
+        // Shift+N = None for secondary
+        setSecondaryMetric('none');
+        event.preventDefault();
+      } else if (key === 'l') {
+        // L = Latest button
+        if (xAxisRange && data.length > 0) {
+          const rangeStart = new Date(xAxisRange[0]);
+          const rangeEnd = new Date(xAxisRange[1]);
+          const currentWidth = rangeEnd.getTime() - rangeStart.getTime();
+          const latestTime = new Date(data[0].timestamp);
+          const newStart = new Date(latestTime.getTime() - currentWidth);
+          const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)];
+          setXAxisRange(newRange);
+        }
+        event.preventDefault();
+      } else if (key === 'a') {
+        // A = All data
+        if (data.length > 0) {
+          const fullRange: [string, string] = [
+            formatForPlotly(new Date(data[data.length - 1].timestamp)),
+            formatForPlotly(new Date(data[0].timestamp))
+          ];
+          setXAxisRange(fullRange);
+        } else {
+          setXAxisRange(null);
+        }
+        event.preventDefault();
+      } else if (key === '1') {
+        // 1 = 1 day
+        handleTimeRangeClick(24);
+        event.preventDefault();
+      } else if (key === '3') {
+        // 3 = 3 days
+        handleTimeRangeClick(24 * 3);
+        event.preventDefault();
+      } else if (key === '2') {
+        // 2 = 14 days (2 weeks)
+        handleTimeRangeClick(24 * 14);
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [metric, secondaryMetric, xAxisRange, data, formatForPlotly]);
 
   // Create a string key for xAxisRange to ensure proper dependency tracking
   const rangeKey = xAxisRange ? `${xAxisRange[0]}-${xAxisRange[1]}` : 'null';
@@ -847,7 +939,9 @@ export function AwairChart({ data }: Props) {
 
       <div className="chart-controls">
         <div className="control-group">
-          <label>Primary Metric:</label>
+          <Tooltip content="Keyboard: t=Temperature, c=CO₂, h=Humidity, p=PM2.5, v=VOC">
+            <label>Primary Metric:</label>
+          </Tooltip>
           <select value={metric} onChange={(e) => setMetric(e.target.value as any)}>
             {Object.entries(metricConfig).map(([key, cfg]) => (
               <option key={key} value={key}>{cfg.label}</option>
@@ -856,7 +950,9 @@ export function AwairChart({ data }: Props) {
         </div>
 
         <div className="control-group">
-          <label>Secondary Metric:</label>
+          <Tooltip content="Keyboard: T=Temperature, C=CO₂, H=Humidity, P=PM2.5, V=VOC, N=None. Shift+same letter swaps primary/secondary.">
+            <label>Secondary Metric:</label>
+          </Tooltip>
           <select value={secondaryMetric} onChange={(e) => setSecondaryMetric(e.target.value as any)}>
             <option value="none">None</option>
             {Object.entries(metricConfig).map(([key, cfg]) => (
@@ -866,26 +962,28 @@ export function AwairChart({ data }: Props) {
         </div>
 
         <div className="control-group">
-          <label>Range Width:</label>
+          <Tooltip content="Keyboard: 1=1day, 3=3days, 2=14days(2wk), a=All">
+            <label>Range Width:</label>
+          </Tooltip>
           <div className="time-range-buttons">
-            <button
-              className={getActiveTimeRange() === '24h' || getActiveTimeRange() === 'latest-24h' ? 'active' : ''}
-              onClick={() => {
-                const activeRange = getActiveTimeRange();
-                if (activeRange.startsWith('latest-') || activeRange === 'all') {
-                  // Stay anchored to latest
-                  handleTimeRangeClick(24);
-                } else if (xAxisRange && data.length > 0) {
-                  // Preserve current center
-                  const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
-                  setRangeByWidth(24, currentCenter);
-                } else {
-                  handleTimeRangeClick(24);
-                }
-              }}
-            >
-              1d
-            </button>
+              <button
+                className={getActiveTimeRange() === '24h' || getActiveTimeRange() === 'latest-24h' ? 'active' : ''}
+                onClick={() => {
+                  const activeRange = getActiveTimeRange();
+                  if (activeRange.startsWith('latest-') || activeRange === 'all') {
+                    // Stay anchored to latest
+                    handleTimeRangeClick(24);
+                  } else if (xAxisRange && data.length > 0) {
+                    // Preserve current center
+                    const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
+                    setRangeByWidth(24, currentCenter);
+                  } else {
+                    handleTimeRangeClick(24);
+                  }
+                }}
+              >
+                1d
+              </button>
             <button
               className={getActiveTimeRange() === '3d' || getActiveTimeRange() === 'latest-3d' ? 'active' : ''}
               onClick={() => {
@@ -992,22 +1090,24 @@ export function AwairChart({ data }: Props) {
             ) : (
               <span className="range-display">All data</span>
             )}
-            <button
-              className={`latest-button ${getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
-              onClick={() => {
-                if (xAxisRange && data.length > 0) {
-                  const rangeStart = new Date(xAxisRange[0]);
-                  const rangeEnd = new Date(xAxisRange[1]);
-                  const currentWidth = rangeEnd.getTime() - rangeStart.getTime();
-                  const latestTime = new Date(data[0].timestamp);
-                  const newStart = new Date(latestTime.getTime() - currentWidth);
-                  const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)];
-                  setXAxisRange(newRange);
-                }
-              }}
-            >
-              Latest
-            </button>
+            <Tooltip content="Jump to latest data (Keyboard: l)">
+              <button
+                className={`latest-button ${getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
+                onClick={() => {
+                  if (xAxisRange && data.length > 0) {
+                    const rangeStart = new Date(xAxisRange[0]);
+                    const rangeEnd = new Date(xAxisRange[1]);
+                    const currentWidth = rangeEnd.getTime() - rangeStart.getTime();
+                    const latestTime = new Date(data[0].timestamp);
+                    const newStart = new Date(latestTime.getTime() - currentWidth);
+                    const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)];
+                    setXAxisRange(newRange);
+                  }
+                }}
+              >
+                Latest
+              </button>
+            </Tooltip>
           </div>
         </div>
       </div>

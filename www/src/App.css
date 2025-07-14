@@ -507,7 +507,7 @@ footer p {
   font-size: 0.9rem;
   color: #7f8c8d;
   text-align: center;
-  border-top: 1px solid #ecf0f1;
+  /*border-top: 1px solid #ecf0f1;*/
   cursor: help;
 }
 
