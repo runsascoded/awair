@@ -126,7 +126,7 @@ describe('S3 Data Fetching', () => {
   it('should fetch and parse actual parquet data', async () => {
     try {
       console.log('Fetching parquet data from S3...');
-      const response = await fetch('https://s3.amazonaws.com/380nwk/awair.parquet');
+      const response = await fetch(S3_PARQUET_URL);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

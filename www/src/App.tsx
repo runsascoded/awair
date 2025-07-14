@@ -1,12 +1,14 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { useAwairData } from './hooks/useAwairData';
 import { DataSummary } from './components/DataSummary';
 import { AwairChart } from './components/AwairChart';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ThemeToggle } from './components/ThemeToggle';
+import { queryClient } from './lib/queryClient';
 import './App.css';
 
 function AppContent() {
-  const { data, summary, loading, error } = useAwairData();
+  const { data, summary, loading, error, lastUpdated, refresh } = useAwairData();
 
   if (loading) {
     return (
@@ -44,9 +46,11 @@ function AppContent() {
 
 function App() {
   return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 
