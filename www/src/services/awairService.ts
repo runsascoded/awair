@@ -4,6 +4,7 @@ import type { AwairRecord, DataSummary } from '../types/awair';
 export const S3_PARQUET_URL = 'https://380nwk.s3.amazonaws.com/awair.parquet';
 
 export async function fetchAwairData(): Promise<{ records: AwairRecord[]; summary: DataSummary }> {
+  console.log('🔄 Checking for new data...');
   const response = await fetch(S3_PARQUET_URL);
   if (!response.ok) {
     throw new Error(`Failed to fetch data: ${response.status}`);
@@ -59,6 +60,12 @@ export async function fetchAwairData(): Promise<{ records: AwairRecord[]; summar
   }
 
   const summary: DataSummary = { count, earliest, latest, dateRange };
+
+  if (latest) {
+    console.log(`📊 New data fetched - ${count} records, latest: ${latest}`);
+  } else {
+    console.log('📊 No new data available');
+  }
 
   return { records, summary };
 }

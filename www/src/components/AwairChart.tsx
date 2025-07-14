@@ -354,6 +354,7 @@ export function AwairChart({ data }: Props) {
 
     const newRange: [string, string] = [formatForPlotly(earliestTime), formatForPlotly(latestTime)];
     setXAxisRange(newRange);
+    setHasSetDefaultRange(true);
   }, [data, formatForPlotly]);
 
   const setRangeByWidth = useCallback((hours: number, centerTime?: Date) => {
@@ -386,6 +387,7 @@ export function AwairChart({ data }: Props) {
 
     const newRange: [string, string] = [formatForPlotly(startTime), formatForPlotly(endTime)];
     setXAxisRange(newRange);
+    setHasSetDefaultRange(true);
   }, [data, formatForPlotly]);
 
   const handleDoubleClick = useCallback(() => {
@@ -399,6 +401,7 @@ export function AwairChart({ data }: Props) {
       // Set the flag BEFORE setting the range
       ignoreNextRelayoutRef.current = true;
       setXAxisRange(fullRange);
+      setHasSetDefaultRange(true);
     }
   }, [data, formatForPlotly]);
 
@@ -486,19 +489,40 @@ export function AwairChart({ data }: Props) {
     return isLatestView ? 'latest-custom' : 'custom';
   }, [xAxisRange, data]);
 
+  // Track the latest timestamp to detect when new data arrives
+  const latestTimestamp = data.length > 0 ? data[0].timestamp : null;
+
   // Auto-update range to stay pinned to latest when in "Latest" mode and new data arrives
   useEffect(() => {
-    if (data.length === 0 || !xAxisRange) return;
+    if (data.length === 0 || !xAxisRange || !latestTimestamp) return;
 
     const activeRange = getActiveTimeRange();
     const isLatestMode = activeRange.startsWith('latest-') || activeRange === 'all';
 
+    console.log('📈 Chart auto-update check:', {
+      dataLength: data.length,
+      hasRange: !!xAxisRange,
+      activeRange,
+      isLatestMode,
+      hasSetDefaultRange,
+      latestTimestamp
+    });
+
     if (isLatestMode && hasSetDefaultRange) {
-      const currentLatestTime = new Date(data[0].timestamp);
+      const currentLatestTime = new Date(latestTimestamp);
       const currentRangeEnd = new Date(xAxisRange[1]);
 
+      console.log('📈 Checking for new data:', {
+        currentLatest: currentLatestTime.toISOString(),
+        currentRangeEnd: currentRangeEnd.toISOString(),
+        hasNewData: currentLatestTime > currentRangeEnd
+      });
+
       // Check if we have new data (latest timestamp is newer than current range end)
-      if (currentLatestTime > currentRangeEnd) {
+      // Use a tolerance to avoid precision issues with formatForPlotly truncating milliseconds
+      const timeDiffMs = currentLatestTime.getTime() - currentRangeEnd.getTime();
+      if (timeDiffMs > 1000) { // Only update if difference is more than 1 second
+        console.log('📈 Updating chart range for new data');
         const rangeStart = new Date(xAxisRange[0]);
         const rangeWidth = currentRangeEnd.getTime() - rangeStart.getTime();
         const newStart = new Date(currentLatestTime.getTime() - rangeWidth);
@@ -506,7 +530,7 @@ export function AwairChart({ data }: Props) {
         setXAxisRange(newRange);
       }
     }
-  }, [data, xAxisRange, hasSetDefaultRange, getActiveTimeRange, formatForPlotly]);
+  }, [latestTimestamp, xAxisRange, hasSetDefaultRange, getActiveTimeRange, formatForPlotly]);
 
   // Keyboard shortcuts for metric selection and Latest button
   useEffect(() => {
@@ -567,6 +591,7 @@ export function AwairChart({ data }: Props) {
           const newStart = new Date(latestTime.getTime() - currentWidth);
           const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)];
           setXAxisRange(newRange);
+          setHasSetDefaultRange(true);
         }
         event.preventDefault();
       } else if (key === 'a') {
@@ -577,6 +602,7 @@ export function AwairChart({ data }: Props) {
             formatForPlotly(new Date(data[0].timestamp))
           ];
           setXAxisRange(fullRange);
+          setHasSetDefaultRange(true);
         } else {
           setXAxisRange(null);
         }
@@ -1066,6 +1092,7 @@ export function AwairChart({ data }: Props) {
                     formatForPlotly(new Date(data[0].timestamp))
                   ];
                   setXAxisRange(fullRange);
+                  setHasSetDefaultRange(true);
                 } else {
                   setXAxisRange(null);
                 }
@@ -1102,6 +1129,7 @@ export function AwairChart({ data }: Props) {
                     const newStart = new Date(latestTime.getTime() - currentWidth);
                     const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)];
                     setXAxisRange(newRange);
+                    setHasSetDefaultRange(true);
                   }
                 }}
               >
