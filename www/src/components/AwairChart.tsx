@@ -330,7 +330,7 @@ export function AwairChart({ data }: Props) {
 
     // Convert to 12-hour format
     const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    const ampm = hours < 12 ? 'a' : 'p';
+    const ampm = hours < 12 ? 'am' : 'pm';
 
     return `${month}/${day}/${year} ${hour12}:${minutes}:${seconds}${ampm}`;
   }, []);
@@ -524,6 +524,8 @@ export function AwairChart({ data }: Props) {
   };
 
   const config = metricConfig[metric] || metricConfig.temp;
+  const isRawData = selectedWindow.minutes === 1;
+
   // Convert timestamps to Plotly's expected format (YYYY-MM-DD HH:MM:SS)
   // This ensures consistent handling of timezones - Plotly returns zoom ranges
   // in this format as local time strings, so we need to provide data the same way
@@ -709,8 +711,8 @@ export function AwairChart({ data }: Props) {
       <div className="chart-container">
         <Plot
           data={[
-            // ±1 stddev filled area
-            {
+            // ±1 stddev filled area (only for aggregated data)
+            ...(isRawData ? [] : [{
               x: [...timestamps, ...timestamps.slice().reverse()],
               y: [...upperValues, ...lowerValues.slice().reverse()],
               fill: 'toself',
@@ -719,8 +721,8 @@ export function AwairChart({ data }: Props) {
               name: '±1σ Range',
               showlegend: false,
               hoverinfo: 'skip'
-            },
-            // Average line with comprehensive hover
+            }]),
+            // Main line with appropriate hover
             {
               x: timestamps,
               y: avgValues,
@@ -728,19 +730,24 @@ export function AwairChart({ data }: Props) {
               mode: 'lines',
               name: `${config.label}`,
               line: { color: config.color, width: 3 },
-              customdata: aggregatedData.map((d, i) => ({
-                avg: avgValues[i],
-                upper: upperValues[i],
-                lower: lowerValues[i],
-                stddev: stddevValues[i]
-              })),
-              hovertemplate: `<b>%{x}</b><br>` +
-                           `Avg: %{y:.1f} ${config.unit}<br>` +
-                           `±1σ: %{customdata.lower:.1f} - %{customdata.upper:.1f} ${config.unit}<br>` +
-                           `σ: %{customdata.stddev:.1f} ${config.unit}<extra></extra>`
+              ...(isRawData ? {
+                hovertemplate: `<b>%{x}</b><br>` +
+                             `${config.label}: %{y:.1f} ${config.unit}<extra></extra>`
+              } : {
+                customdata: aggregatedData.map((d, i) => ({
+                  avg: avgValues[i],
+                  upper: upperValues[i],
+                  lower: lowerValues[i],
+                  stddev: stddevValues[i]
+                })),
+                hovertemplate: `<b>%{x}</b><br>` +
+                             `Avg: %{y:.1f} ${config.unit}<br>` +
+                             `±1σ: %{customdata.lower:.1f} - %{customdata.upper:.1f} ${config.unit}<br>` +
+                             `σ: %{customdata.stddev:.1f} ${config.unit}<extra></extra>`
+              })
             },
-            // Upper stddev line (thin, dashed) - hidden hover
-            {
+            // Upper stddev line (thin, dashed) - only for aggregated data
+            ...(isRawData ? [] : [{
               x: timestamps,
               y: upperValues,
               type: 'scatter',
@@ -750,9 +757,9 @@ export function AwairChart({ data }: Props) {
               opacity: 0.7,
               showlegend: false,
               hoverinfo: 'skip'
-            },
-            // Lower stddev line (thin, dashed) - hidden hover
-            {
+            }]),
+            // Lower stddev line (thin, dashed) - only for aggregated data
+            ...(isRawData ? [] : [{
               x: timestamps,
               y: lowerValues,
               type: 'scatter',
@@ -762,7 +769,7 @@ export function AwairChart({ data }: Props) {
               opacity: 0.7,
               showlegend: false,
               hoverinfo: 'skip'
-            }
+            }])
           ]}
           layout={{
             autosize: true,
@@ -834,6 +841,8 @@ export function AwairChart({ data }: Props) {
       <DataTable
         data={aggregatedData}
         formatCompactDate={formatCompactDate}
+        formatFullDate={formatFullDate}
+        isRawData={isRawData}
         totalDataCount={useMemo(() => {
           // Calculate total possible windows for the entire dataset with current window size
           if (data.length === 0) return 0;

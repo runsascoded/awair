@@ -103,7 +103,7 @@ export function DataSummary({ summary }: Props) {
 
     // Convert to 12-hour format
     const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    const ampm = hours < 12 ? 'a' : 'p';
+    const ampm = hours < 12 ? 'am' : 'pm';
 
     return `${month}/${day}/${year} ${hour12}:${minutes}:${seconds}${ampm}`;
   };

@@ -30,6 +30,8 @@ interface AggregatedData {
 interface Props {
   data: AggregatedData[];
   formatCompactDate: (date: Date) => string;
+  formatFullDate: (date: Date) => string;
+  isRawData: boolean;
   totalDataCount: number;
   windowLabel: string;
   plotStartTime?: string;
@@ -95,22 +97,7 @@ function ValueTooltip({ children, content }: { children: React.ReactElement; con
   );
 }
 
-export function DataTable({ data, formatCompactDate, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, onPageChange }: Props) {
-  // Full date formatter for tooltips (always includes 2-digit year and seconds)
-  const formatFullDate = (date: Date) => {
-    const month = String(date.getMonth() + 1);
-    const day = String(date.getDate());
-    const year = String(date.getFullYear()).slice(-2);
-    const hours = date.getHours();
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-
-    // Convert to 12-hour format
-    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    const ampm = hours < 12 ? 'a' : 'p';
-
-    return `${month}/${day}/${year} ${hour12}:${minutes}:${seconds}${ampm}`;
-  };
+export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, onPageChange }: Props) {
   const [page, setPage] = useState(0);
 
   const handlePageChange = (newPage: number) => {
@@ -152,7 +139,7 @@ export function DataTable({ data, formatCompactDate, totalDataCount, windowLabel
   return (
     <div className="data-table">
       <div className="table-header">
-        <h3>Aggregated Data</h3>
+        <h3>{isRawData ? 'Raw Data' : 'Aggregated Data'}</h3>
         <div className="pagination">
           <button
             onClick={() => handlePageChange(totalPages - 1)}
@@ -207,31 +194,59 @@ export function DataTable({ data, formatCompactDate, totalDataCount, windowLabel
           <tbody>
             {pageData.map((record, idx) => (
               <tr key={startIdx + idx}>
-                <td>{formatCompactDate(new Date(record.timestamp))}</td>
                 <td>
-                  <ValueTooltip content={`±1σ: ${(record.temp_avg - record.temp_stddev).toFixed(1)} - ${(record.temp_avg + record.temp_stddev).toFixed(1)} °F`}>
-                    <span style={{ cursor: 'help' }}>{record.temp_avg.toFixed(1)}</span>
-                  </ValueTooltip>
+                  {isRawData ? (
+                    <ValueTooltip content={formatFullDate(new Date(record.timestamp))}>
+                      <span style={{ cursor: 'help' }}>{formatCompactDate(new Date(record.timestamp))}</span>
+                    </ValueTooltip>
+                  ) : (
+                    formatCompactDate(new Date(record.timestamp))
+                  )}
                 </td>
                 <td>
-                  <ValueTooltip content={`±1σ: ${(record.humid_avg - record.humid_stddev).toFixed(1)} - ${(record.humid_avg + record.humid_stddev).toFixed(1)} %`}>
-                    <span style={{ cursor: 'help' }}>{record.humid_avg.toFixed(1)}</span>
-                  </ValueTooltip>
+                  {isRawData ? (
+                    record.temp_avg.toFixed(1)
+                  ) : (
+                    <ValueTooltip content={`±1σ: ${(record.temp_avg - record.temp_stddev).toFixed(1)} - ${(record.temp_avg + record.temp_stddev).toFixed(1)} °F`}>
+                      <span style={{ cursor: 'help' }}>{record.temp_avg.toFixed(1)}</span>
+                    </ValueTooltip>
+                  )}
                 </td>
                 <td>
-                  <ValueTooltip content={`±1σ: ${Math.round(record.co2_avg - record.co2_stddev)} - ${Math.round(record.co2_avg + record.co2_stddev)} ppm`}>
-                    <span style={{ cursor: 'help' }}>{Math.round(record.co2_avg)}</span>
-                  </ValueTooltip>
+                  {isRawData ? (
+                    record.humid_avg.toFixed(1)
+                  ) : (
+                    <ValueTooltip content={`±1σ: ${(record.humid_avg - record.humid_stddev).toFixed(1)} - ${(record.humid_avg + record.humid_stddev).toFixed(1)} %`}>
+                      <span style={{ cursor: 'help' }}>{record.humid_avg.toFixed(1)}</span>
+                    </ValueTooltip>
+                  )}
                 </td>
                 <td>
-                  <ValueTooltip content={`±1σ: ${Math.round(record.voc_avg - record.voc_stddev)} - ${Math.round(record.voc_avg + record.voc_stddev)} ppb`}>
-                    <span style={{ cursor: 'help' }}>{Math.round(record.voc_avg)}</span>
-                  </ValueTooltip>
+                  {isRawData ? (
+                    Math.round(record.co2_avg)
+                  ) : (
+                    <ValueTooltip content={`±1σ: ${Math.round(record.co2_avg - record.co2_stddev)} - ${Math.round(record.co2_avg + record.co2_stddev)} ppm`}>
+                      <span style={{ cursor: 'help' }}>{Math.round(record.co2_avg)}</span>
+                    </ValueTooltip>
+                  )}
                 </td>
                 <td>
-                  <ValueTooltip content={`±1σ: ${(record.pm25_avg - record.pm25_stddev).toFixed(1)} - ${(record.pm25_avg + record.pm25_stddev).toFixed(1)} μg/m³`}>
-                    <span style={{ cursor: 'help' }}>{record.pm25_avg.toFixed(1)}</span>
-                  </ValueTooltip>
+                  {isRawData ? (
+                    Math.round(record.voc_avg)
+                  ) : (
+                    <ValueTooltip content={`±1σ: ${Math.round(record.voc_avg - record.voc_stddev)} - ${Math.round(record.voc_avg + record.voc_stddev)} ppb`}>
+                      <span style={{ cursor: 'help' }}>{Math.round(record.voc_avg)}</span>
+                    </ValueTooltip>
+                  )}
+                </td>
+                <td>
+                  {isRawData ? (
+                    record.pm25_avg.toFixed(1)
+                  ) : (
+                    <ValueTooltip content={`±1σ: ${(record.pm25_avg - record.pm25_stddev).toFixed(1)} - ${(record.pm25_avg + record.pm25_stddev).toFixed(1)} μg/m³`}>
+                      <span style={{ cursor: 'help' }}>{record.pm25_avg.toFixed(1)}</span>
+                    </ValueTooltip>
+                  )}
                 </td>
               </tr>
             ))}
