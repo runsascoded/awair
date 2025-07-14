@@ -50,7 +50,7 @@ function Tooltip({ children, content }: { children: React.ReactElement; content:
 
   return (
     <>
-      {React.cloneElement(children, getReferenceProps({ ref: refs.setReference, ...children.props }))}
+      {React.cloneElement(children, getReferenceProps({ ref: refs.setReference, ...(children.props as any) }))}
       {isOpen && (
         <FloatingPortal>
           <div
@@ -203,7 +203,7 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
 
 // Find the optimal aggregation window size to keep around 300 data points
 // This ensures good performance while maintaining visual detail
-function findOptimalWindow(dataLength: number, timeRangeMinutes?: number, data?: AwairRecord[]): TimeWindow {
+function findOptimalWindow(_dataLength: number, timeRangeMinutes?: number, data?: AwairRecord[]): TimeWindow {
   const targetPoints = 300;
 
   if (timeRangeMinutes) {
@@ -254,6 +254,11 @@ export function AwairChart({ data }: Props) {
     const validMetrics = ['temp', 'co2', 'humid', 'pm25', 'voc'];
     return validMetrics.includes(stored) ? stored : 'temp';
   });
+  const [secondaryMetric, setSecondaryMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none'>(() => {
+    const stored = sessionStorage.getItem('awair-secondary-metric') as 'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none';
+    const validMetrics = ['temp', 'co2', 'humid', 'pm25', 'voc', 'none'];
+    return validMetrics.includes(stored) ? stored : 'none';
+  });
   const [xAxisRange, setXAxisRange] = useState<[string, string] | null>(() => {
     const stored = sessionStorage.getItem('awair-time-range');
     return stored ? JSON.parse(stored) : null;
@@ -281,6 +286,10 @@ export function AwairChart({ data }: Props) {
   }, [metric]);
 
   useEffect(() => {
+    sessionStorage.setItem('awair-secondary-metric', secondaryMetric);
+  }, [secondaryMetric]);
+
+  useEffect(() => {
     if (xAxisRange) {
       sessionStorage.setItem('awair-time-range', JSON.stringify(xAxisRange));
     } else {
@@ -298,6 +307,7 @@ export function AwairChart({ data }: Props) {
       setHasSetDefaultRange(true);
     }
   }, [data, xAxisRange, hasSetDefaultRange, formatForPlotly]);
+
 
   // Compact date formatter for display
   const formatCompactDate = useCallback((date: Date) => {
@@ -476,6 +486,27 @@ export function AwairChart({ data }: Props) {
     return isLatestView ? 'latest-custom' : 'custom';
   }, [xAxisRange, data]);
 
+  // Auto-update range to stay pinned to latest when in "Latest" mode and new data arrives
+  useEffect(() => {
+    if (data.length === 0 || !xAxisRange) return;
+
+    const activeRange = getActiveTimeRange();
+    const isLatestMode = activeRange.startsWith('latest-') || activeRange === 'all';
+
+    if (isLatestMode && hasSetDefaultRange) {
+      const currentLatestTime = new Date(data[0].timestamp);
+      const currentRangeEnd = new Date(xAxisRange[1]);
+
+      // Check if we have new data (latest timestamp is newer than current range end)
+      if (currentLatestTime > currentRangeEnd) {
+        const rangeStart = new Date(xAxisRange[0]);
+        const rangeWidth = currentRangeEnd.getTime() - rangeStart.getTime();
+        const newStart = new Date(currentLatestTime.getTime() - rangeWidth);
+        const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(currentLatestTime)];
+        setXAxisRange(newRange);
+      }
+    }
+  }, [data, xAxisRange, hasSetDefaultRange, getActiveTimeRange, formatForPlotly]);
 
   // Create a string key for xAxisRange to ensure proper dependency tracking
   const rangeKey = xAxisRange ? `${xAxisRange[0]}-${xAxisRange[1]}` : 'null';
@@ -558,6 +589,7 @@ export function AwairChart({ data }: Props) {
   };
 
   const config = metricConfig[metric] || metricConfig.temp;
+  const secondaryConfig = secondaryMetric !== 'none' ? metricConfig[secondaryMetric] : null;
   const isRawData = selectedWindow.minutes === 1;
 
   // Convert timestamps to Plotly's expected format (YYYY-MM-DD HH:MM:SS)
@@ -578,173 +610,90 @@ export function AwairChart({ data }: Props) {
   const upperValues = avgValues.map((avg, i) => avg + stddevValues[i]);
   const lowerValues = avgValues.map((avg, i) => avg - stddevValues[i]);
 
+  // Secondary metric data (for right y-axis)
+  const secondaryAvgValues = secondaryConfig && secondaryMetric !== 'none' ? aggregatedData.map(d => d[`${secondaryMetric}_avg` as keyof AggregatedData] as number) : [];
+  const secondaryStddevValues = secondaryConfig && secondaryMetric !== 'none' ? aggregatedData.map(d => d[`${secondaryMetric}_stddev` as keyof AggregatedData] as number) : [];
+  const secondaryUpperValues = secondaryConfig ? secondaryAvgValues.map((avg, i) => avg + secondaryStddevValues[i]) : [];
+  const secondaryLowerValues = secondaryConfig ? secondaryAvgValues.map((avg, i) => avg - secondaryStddevValues[i]) : [];
+
   return (
     <div className="awair-chart">
       <div className="chart-header">
         <h2>Awair Data Visualization</h2>
-
-        <div className="chart-controls">
-          <div className="control-group">
-            <label>Metric:</label>
-            <select value={metric} onChange={(e) => setMetric(e.target.value as any)}>
-              {Object.entries(metricConfig).map(([key, cfg]) => (
-                <option key={key} value={key}>{cfg.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="control-group">
-            <label>Range Width:</label>
-            <div className="time-range-buttons">
-              <button
-                className={getActiveTimeRange() === '24h' || getActiveTimeRange() === 'latest-24h' ? 'active' : ''}
-                onClick={() => {
-                  const activeRange = getActiveTimeRange();
-                  if (activeRange.startsWith('latest-') || activeRange === 'all') {
-                    // Stay anchored to latest
-                    handleTimeRangeClick(24);
-                  } else if (xAxisRange && data.length > 0) {
-                    // Preserve current center
-                    const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
-                    setRangeByWidth(24, currentCenter);
-                  } else {
-                    handleTimeRangeClick(24);
-                  }
-                }}
-              >
-                1d
-              </button>
-              <button
-                className={getActiveTimeRange() === '3d' || getActiveTimeRange() === 'latest-3d' ? 'active' : ''}
-                onClick={() => {
-                  const activeRange = getActiveTimeRange();
-                  if (activeRange.startsWith('latest-') || activeRange === 'all') {
-                    // Stay anchored to latest
-                    handleTimeRangeClick(24 * 3);
-                  } else if (xAxisRange && data.length > 0) {
-                    // Preserve current center
-                    const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
-                    setRangeByWidth(24 * 3, currentCenter);
-                  } else {
-                    handleTimeRangeClick(24 * 3);
-                  }
-                }}
-              >
-                3d
-              </button>
-              <button
-                className={getActiveTimeRange() === '7d' || getActiveTimeRange() === 'latest-7d' ? 'active' : ''}
-                onClick={() => {
-                  const activeRange = getActiveTimeRange();
-                  if (activeRange.startsWith('latest-') || activeRange === 'all') {
-                    // Stay anchored to latest
-                    handleTimeRangeClick(24 * 7);
-                  } else if (xAxisRange && data.length > 0) {
-                    // Preserve current center
-                    const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
-                    setRangeByWidth(24 * 7, currentCenter);
-                  } else {
-                    handleTimeRangeClick(24 * 7);
-                  }
-                }}
-              >
-                7d
-              </button>
-              <button
-                className={getActiveTimeRange() === '14d' || getActiveTimeRange() === 'latest-14d' ? 'active' : ''}
-                onClick={() => {
-                  const activeRange = getActiveTimeRange();
-                  if (activeRange.startsWith('latest-') || activeRange === 'all') {
-                    // Stay anchored to latest
-                    handleTimeRangeClick(24 * 14);
-                  } else if (xAxisRange && data.length > 0) {
-                    // Preserve current center
-                    const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
-                    setRangeByWidth(24 * 14, currentCenter);
-                  } else {
-                    handleTimeRangeClick(24 * 14);
-                  }
-                }}
-              >
-                14d
-              </button>
-              <button
-                className={getActiveTimeRange() === '30d' || getActiveTimeRange() === 'latest-30d' ? 'active' : ''}
-                onClick={() => {
-                  const activeRange = getActiveTimeRange();
-                  if (activeRange.startsWith('latest-') || activeRange === 'all') {
-                    // Stay anchored to latest
-                    handleTimeRangeClick(24 * 30);
-                  } else if (xAxisRange && data.length > 0) {
-                    // Preserve current center
-                    const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
-                    setRangeByWidth(24 * 30, currentCenter);
-                  } else {
-                    handleTimeRangeClick(24 * 30);
-                  }
-                }}
-              >
-                30d
-              </button>
-              <button
-                className={getActiveTimeRange() === 'all' ? 'active' : ''}
-                onClick={() => {
-                  if (data.length > 0) {
-                    // Explicitly set range to full data bounds
-                    const fullRange: [string, string] = [
-                      formatForPlotly(new Date(data[data.length - 1].timestamp)),
-                      formatForPlotly(new Date(data[0].timestamp))
-                    ];
-                    setXAxisRange(fullRange);
-                  } else {
-                    setXAxisRange(null);
-                  }
-                }}
-              >
-                All
-              </button>
-            </div>
-          </div>
-
-          <div className="control-group">
-            <label>Range:</label>
-            <div className="range-info">
-              {xAxisRange ? (
-                <Tooltip content={`${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`}>
-                  <div className="range-display">
-                    <span className="range-start">{formatCompactDate(new Date(xAxisRange[0]))}</span>
-                    <span className="range-separator"> → </span>
-                    <span className="range-end">{formatCompactDate(new Date(xAxisRange[1]))}</span>
-                  </div>
-                </Tooltip>
-              ) : (
-                <span className="range-display">All data</span>
-              )}
-              <button
-                className={`latest-button ${getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
-                onClick={() => {
-                  if (xAxisRange && data.length > 0) {
-                    const rangeStart = new Date(xAxisRange[0]);
-                    const rangeEnd = new Date(xAxisRange[1]);
-                    const currentWidth = rangeEnd.getTime() - rangeStart.getTime();
-                    const latestTime = new Date(data[0].timestamp);
-                    const newStart = new Date(latestTime.getTime() - currentWidth);
-                    const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)];
-                    setXAxisRange(newRange);
-                  }
-                }}
-              >
-                Latest
-              </button>
-            </div>
-          </div>
-
-        </div>
       </div>
 
       <div className="chart-container">
         <Plot
           data={[
+            // SECONDARY METRIC (Right Y-Axis) - ALL traces rendered first so primary appears on top
+            ...(secondaryConfig ? [
+              // Secondary metric main line (rendered first so primary main line is on top)
+              {
+                x: timestamps,
+                y: secondaryAvgValues,
+                type: 'scatter' as const,
+                mode: 'lines' as const,
+                name: `${secondaryConfig.label}`,
+                line: { color: secondaryConfig.color, width: 2 },
+                yaxis: 'y2',
+                zorder: 1,
+                ...(isRawData ? {
+                  hovertemplate: `<b>%{x}</b><br>` +
+                               `${secondaryConfig.label}: %{y:.1f} ${secondaryConfig.unit}<extra></extra>`
+                } : {
+                  customdata: aggregatedData.map((_d, i) => ([
+                    secondaryAvgValues[i],
+                    secondaryUpperValues[i],
+                    secondaryLowerValues[i],
+                    secondaryStddevValues[i]
+                  ])),
+                  hovertemplate: `<b>%{x}</b><br>` +
+                               `Avg: %{y:.1f} ${secondaryConfig.unit}<br>` +
+                               `±1σ: %{customdata[2]:.1f} - %{customdata[1]:.1f} ${secondaryConfig.unit}<br>` +
+                               `σ: %{customdata[3]:.1f} ${secondaryConfig.unit}<extra></extra>`
+                })
+              },
+              // ±1 stddev filled area for secondary metric (only for aggregated data)
+              ...(isRawData ? [] : [{
+                x: [...timestamps, ...timestamps.slice().reverse()],
+                y: [...secondaryUpperValues, ...secondaryLowerValues.slice().reverse()],
+                fill: 'toself',
+                fillcolor: `${secondaryConfig.color}15`,
+                line: { color: 'transparent' },
+                name: '±1σ Range (Secondary)',
+                showlegend: false,
+                hoverinfo: 'skip',
+                yaxis: 'y2'
+              }]),
+              // Upper stddev line (thin, dashed) for secondary - only for aggregated data
+              ...(isRawData ? [] : [{
+                x: timestamps,
+                y: secondaryUpperValues,
+                type: 'scatter' as const,
+                mode: 'lines' as const,
+                name: `${secondaryConfig.label} (+1σ)`,
+                line: { color: secondaryConfig.color, width: 1, dash: 'dot' },
+                opacity: 0.7,
+                showlegend: false,
+                hoverinfo: 'skip',
+                yaxis: 'y2'
+              }]),
+              // Lower stddev line (thin, dashed) for secondary - only for aggregated data
+              ...(isRawData ? [] : [{
+                x: timestamps,
+                y: secondaryLowerValues,
+                type: 'scatter' as const,
+                mode: 'lines' as const,
+                name: `${secondaryConfig.label} (-1σ)`,
+                line: { color: secondaryConfig.color, width: 1, dash: 'dot' },
+                opacity: 0.7,
+                showlegend: false,
+                hoverinfo: 'skip',
+                yaxis: 'y2'
+              }])
+            ] : []),
+
+            // PRIMARY METRIC (Left Y-Axis) - ALL traces rendered last so they appear on top
             // ±1 stddev filled area (only for aggregated data)
             ...(isRawData ? [] : [{
               x: [...timestamps, ...timestamps.slice().reverse()],
@@ -754,65 +703,66 @@ export function AwairChart({ data }: Props) {
               line: { color: 'transparent' },
               name: '±1σ Range',
               showlegend: false,
-              hoverinfo: 'skip'
+              hoverinfo: 'skip',
+              yaxis: 'y'
             }]),
-            // Main line with appropriate hover
-            {
-              x: timestamps,
-              y: avgValues,
-              type: 'scatter',
-              mode: 'lines',
-              name: `${config.label}`,
-              line: { color: config.color, width: 3 },
-              ...(isRawData ? {
-                hovertemplate: `<b>%{x}</b><br>` +
-                             `${config.label}: %{y:.1f} ${config.unit}<extra></extra>`
-              } : {
-                customdata: aggregatedData.map((d, i) => ({
-                  avg: avgValues[i],
-                  upper: upperValues[i],
-                  lower: lowerValues[i],
-                  stddev: stddevValues[i]
-                })),
-                hovertemplate: `<b>%{x}</b><br>` +
-                             `Avg: %{y:.1f} ${config.unit}<br>` +
-                             `±1σ: %{customdata.lower:.1f} - %{customdata.upper:.1f} ${config.unit}<br>` +
-                             `σ: %{customdata.stddev:.1f} ${config.unit}<extra></extra>`
-              })
-            },
             // Upper stddev line (thin, dashed) - only for aggregated data
             ...(isRawData ? [] : [{
               x: timestamps,
               y: upperValues,
-              type: 'scatter',
-              mode: 'lines',
+              type: 'scatter' as const,
+              mode: 'lines' as const,
               name: `${config.label} (+1σ)`,
               line: { color: config.color, width: 1, dash: 'dot' },
               opacity: 0.7,
               showlegend: false,
-              hoverinfo: 'skip'
+              hoverinfo: 'skip',
+              yaxis: 'y'
             }]),
             // Lower stddev line (thin, dashed) - only for aggregated data
             ...(isRawData ? [] : [{
               x: timestamps,
               y: lowerValues,
-              type: 'scatter',
-              mode: 'lines',
+              type: 'scatter' as const,
+              mode: 'lines' as const,
               name: `${config.label} (-1σ)`,
               line: { color: config.color, width: 1, dash: 'dot' },
               opacity: 0.7,
               showlegend: false,
-              hoverinfo: 'skip'
-            }])
-          ]}
+              hoverinfo: 'skip',
+              yaxis: 'y'
+            }]),
+            // Main line with appropriate hover
+            {
+              x: timestamps,
+              y: avgValues,
+              type: 'scatter' as const,
+              mode: 'lines' as const,
+              name: `${config.label}`,
+              line: { color: config.color, width: 3 },
+              yaxis: 'y',
+              zorder: 10,
+              ...(isRawData ? {
+                hovertemplate: `<b>%{x}</b><br>` +
+                             `${config.label}: %{y:.1f} ${config.unit}<extra></extra>`
+              } : {
+                customdata: aggregatedData.map((_d, i) => ([
+                  avgValues[i],
+                  upperValues[i],
+                  lowerValues[i],
+                  stddevValues[i]
+                ])),
+                hovertemplate: `<b>%{x}</b><br>` +
+                             `Avg: %{y:.1f} ${config.unit}<br>` +
+                             `±1σ: %{customdata[2]:.1f} - %{customdata[1]:.1f} ${config.unit}<br>` +
+                             `σ: %{customdata[3]:.1f} ${config.unit}<extra></extra>`
+              })
+            }
+          ] as any}
           layout={{
             autosize: true,
             height: 500,
             xaxis: {
-              title: {
-                text: 'Time',
-                font: { color: plotColors.textColor }
-              },
               type: 'date',
               ...(xAxisRange && { range: xAxisRange }),
               ...(data.length > 0 && {
@@ -826,17 +776,33 @@ export function AwairChart({ data }: Props) {
               zerolinecolor: plotColors.gridcolor
             },
             yaxis: {
-              title: {
-                text: `${config.label} (${config.unit})`,
-                font: { color: plotColors.textColor }
-              },
               gridcolor: plotColors.gridcolor,
               fixedrange: true,
               tickfont: { color: plotColors.textColor },
               linecolor: plotColors.gridcolor,
-              zerolinecolor: plotColors.gridcolor
+              zerolinecolor: plotColors.gridcolor,
+              side: 'left',
+              title: {
+                text: secondaryConfig ? `${config.label} (${config.unit})` : '',
+                font: { color: plotColors.textColor, size: 12 }
+              }
             },
-            margin: { l: 40, r: 10, t: 40, b: 60 },
+            ...(secondaryConfig && {
+              yaxis2: {
+                overlaying: 'y',
+                side: 'right',
+                gridcolor: 'transparent',
+                fixedrange: true,
+                tickfont: { color: plotColors.textColor },
+                linecolor: plotColors.gridcolor,
+                zerolinecolor: 'transparent',
+                title: {
+                  text: `${secondaryConfig.label} (${secondaryConfig.unit})`,
+                  font: { color: plotColors.textColor, size: 12 }
+                }
+              }
+            }),
+            margin: { l: 40, r: secondaryConfig ? 45 : 10, t: 0, b: 45 },
             hovermode: 'x',
             plot_bgcolor: plotColors.plotBg,
             paper_bgcolor: plotColors.plotBg,
@@ -877,6 +843,173 @@ export function AwairChart({ data }: Props) {
           onRelayout={handleRelayout}
           onDoubleClick={handleDoubleClick}
         />
+      </div>
+
+      <div className="chart-controls">
+        <div className="control-group">
+          <label>Primary Metric:</label>
+          <select value={metric} onChange={(e) => setMetric(e.target.value as any)}>
+            {Object.entries(metricConfig).map(([key, cfg]) => (
+              <option key={key} value={key}>{cfg.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="control-group">
+          <label>Secondary Metric:</label>
+          <select value={secondaryMetric} onChange={(e) => setSecondaryMetric(e.target.value as any)}>
+            <option value="none">None</option>
+            {Object.entries(metricConfig).map(([key, cfg]) => (
+              key !== metric ? <option key={key} value={key}>{cfg.label}</option> : null
+            ))}
+          </select>
+        </div>
+
+        <div className="control-group">
+          <label>Range Width:</label>
+          <div className="time-range-buttons">
+            <button
+              className={getActiveTimeRange() === '24h' || getActiveTimeRange() === 'latest-24h' ? 'active' : ''}
+              onClick={() => {
+                const activeRange = getActiveTimeRange();
+                if (activeRange.startsWith('latest-') || activeRange === 'all') {
+                  // Stay anchored to latest
+                  handleTimeRangeClick(24);
+                } else if (xAxisRange && data.length > 0) {
+                  // Preserve current center
+                  const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
+                  setRangeByWidth(24, currentCenter);
+                } else {
+                  handleTimeRangeClick(24);
+                }
+              }}
+            >
+              1d
+            </button>
+            <button
+              className={getActiveTimeRange() === '3d' || getActiveTimeRange() === 'latest-3d' ? 'active' : ''}
+              onClick={() => {
+                const activeRange = getActiveTimeRange();
+                if (activeRange.startsWith('latest-') || activeRange === 'all') {
+                  // Stay anchored to latest
+                  handleTimeRangeClick(24 * 3);
+                } else if (xAxisRange && data.length > 0) {
+                  // Preserve current center
+                  const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
+                  setRangeByWidth(24 * 3, currentCenter);
+                } else {
+                  handleTimeRangeClick(24 * 3);
+                }
+              }}
+            >
+              3d
+            </button>
+            <button
+              className={getActiveTimeRange() === '7d' || getActiveTimeRange() === 'latest-7d' ? 'active' : ''}
+              onClick={() => {
+                const activeRange = getActiveTimeRange();
+                if (activeRange.startsWith('latest-') || activeRange === 'all') {
+                  // Stay anchored to latest
+                  handleTimeRangeClick(24 * 7);
+                } else if (xAxisRange && data.length > 0) {
+                  // Preserve current center
+                  const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
+                  setRangeByWidth(24 * 7, currentCenter);
+                } else {
+                  handleTimeRangeClick(24 * 7);
+                }
+              }}
+            >
+              7d
+            </button>
+            <button
+              className={getActiveTimeRange() === '14d' || getActiveTimeRange() === 'latest-14d' ? 'active' : ''}
+              onClick={() => {
+                const activeRange = getActiveTimeRange();
+                if (activeRange.startsWith('latest-') || activeRange === 'all') {
+                  // Stay anchored to latest
+                  handleTimeRangeClick(24 * 14);
+                } else if (xAxisRange && data.length > 0) {
+                  // Preserve current center
+                  const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
+                  setRangeByWidth(24 * 14, currentCenter);
+                } else {
+                  handleTimeRangeClick(24 * 14);
+                }
+              }}
+            >
+              14d
+            </button>
+            <button
+              className={getActiveTimeRange() === '30d' || getActiveTimeRange() === 'latest-30d' ? 'active' : ''}
+              onClick={() => {
+                const activeRange = getActiveTimeRange();
+                if (activeRange.startsWith('latest-') || activeRange === 'all') {
+                  // Stay anchored to latest
+                  handleTimeRangeClick(24 * 30);
+                } else if (xAxisRange && data.length > 0) {
+                  // Preserve current center
+                  const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2);
+                  setRangeByWidth(24 * 30, currentCenter);
+                } else {
+                  handleTimeRangeClick(24 * 30);
+                }
+              }}
+            >
+              30d
+            </button>
+            <button
+              className={getActiveTimeRange() === 'all' ? 'active' : ''}
+              onClick={() => {
+                if (data.length > 0) {
+                  // Explicitly set range to full data bounds
+                  const fullRange: [string, string] = [
+                    formatForPlotly(new Date(data[data.length - 1].timestamp)),
+                    formatForPlotly(new Date(data[0].timestamp))
+                  ];
+                  setXAxisRange(fullRange);
+                } else {
+                  setXAxisRange(null);
+                }
+              }}
+            >
+              All
+            </button>
+          </div>
+        </div>
+
+        <div className="control-group">
+          <label>Range:</label>
+          <div className="range-info">
+            {xAxisRange ? (
+              <Tooltip content={`${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`}>
+                <div className="range-display">
+                  <span className="range-start">{formatCompactDate(new Date(xAxisRange[0]))}</span>
+                  <span className="range-separator"> → </span>
+                  <span className="range-end">{formatCompactDate(new Date(xAxisRange[1]))}</span>
+                </div>
+              </Tooltip>
+            ) : (
+              <span className="range-display">All data</span>
+            )}
+            <button
+              className={`latest-button ${getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
+              onClick={() => {
+                if (xAxisRange && data.length > 0) {
+                  const rangeStart = new Date(xAxisRange[0]);
+                  const rangeEnd = new Date(xAxisRange[1]);
+                  const currentWidth = rangeEnd.getTime() - rangeStart.getTime();
+                  const latestTime = new Date(data[0].timestamp);
+                  const newStart = new Date(latestTime.getTime() - currentWidth);
+                  const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)];
+                  setXAxisRange(newRange);
+                }
+              }}
+            >
+              Latest
+            </button>
+          </div>
+        </div>
       </div>
 
       <Tooltip content="Window size adapts automatically to zoom level. Drag to pan, wheel to zoom, double-click to show all data.">
