@@ -190,7 +190,7 @@ table {
 }
 
 th, td {
-  padding: 0.3rem 1rem;
+  padding: 0.2rem 1rem;
   text-align: left;
   border-bottom: 1px solid #ecf0f1;
 }
@@ -404,7 +404,7 @@ footer p {
 }
 
 .awair-chart .chart-container {
-  padding: 0.5rem 1rem 1rem 1rem;
+  padding: 0.5rem 0.5rem 1rem;
   display: flex;
   justify-content: center;
 }
@@ -422,7 +422,7 @@ footer p {
 }
 
 .time-range-buttons button {
-  padding: 0.5rem 1rem;
+  padding: 0.3rem 0.5rem;
   background: #f8f9fa;
   border: 1px solid #dee2e6;
   border-radius: 4px;
@@ -533,11 +533,11 @@ footer p {
   }
 
   main {
-    padding: 1rem;
+    padding: 1rem 0.5rem;
   }
 
   .data-summary {
-    padding: 1.5rem;
+    padding: 1rem;
   }
 
   .summary-grid {
@@ -559,7 +559,7 @@ footer p {
   }
 
   th, td {
-    padding: 0.4rem 0.5rem;
+    padding: 0.3rem 0.5rem;
   }
 
   /* Mobile chart adjustments */
@@ -575,6 +575,6 @@ footer p {
   }
 
   .time-range-buttons button {
-    min-width: 60px;
+    min-width: 40px;
   }
 }

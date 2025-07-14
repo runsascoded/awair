@@ -790,7 +790,7 @@ export function AwairChart({ data }: Props) {
               gridcolor,
               fixedrange: true
             },
-            margin: { l: 80, r: 20, t: 40, b: 60 },
+            margin: { l: 30, r: 10, t: 40, b: 60 },
             hovermode: 'x',
             plot_bgcolor: 'white',
             paper_bgcolor: 'white',
