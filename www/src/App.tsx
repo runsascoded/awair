@@ -36,12 +36,6 @@ function App() {
         {summary && <DataSummary summary={summary} />}
       </main>
 
-      <footer>
-        <p>
-          Data updated every 5 minutes •
-          Last updated: {summary?.latest ? new Date(summary.latest).toLocaleString() : 'Unknown'}
-        </p>
-      </footer>
     </div>
   );
 }

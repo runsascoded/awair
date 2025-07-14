@@ -301,12 +301,38 @@ export function AwairChart({ data }: Props) {
 
   // Compact date formatter for display
   const formatCompactDate = useCallback((date: Date) => {
-    const year = String(date.getFullYear()).slice(-2);
+    const currentYear = new Date().getFullYear();
+    const dateYear = date.getFullYear();
+
     const month = String(date.getMonth() + 1);
     const day = String(date.getDate());
-    const hours = String(date.getHours());
+    const hours = date.getHours();
     const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${month}/${day}/${year} ${hours}:${minutes}`;
+
+    // Convert to 12-hour format
+    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    const ampm = hours < 12 ? 'a' : 'p';
+
+    // Include year only if different from current year
+    const yearPart = dateYear !== currentYear ? `/${String(dateYear).slice(-2)}` : '';
+
+    return `${month}/${day}${yearPart} ${hour12}:${minutes}${ampm}`;
+  }, []);
+
+  // Full date formatter for tooltips (always includes 2-digit year and seconds)
+  const formatFullDate = useCallback((date: Date) => {
+    const month = String(date.getMonth() + 1);
+    const day = String(date.getDate());
+    const year = String(date.getFullYear()).slice(-2);
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    // Convert to 12-hour format
+    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    const ampm = hours < 12 ? 'a' : 'p';
+
+    return `${month}/${day}/${year} ${hour12}:${minutes}:${seconds}${ampm}`;
   }, []);
 
   const handleTimeRangeClick = useCallback((hours: number) => {
@@ -487,6 +513,8 @@ export function AwairChart({ data }: Props) {
     return aggregateData(dataToAggregate, selectedWindow.minutes);
   }, [dataToAggregate, selectedWindow]);
 
+  const gridcolor = '#ddd'
+
   const metricConfig = {
     temp: { label: 'Temperature', unit: '°F', color: '#e74c3c' },
     co2: { label: 'CO₂', unit: 'ppm', color: '#3498db' },
@@ -646,7 +674,7 @@ export function AwairChart({ data }: Props) {
             <label>Range:</label>
             <div className="range-info">
               {xAxisRange ? (
-                <Tooltip content={`${new Date(xAxisRange[0]).toLocaleString()} → ${new Date(xAxisRange[1]).toLocaleString()}`}>
+                <Tooltip content={`${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`}>
                   <div className="range-display">
                     <span className="range-start">{formatCompactDate(new Date(xAxisRange[0]))}</span>
                     <span className="range-separator"> → </span>
@@ -747,11 +775,12 @@ export function AwairChart({ data }: Props) {
                 rangeslider: { visible: false },
                 constraintoward: 'center',
                 autorange: false
-              })
+              }),
+              gridcolor,
             },
             yaxis: {
               title: `${config.label} (${config.unit})`,
-              gridcolor: '#f0f0f0',
+              gridcolor,
               fixedrange: true
             },
             margin: { l: 80, r: 20, t: 40, b: 60 },
@@ -768,11 +797,10 @@ export function AwairChart({ data }: Props) {
             dragmode: 'pan',
             // Mobile-friendly touch interactions
             showlegend: true,
-            autosize: true,
             // Enable touch interactions
-            hovermode: 'closest',
+            // hovermode: 'closest',
             // Prevent text selection on mobile
-            selectdirection: 'horizontal'
+            selectdirection: 'h'
           }}
           config={{
             displayModeBar: true,

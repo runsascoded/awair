@@ -96,6 +96,21 @@ function ValueTooltip({ children, content }: { children: React.ReactElement; con
 }
 
 export function DataTable({ data, formatCompactDate, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, onPageChange }: Props) {
+  // Full date formatter for tooltips (always includes 2-digit year and seconds)
+  const formatFullDate = (date: Date) => {
+    const month = String(date.getMonth() + 1);
+    const day = String(date.getDate());
+    const year = String(date.getFullYear()).slice(-2);
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    // Convert to 12-hour format
+    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    const ampm = hours < 12 ? 'a' : 'p';
+
+    return `${month}/${day}/${year} ${hour12}:${minutes}:${seconds}${ampm}`;
+  };
   const [page, setPage] = useState(0);
 
   const handlePageChange = (newPage: number) => {

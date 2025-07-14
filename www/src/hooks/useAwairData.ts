@@ -62,8 +62,17 @@ export function useAwairData() {
 
         let dateRange = 'No data';
         if (earliest && latest) {
-          const start = new Date(earliest).toLocaleDateString();
-          const end = new Date(latest).toLocaleDateString();
+          const formatCompactDate = (date: Date) => {
+            const month = String(date.getMonth() + 1);
+            const day = String(date.getDate());
+            const year = String(date.getFullYear()).slice(-2);
+
+            // Always include 2-digit year for summary
+            return `${month}/${day}/${year}`;
+          };
+
+          const start = formatCompactDate(new Date(earliest));
+          const end = formatCompactDate(new Date(latest));
           dateRange = start === end ? start : `${start} - ${end}`;
         }
 
