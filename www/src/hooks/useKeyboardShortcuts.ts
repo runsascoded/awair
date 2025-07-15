@@ -41,6 +41,11 @@ export function useKeyboardShortcuts({
         return
       }
 
+      // Ignore if any modifier keys are pressed (except Shift for uppercase)
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return
+      }
+
       const key = event.key.toLowerCase()
       const isShift = event.shiftKey
 
