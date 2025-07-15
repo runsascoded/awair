@@ -40,6 +40,7 @@ interface Props {
   fullDataEndTime?: string;
   windowMinutes: number;
   onPageChange?: (pageOffset: number) => void;
+  onJumpToLatest?: () => void;
 }
 
 // Simple tooltip component for table values
@@ -97,7 +98,7 @@ function ValueTooltip({ children, content }: { children: React.ReactElement; con
   )
 }
 
-export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, onPageChange }: Props) {
+export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, onPageChange, onJumpToLatest }: Props) {
   const [page, setPage] = useState(0)
 
   const handlePageChange = (newPage: number) => {
@@ -144,8 +145,25 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
         <h3>{isRawData ? 'Raw Data' : 'Aggregated Data'}</h3>
         <div className="pagination">
           <button
-            onClick={() => handlePageChange(totalPages - 1)}
-            disabled={page >= totalPages - 1}
+            onClick={() => {
+              if (plotStartTime && plotEndTime && onPageChange) {
+                // Calculate how many pages needed to reach oldest data, then go to last page of that
+                const totalGlobalPages = Math.ceil(totalDataCount / 20)
+                const currentPagesInView = totalPages
+                const pagesNeededToReachOldest = totalGlobalPages - currentPagesInView + (totalPages - 1)
+                console.log('📋 Going to oldest data:', { totalGlobalPages, currentPagesInView, pagesNeededToReachOldest })
+                // Request navigation to oldest data and go to its last page
+                onPageChange(pagesNeededToReachOldest)
+              } else {
+                // No time filtering, just go to last page
+                handlePageChange(totalPages - 1)
+              }
+            }}
+            disabled={
+              // Disable if we're already at the last page AND we're viewing the oldest possible data
+              page >= totalPages - 1 &&
+              globalEndIdx >= totalDataCount
+            }
             title="Oldest data"
             className="pagination-btn"
           >
@@ -153,7 +171,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
           </button>
           <button
             onClick={() => handlePageChange(Math.min(totalPages - 1, page + 1))}
-            disabled={page >= totalPages - 1}
+            disabled={page >= totalPages - 1 || globalEndIdx >= totalDataCount}
             title="Older data"
             className="pagination-btn"
           >
@@ -163,17 +181,35 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
             {globalStartIdx.toLocaleString()}-{globalEndIdx.toLocaleString()} of {totalDataCount.toLocaleString()} × {windowLabel}
           </span>
           <button
-            onClick={() => handlePageChange(Math.max(0, page - 1))}
-            disabled={page === 0}
+            onClick={() => {
+              if (onPageChange && globalStartIdx > 20) {
+                // We're not at latest data, so navigate toward latest (negative offset = toward present)
+                onPageChange(-1)
+                setPage(Math.max(0, page - 1))
+              } else if (page > 0) {
+                // We're at latest data but not on first page, go to previous page
+                handlePageChange(page - 1)
+              }
+            }}
+            disabled={page === 0 && globalStartIdx <= 20}
             title="Newer data"
             className="pagination-btn"
           >
             <i className="fas fa-angle-right"></i>
           </button>
           <button
-            onClick={() => handlePageChange(0)}
-            disabled={page === 0}
-            title="Newest data"
+            onClick={() => {
+              if (onJumpToLatest) {
+                // Jump to Latest mode (like clicking the Latest button)
+                onJumpToLatest()
+                setPage(0) // Reset to first page
+              } else {
+                // Fallback to just going to first page
+                handlePageChange(0)
+              }
+            }}
+            disabled={page === 0 && globalStartIdx <= 20}
+            title="Jump to Latest"
             className="pagination-btn"
           >
             <i className="fas fa-angles-right"></i>

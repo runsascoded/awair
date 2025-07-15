@@ -99,13 +99,13 @@ export function AwairChart({ data, summary }: Props) {
     const halfRange = (hours * 60 * 60 * 1000) / 2
     const newStart = new Date(center.getTime() - halfRange)
     const newEnd = new Date(center.getTime() + halfRange)
-    
+
     // Clamp to data bounds
     const globalStart = new Date(data[data.length - 1].timestamp)
     const globalEnd = new Date(data[0].timestamp)
     const clampedStart = new Date(Math.max(newStart.getTime(), globalStart.getTime()))
     const clampedEnd = new Date(Math.min(newEnd.getTime(), globalEnd.getTime()))
-    
+
     const newRange: [string, string] = [formatForPlotly(clampedStart), formatForPlotly(clampedEnd)]
     setXAxisRange(newRange)
   }, [xAxisRange, data, formatForPlotly])
@@ -148,7 +148,7 @@ export function AwairChart({ data, summary }: Props) {
     const rangeStart = new Date(xAxisRange[0])
     const rangeEnd = new Date(xAxisRange[1])
     const rangeHours = (rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60)
-    
+
     const latestTime = new Date(data[0].timestamp)
     const timeDiffMinutes = Math.abs(rangeEnd.getTime() - latestTime.getTime()) / (1000 * 60)
     const isLatestView = timeDiffMinutes < 10
@@ -203,7 +203,7 @@ export function AwairChart({ data, summary }: Props) {
         const globalEnd = new Date(data[0].timestamp)
         const clampedStart = new Date(Math.max(newStart.getTime(), globalStart.getTime()))
         const clampedEnd = new Date(Math.min(newEnd.getTime(), globalEnd.getTime()))
-        
+
         const newRange: [string, string] = [formatForPlotly(clampedStart), formatForPlotly(clampedEnd)]
         setXAxisRange(newRange)
         checkUserPanAway(clampedEnd)
@@ -508,6 +508,14 @@ export function AwairChart({ data, summary }: Props) {
         fullDataStartTime={data.length > 0 ? data[data.length - 1].timestamp : undefined}
         fullDataEndTime={data.length > 0 ? data[0].timestamp : undefined}
         windowMinutes={selectedWindow.minutes}
+        onJumpToLatest={useCallback(() => {
+          // Jump to latest like the Latest button
+          const newRange = jumpToLatest()
+          if (newRange) {
+            setXAxisRange(newRange)
+            setHasSetDefaultRange(true)
+          }
+        }, [jumpToLatest])}
         onPageChange={useCallback((pageOffset: number) => {
           console.log('📈 Chart onPageChange called with offset:', pageOffset)
           if (!xAxisRange || data.length === 0) {
