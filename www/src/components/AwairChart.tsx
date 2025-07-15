@@ -267,8 +267,17 @@ export function AwairChart({ data, summary }: Props) {
 
   const [hasSetDefaultRange, setHasSetDefaultRange] = useState(false)
 
+  // Track if user explicitly wants "Latest" mode
+  const [latestModeIntended, setLatestModeIntended] = useState<boolean>(() => {
+    const stored = sessionStorage.getItem('awair-latest-mode')
+    return stored === 'true'
+  })
+
   // Flag to ignore the next relayout event from double-click
   const ignoreNextRelayoutRef = useRef(false)
+
+  // Flag to ignore relayout events from programmatic updates
+  const ignoreLatestModeCheckRef = useRef(false)
 
   // Format date for Plotly (YYYY-MM-DD HH:MM:SS)
   const formatForPlotly = useCallback((date: Date) => {
@@ -298,6 +307,10 @@ export function AwairChart({ data, summary }: Props) {
     }
   }, [xAxisRange])
 
+  useEffect(() => {
+    sessionStorage.setItem('awair-latest-mode', String(latestModeIntended))
+  }, [latestModeIntended])
+
   // Set default range to latest 3d on first load
   useEffect(() => {
     if (!hasSetDefaultRange && data.length > 0 && !xAxisRange) {
@@ -306,6 +319,7 @@ export function AwairChart({ data, summary }: Props) {
       const defaultRange: [string, string] = [formatForPlotly(earliestTime), formatForPlotly(latestTime)]
       setXAxisRange(defaultRange)
       setHasSetDefaultRange(true)
+      setLatestModeIntended(true) // Default view should auto-update
     }
   }, [data, xAxisRange, hasSetDefaultRange, formatForPlotly])
 
@@ -355,6 +369,7 @@ export function AwairChart({ data, summary }: Props) {
     const newRange: [string, string] = [formatForPlotly(earliestTime), formatForPlotly(latestTime)]
     setXAxisRange(newRange)
     setHasSetDefaultRange(true)
+    setLatestModeIntended(true)
   }, [data, formatForPlotly])
 
   const setRangeByWidth = useCallback((hours: number, centerTime?: Date) => {
@@ -388,6 +403,7 @@ export function AwairChart({ data, summary }: Props) {
     const newRange: [string, string] = [formatForPlotly(startTime), formatForPlotly(endTime)]
     setXAxisRange(newRange)
     setHasSetDefaultRange(true)
+    setLatestModeIntended(false)
   }, [data, formatForPlotly])
 
   const handleDoubleClick = useCallback(() => {
@@ -402,6 +418,7 @@ export function AwairChart({ data, summary }: Props) {
       ignoreNextRelayoutRef.current = true
       setXAxisRange(fullRange)
       setHasSetDefaultRange(true)
+      setLatestModeIntended(true)
     }
   }, [data, formatForPlotly])
 
@@ -445,7 +462,7 @@ export function AwairChart({ data, summary }: Props) {
       const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(newEnd)]
       setXAxisRange(newRange)
     }
-  }, [xAxisRange, data, setRangeByWidth, formatForPlotly])
+  }, [xAxisRange, data, setRangeByWidth, formatForPlotly, latestModeIntended])
 
   // Determine which time range button is active
   const getActiveTimeRange = useCallback(() => {
@@ -496,19 +513,15 @@ export function AwairChart({ data, summary }: Props) {
   useEffect(() => {
     if (data.length === 0 || !xAxisRange || !latestTimestamp) return
 
-    const activeRange = getActiveTimeRange()
-    const isLatestMode = activeRange.startsWith('latest-') || activeRange === 'all'
-
     console.log('📈 Chart auto-update check:', {
       dataLength: data.length,
       hasRange: !!xAxisRange,
-      activeRange,
-      isLatestMode,
-      hasSetDefaultRange,
-      latestTimestamp
+      latestTimestamp,
+      latestModeIntended
     })
 
-    if (isLatestMode && hasSetDefaultRange) {
+    // Simple logic: if user wants Latest mode, always auto-update
+    if (latestModeIntended) {
       const currentLatestTime = new Date(latestTimestamp)
       const currentRangeEnd = new Date(xAxisRange[1])
 
@@ -530,7 +543,7 @@ export function AwairChart({ data, summary }: Props) {
         setXAxisRange(newRange)
       }
     }
-  }, [latestTimestamp, xAxisRange, hasSetDefaultRange, getActiveTimeRange, formatForPlotly])
+  }, [latestTimestamp, xAxisRange, formatForPlotly, latestModeIntended])
 
   // Keyboard shortcuts for metric selection and Latest button
   useEffect(() => {
@@ -592,6 +605,7 @@ export function AwairChart({ data, summary }: Props) {
           const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)]
           setXAxisRange(newRange)
           setHasSetDefaultRange(true)
+          setLatestModeIntended(true)
         }
         event.preventDefault()
       } else if (key === 'a') {
@@ -603,6 +617,7 @@ export function AwairChart({ data, summary }: Props) {
           ]
           setXAxisRange(fullRange)
           setHasSetDefaultRange(true)
+          setLatestModeIntended(true)
         } else {
           setXAxisRange(null)
         }
@@ -1094,6 +1109,7 @@ export function AwairChart({ data, summary }: Props) {
                     ]
                     setXAxisRange(fullRange)
                     setHasSetDefaultRange(true)
+                    setLatestModeIntended(true)
                   } else {
                     setXAxisRange(null)
                   }
@@ -1121,7 +1137,7 @@ export function AwairChart({ data, summary }: Props) {
             )}
             <Tooltip content="Jump to latest data (Keyboard: l)">
               <button
-                className={`latest-button ${getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
+                className={`latest-button ${latestModeIntended || getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
                 onClick={() => {
                   if (xAxisRange && data.length > 0) {
                     const rangeStart = new Date(xAxisRange[0])
@@ -1132,6 +1148,7 @@ export function AwairChart({ data, summary }: Props) {
                     const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)]
                     setXAxisRange(newRange)
                     setHasSetDefaultRange(true)
+                    setLatestModeIntended(true)
                   }
                 }}
               >
