@@ -1,14 +1,14 @@
-import Plot from 'react-plotly.js';
-import type { AwairRecord } from '../../types/awair';
+import Plot from 'react-plotly.js'
+import type { AwairRecord } from '../../types/awair'
 
 interface Props {
   data: AwairRecord[];
 }
 
 export function PlotlyChart({ data }: Props) {
-  const timestamps = data.map(r => r.timestamp);
-  const temps = data.map(r => r.temp);
-  const co2s = data.map(r => r.co2);
+  const timestamps = data.map(r => r.timestamp)
+  const temps = data.map(r => r.temp)
+  const co2s = data.map(r => r.co2)
 
   return (
     <div>
@@ -48,5 +48,5 @@ export function PlotlyChart({ data }: Props) {
         }}
       />
     </div>
-  );
+  )
 }

@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import type { AwairRecord } from '../types/awair';
-import { RechartsChart } from './charts/RechartsChart';
-import { PlotlyChart } from './charts/PlotlyChart';
-import { UplotChart } from './charts/UplotChart';
-import { ObservableChart } from './charts/ObservableChart';
+import { useState } from 'react'
+import { ObservableChart } from './charts/ObservableChart'
+import { PlotlyChart } from './charts/PlotlyChart'
+import { RechartsChart } from './charts/RechartsChart'
+import { UplotChart } from './charts/UplotChart'
+import type { AwairRecord } from '../types/awair'
 
 interface Props {
   data: AwairRecord[];
@@ -17,34 +17,34 @@ interface RenderTime {
 }
 
 export function ChartComparison({ data }: Props) {
-  const [activeLibrary, setActiveLibrary] = useState<ChartLibrary>('recharts');
-  const [renderTimes, setRenderTimes] = useState<RenderTime[]>([]);
+  const [activeLibrary, setActiveLibrary] = useState<ChartLibrary>('recharts')
+  const [renderTimes, setRenderTimes] = useState<RenderTime[]>([])
 
   // Use last 1000 points for comparison to avoid overwhelming
-  const chartData = data.slice(0, 1000);
+  const chartData = data.slice(0, 1000)
 
   const measureRenderTime = (library: ChartLibrary) => {
-    const start = performance.now();
-    setActiveLibrary(library);
+    const start = performance.now()
+    setActiveLibrary(library)
 
     // Measure after next render
     setTimeout(() => {
-      const end = performance.now();
-      const time = end - start;
+      const end = performance.now()
+      const time = end - start
 
       setRenderTimes(prev => {
-        const filtered = prev.filter(rt => rt.library !== library);
-        return [...filtered, { library, time }].sort((a, b) => a.time - b.time);
-      });
-    }, 100);
-  };
+        const filtered = prev.filter(rt => rt.library !== library)
+        return [...filtered, { library, time }].sort((a, b) => a.time - b.time)
+      })
+    }, 100)
+  }
 
   const libraries: { key: ChartLibrary; name: string; description: string }[] = [
     { key: 'recharts', name: 'Recharts', description: 'React-native, composable, SSR-friendly' },
     { key: 'plotly', name: 'Plotly.js', description: 'Feature-rich, heavy bundle' },
     { key: 'uplot', name: 'uPlot', description: 'Minimal, ultra-fast' },
     { key: 'observable', name: 'Observable Plot', description: 'Grammar of graphics, D3-based' }
-  ];
+  ]
 
   return (
     <div className="chart-comparison">
@@ -86,5 +86,5 @@ export function ChartComparison({ data }: Props) {
         {activeLibrary === 'observable' && <ObservableChart data={chartData} />}
       </div>
     </div>
-  );
+  )
 }

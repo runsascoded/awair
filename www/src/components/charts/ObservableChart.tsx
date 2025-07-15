@@ -1,17 +1,16 @@
-import { useRef, useEffect } from 'react';
-import * as Plot from '@observablehq/plot';
-import * as d3 from 'd3';
-import type { AwairRecord } from '../../types/awair';
+import * as Plot from '@observablehq/plot'
+import { useRef, useEffect } from 'react'
+import type { AwairRecord } from '../../types/awair'
 
 interface Props {
   data: AwairRecord[];
 }
 
 export function ObservableChart({ data }: Props) {
-  const chartRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!chartRef.current || data.length === 0) return;
+    if (!chartRef.current || data.length === 0) return
 
     // Prepare data with parsed dates
     const plotData = data.map(r => ({
@@ -20,7 +19,7 @@ export function ObservableChart({ data }: Props) {
       co2: r.co2,
       humid: r.humid,
       pm25: r.pm25
-    }));
+    }))
 
     const plot = Plot.plot({
       width: 800,
@@ -53,22 +52,22 @@ export function ObservableChart({ data }: Props) {
           opacity: 0.7
         })
       ]
-    });
+    })
 
-    chartRef.current.innerHTML = '';
-    chartRef.current.appendChild(plot);
+    chartRef.current.innerHTML = ''
+    chartRef.current.appendChild(plot)
 
     return () => {
       if (chartRef.current) {
-        chartRef.current.innerHTML = '';
+        chartRef.current.innerHTML = ''
       }
-    };
-  }, [data]);
+    }
+  }, [data])
 
   return (
     <div>
       <h3>Observable Plot - Temperature & CO₂ (scaled)</h3>
       <div ref={chartRef}></div>
     </div>
-  );
+  )
 }

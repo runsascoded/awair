@@ -1,4 +1,3 @@
-import React, { useState, useMemo } from 'react';
 import {
   useFloating,
   autoUpdate,
@@ -11,7 +10,8 @@ import {
   useRole,
   useInteractions,
   FloatingPortal
-} from '@floating-ui/react';
+} from '@floating-ui/react'
+import React, { useState, useMemo } from 'react'
 
 interface AggregatedData {
   timestamp: string;
@@ -44,7 +44,7 @@ interface Props {
 
 // Simple tooltip component for table values
 function ValueTooltip({ children, content }: { children: React.ReactElement; content: string }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false)
 
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,
@@ -56,19 +56,19 @@ function ValueTooltip({ children, content }: { children: React.ReactElement; con
       shift()
     ],
     whileElementsMounted: autoUpdate,
-  });
+  })
 
-  const hover = useHover(context);
-  const focus = useFocus(context);
-  const dismiss = useDismiss(context);
-  const role = useRole(context, { role: 'tooltip' });
+  const hover = useHover(context)
+  const focus = useFocus(context)
+  const dismiss = useDismiss(context)
+  const role = useRole(context, { role: 'tooltip' })
 
   const { getReferenceProps, getFloatingProps } = useInteractions([
     hover,
     focus,
     dismiss,
     role,
-  ]);
+  ])
 
   return (
     <>
@@ -94,47 +94,47 @@ function ValueTooltip({ children, content }: { children: React.ReactElement; con
         </FloatingPortal>
       )}
     </>
-  );
+  )
 }
 
 export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, onPageChange }: Props) {
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(0)
 
   const handlePageChange = (newPage: number) => {
-    const pageOffset = newPage - page;
-    setPage(newPage);
+    const pageOffset = newPage - page
+    setPage(newPage)
     if (onPageChange && pageOffset !== 0) {
-      onPageChange(pageOffset);
+      onPageChange(pageOffset)
     }
-  };
-  const pageSize = 20;
+  }
+  const pageSize = 20
 
   // Reverse the data to show most recent first (reverse chronological)
-  const reversedData = [...data].reverse();
+  const reversedData = [...data].reverse()
 
-  const totalPages = Math.ceil(reversedData.length / pageSize);
-  const startIdx = page * pageSize;
-  const endIdx = Math.min(startIdx + pageSize, reversedData.length);
-  const pageData = reversedData.slice(startIdx, endIdx);
+  const totalPages = Math.ceil(reversedData.length / pageSize)
+  const startIdx = page * pageSize
+  const endIdx = Math.min(startIdx + pageSize, reversedData.length)
+  const pageData = reversedData.slice(startIdx, endIdx)
 
   // Calculate position within total dataset (reverse chronological)
   const { globalStartIdx, globalEndIdx } = useMemo(() => {
     if (!plotStartTime || !plotEndTime || !fullDataStartTime || !fullDataEndTime) {
-      return { globalStartIdx: startIdx + 1, globalEndIdx: endIdx };
+      return { globalStartIdx: startIdx + 1, globalEndIdx: endIdx }
     }
 
     // Calculate how many windows from the end of full dataset to end of plot
-    const fullEnd = new Date(fullDataEndTime).getTime();
-    const plotEnd = new Date(plotEndTime).getTime();
-    const windowsAfterPlot = Math.floor((fullEnd - plotEnd) / (windowMinutes * 60 * 1000));
+    const fullEnd = new Date(fullDataEndTime).getTime()
+    const plotEnd = new Date(plotEndTime).getTime()
+    const windowsAfterPlot = Math.floor((fullEnd - plotEnd) / (windowMinutes * 60 * 1000))
 
     // In reverse chronological order, latest data has lowest indices
     // The current page shows windows starting from windowsAfterPlot + startIdx
-    const globalStart = windowsAfterPlot + startIdx + 1;
-    const globalEnd = windowsAfterPlot + endIdx;
+    const globalStart = windowsAfterPlot + startIdx + 1
+    const globalEnd = windowsAfterPlot + endIdx
 
-    return { globalStartIdx: globalStart, globalEndIdx: globalEnd };
-  }, [plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, startIdx, endIdx]);
+    return { globalStartIdx: globalStart, globalEndIdx: globalEnd }
+  }, [plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, startIdx, endIdx])
 
   return (
     <div className="data-table">
@@ -254,5 +254,5 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
         </table>
       </div>
     </div>
-  );
+  )
 }

@@ -1,24 +1,24 @@
-import { useRef, useEffect } from 'react';
-import uPlot from 'uplot';
-import type { AwairRecord } from '../../types/awair';
+import { useRef, useEffect } from 'react'
+import uPlot from 'uplot'
+import type { AwairRecord } from '../../types/awair'
 
 interface Props {
   data: AwairRecord[];
 }
 
 export function UplotChart({ data }: Props) {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const plotRef = useRef<uPlot | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null)
+  const plotRef = useRef<uPlot | null>(null)
 
   useEffect(() => {
-    if (!chartRef.current || data.length === 0) return;
+    if (!chartRef.current || data.length === 0) return
 
     // Prepare data for uPlot
-    const timestamps = data.map(r => new Date(r.timestamp).getTime() / 1000);
-    const temps = data.map(r => r.temp);
-    const co2s = data.map(r => r.co2);
+    const timestamps = data.map(r => new Date(r.timestamp).getTime() / 1000)
+    const temps = data.map(r => r.temp)
+    const co2s = data.map(r => r.co2)
 
-    const plotData = [timestamps, temps, co2s];
+    const plotData = [timestamps, temps, co2s]
 
     const opts: uPlot.Options = {
       width: 800,
@@ -60,27 +60,27 @@ export function UplotChart({ data }: Props) {
         y: {},
         co2: {}
       }
-    };
+    }
 
     // Clean up previous plot
     if (plotRef.current) {
-      plotRef.current.destroy();
+      plotRef.current.destroy()
     }
 
-    plotRef.current = new uPlot(opts, plotData, chartRef.current);
+    plotRef.current = new uPlot(opts, plotData, chartRef.current)
 
     return () => {
       if (plotRef.current) {
-        plotRef.current.destroy();
-        plotRef.current = null;
+        plotRef.current.destroy()
+        plotRef.current = null
       }
-    };
-  }, [data]);
+    }
+  }, [data])
 
   return (
     <div>
       <h3>uPlot - Temperature & CO₂</h3>
       <div ref={chartRef}></div>
     </div>
-  );
+  )
 }

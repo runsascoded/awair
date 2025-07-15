@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import {
   useFloating,
   autoUpdate,
@@ -11,12 +10,13 @@ import {
   useRole,
   useInteractions,
   FloatingPortal
-} from '@floating-ui/react';
-import type { DataSummary as DataSummaryType } from '../types/awair';
+} from '@floating-ui/react'
+import React, { useState } from 'react'
+import type { DataSummary as DataSummaryType } from '../types/awair'
 
 // Simple tooltip component
 function Tooltip({ children, content }: { children: React.ReactElement; content: string }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false)
 
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,
@@ -28,19 +28,19 @@ function Tooltip({ children, content }: { children: React.ReactElement; content:
       shift()
     ],
     whileElementsMounted: autoUpdate,
-  });
+  })
 
-  const hover = useHover(context);
-  const focus = useFocus(context);
-  const dismiss = useDismiss(context);
-  const role = useRole(context, { role: 'tooltip' });
+  const hover = useHover(context)
+  const focus = useFocus(context)
+  const dismiss = useDismiss(context)
+  const role = useRole(context, { role: 'tooltip' })
 
   const { getReferenceProps, getFloatingProps } = useInteractions([
     hover,
     focus,
     dismiss,
     role,
-  ]);
+  ])
 
   return (
     <>
@@ -66,7 +66,7 @@ function Tooltip({ children, content }: { children: React.ReactElement; content:
         </FloatingPortal>
       )}
     </>
-  );
+  )
 }
 
 interface Props {
@@ -75,38 +75,38 @@ interface Props {
 
 export function DataSummary({ summary }: Props) {
   const formatCompactDate = (date: Date) => {
-    const currentYear = new Date().getFullYear();
-    const dateYear = date.getFullYear();
+    const currentYear = new Date().getFullYear()
+    const dateYear = date.getFullYear()
 
-    const month = String(date.getMonth() + 1);
-    const day = String(date.getDate());
-    const hours = date.getHours();
-    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const month = String(date.getMonth() + 1)
+    const day = String(date.getDate())
+    const hours = date.getHours()
+    const minutes = String(date.getMinutes()).padStart(2, '0')
 
     // Convert to 12-hour format
-    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    const ampm = hours < 12 ? 'a' : 'p';
+    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
+    const ampm = hours < 12 ? 'a' : 'p'
 
     // Include year only if different from current year (2-digit)
-    const yearPart = dateYear !== currentYear ? `/${String(dateYear).slice(-2)}` : '';
+    const yearPart = dateYear !== currentYear ? `/${String(dateYear).slice(-2)}` : ''
 
-    return `${month}/${day}${yearPart} ${hour12}:${minutes}${ampm}`;
-  };
+    return `${month}/${day}${yearPart} ${hour12}:${minutes}${ampm}`
+  }
 
   const formatFullDate = (date: Date) => {
-    const month = String(date.getMonth() + 1);
-    const day = String(date.getDate());
-    const year = String(date.getFullYear()).slice(-2);
-    const hours = date.getHours();
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const month = String(date.getMonth() + 1)
+    const day = String(date.getDate())
+    const year = String(date.getFullYear()).slice(-2)
+    const hours = date.getHours()
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const seconds = String(date.getSeconds()).padStart(2, '0')
 
     // Convert to 12-hour format
-    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    const ampm = hours < 12 ? 'am' : 'pm';
+    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
+    const ampm = hours < 12 ? 'am' : 'pm'
 
-    return `${month}/${day}/${year} ${hour12}:${minutes}:${seconds}${ampm}`;
-  };
+    return `${month}/${day}/${year} ${hour12}:${minutes}:${seconds}${ampm}`
+  }
 
   return (
     <div className="data-summary">
@@ -134,5 +134,5 @@ export function DataSummary({ summary }: Props) {
         )}
       </div>
     </div>
-  );
+  )
 }

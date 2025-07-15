@@ -1,50 +1,50 @@
-import React, { useState, useEffect } from 'react';
-import { useTheme } from '../contexts/ThemeContext';
+import React, { useState, useEffect } from 'react'
+import { useTheme } from '../contexts/ThemeContext'
 
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  const [isVisible, setIsVisible] = useState(false);
-  const [lastScrollY, setLastScrollY] = useState(0);
+  const { theme, setTheme } = useTheme()
+  const [isVisible, setIsVisible] = useState(false)
+  const [lastScrollY, setLastScrollY] = useState(0)
 
   useEffect(() => {
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
+      const currentScrollY = window.scrollY
 
       // Show when scrolling down, hide when scrolling up
       if (currentScrollY > lastScrollY && currentScrollY > 100) {
-        setIsVisible(true);
+        setIsVisible(true)
       } else if (currentScrollY < lastScrollY) {
-        setIsVisible(false);
+        setIsVisible(false)
       }
 
-      setLastScrollY(currentScrollY);
-    };
+      setLastScrollY(currentScrollY)
+    }
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [lastScrollY])
 
   const cycleTheme = () => {
-    if (theme === 'light') setTheme('dark');
-    else if (theme === 'dark') setTheme('system');
-    else setTheme('light');
-  };
+    if (theme === 'light') setTheme('dark')
+    else if (theme === 'dark') setTheme('system')
+    else setTheme('light')
+  }
 
   const getThemeIcon = () => {
     switch (theme) {
-      case 'light': return '☀️';
-      case 'dark': return '🌙';
-      case 'system': return '💻';
+      case 'light': return '☀️'
+      case 'dark': return '🌙'
+      case 'system': return '💻'
     }
-  };
+  }
 
   const getThemeLabel = () => {
     switch (theme) {
-      case 'light': return 'Light';
-      case 'dark': return 'Dark';
-      case 'system': return 'System';
+      case 'light': return 'Light'
+      case 'dark': return 'Dark'
+      case 'system': return 'System'
     }
-  };
+  }
 
   return (
     <button
@@ -55,5 +55,5 @@ export function ThemeToggle() {
     >
       <span className="theme-icon">{getThemeIcon()}</span>
     </button>
-  );
+  )
 }

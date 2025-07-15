@@ -1,29 +1,29 @@
-import { parquetRead } from 'hyparquet';
-import type { AwairRecord, DataSummary } from '../types/awair';
+import { parquetRead } from 'hyparquet'
+import type { AwairRecord, DataSummary } from '../types/awair'
 
-export const S3_PARQUET_URL = 'https://380nwk.s3.amazonaws.com/awair.parquet';
+export const S3_PARQUET_URL = 'https://380nwk.s3.amazonaws.com/awair.parquet'
 
 export async function fetchAwairData(): Promise<{ records: AwairRecord[]; summary: DataSummary }> {
-  console.log('🔄 Checking for new data...');
-  const response = await fetch(S3_PARQUET_URL);
+  console.log('🔄 Checking for new data...')
+  const response = await fetch(S3_PARQUET_URL)
   if (!response.ok) {
-    throw new Error(`Failed to fetch data: ${response.status}`);
+    throw new Error(`Failed to fetch data: ${response.status}`)
   }
 
-  const arrayBuffer = await response.arrayBuffer();
+  const arrayBuffer = await response.arrayBuffer()
 
-  const rows: any[] = [];
+  const rows: any[] = []
   await parquetRead({
     file: arrayBuffer,
     onComplete: (data) => {
       if (Array.isArray(data)) {
-        rows.push(...data);
+        rows.push(...data)
       }
     }
-  });
+  })
 
   if (rows.length === 0) {
-    throw new Error('No data found in Parquet file');
+    throw new Error('No data found in Parquet file')
   }
 
   // Convert array format to typed records
@@ -35,37 +35,37 @@ export async function fetchAwairData(): Promise<{ records: AwairRecord[]; summar
     pm25: Number(row[4]),
     humid: Number(row[5]),
     voc: Number(row[6]),
-  }));
+  }))
 
   // Sort by timestamp (newest first)
-  records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
   // Calculate summary
-  const count = records.length;
-  const latest = count > 0 ? records[0].timestamp : null;
-  const earliest = count > 0 ? records[count - 1].timestamp : null;
+  const count = records.length
+  const latest = count > 0 ? records[0].timestamp : null
+  const earliest = count > 0 ? records[count - 1].timestamp : null
 
-  let dateRange = 'No data';
+  let dateRange = 'No data'
   if (earliest && latest) {
     const formatCompactDate = (date: Date) => {
-      const month = String(date.getMonth() + 1);
-      const day = String(date.getDate());
-      const year = String(date.getFullYear()).slice(-2);
-      return `${month}/${day}/${year}`;
-    };
+      const month = String(date.getMonth() + 1)
+      const day = String(date.getDate())
+      const year = String(date.getFullYear()).slice(-2)
+      return `${month}/${day}/${year}`
+    }
 
-    const start = formatCompactDate(new Date(earliest));
-    const end = formatCompactDate(new Date(latest));
-    dateRange = start === end ? start : `${start} - ${end}`;
+    const start = formatCompactDate(new Date(earliest))
+    const end = formatCompactDate(new Date(latest))
+    dateRange = start === end ? start : `${start} - ${end}`
   }
 
-  const summary: DataSummary = { count, earliest, latest, dateRange };
+  const summary: DataSummary = { count, earliest, latest, dateRange }
 
   if (latest) {
-    console.log(`📊 New data fetched - ${count} records, latest: ${latest}`);
+    console.log(`📊 New data fetched - ${count} records, latest: ${latest}`)
   } else {
-    console.log('📊 No new data available');
+    console.log('📊 No new data available')
   }
 
-  return { records, summary };
+  return { records, summary }
 }

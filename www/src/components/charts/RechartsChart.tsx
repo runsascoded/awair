@@ -1,5 +1,5 @@
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import type { AwairRecord } from '../../types/awair';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import type { AwairRecord } from '../../types/awair'
 
 interface Props {
   data: AwairRecord[];
@@ -13,7 +13,7 @@ export function RechartsChart({ data }: Props) {
     co2: record.co2,
     humidity: record.humid,
     pm25: record.pm25
-  }));
+  }))
 
   return (
     <div style={{ width: '100%', height: '400px' }}>
@@ -38,5 +38,5 @@ export function RechartsChart({ data }: Props) {
         </LineChart>
       </ResponsiveContainer>
     </div>
-  );
+  )
 }
