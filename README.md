@@ -7,7 +7,7 @@
 A Python CLI tool and automated data collection system for [Awair] air quality sensors. Provides real-time data fetching using [the Awair API][API], historical analysis, automated S3 storage via AWS Lambda, and a web dashboard for visualization.
 
 <a href="https://awair.runsascoded.com" target="_blank">
-  <img src="https://raw.githubusercontent.com/runsascoded/awair/v0.0.4/www/public/awair.png" alt="Awair Dashboard" />
+  <img src="https://raw.githubusercontent.com/runsascoded/awair/v0.0.5/www/public/awair.png" alt="Awair Dashboard" />
 </a>
 
 ## Features
