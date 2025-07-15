@@ -461,6 +461,21 @@ export function AwairChart({ data, summary }: Props) {
 
       const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(newEnd)]
       setXAxisRange(newRange)
+
+      // If this was a user interaction (not our programmatic update), check if they moved away from latest
+      if (!ignoreLatestModeCheckRef.current && data.length > 0 && latestModeIntended) {
+        const latestTime = new Date(data[0].timestamp)
+        const timeDiffMinutes = Math.abs(newEnd.getTime() - latestTime.getTime()) / (1000 * 60)
+
+        // Disable Latest mode if user panned more than 10 minutes away from latest data
+        if (timeDiffMinutes > 10) {
+          console.log('📈 User panned away from latest, disabling auto-update')
+          setLatestModeIntended(false)
+        }
+      }
+
+      // Reset the flag
+      ignoreLatestModeCheckRef.current = false
     }
   }, [xAxisRange, data, setRangeByWidth, formatForPlotly, latestModeIntended])
 
@@ -540,6 +555,7 @@ export function AwairChart({ data, summary }: Props) {
         const rangeWidth = currentRangeEnd.getTime() - rangeStart.getTime()
         const newStart = new Date(currentLatestTime.getTime() - rangeWidth)
         const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(currentLatestTime)]
+        ignoreLatestModeCheckRef.current = true // Don't disable Latest mode for our own updates
         setXAxisRange(newRange)
       }
     }
@@ -595,14 +611,19 @@ export function AwairChart({ data, summary }: Props) {
         setSecondaryMetric('none')
         event.preventDefault()
       } else if (key === 'l') {
-        // L = Latest button
-        if (xAxisRange && data.length > 0) {
+        // L = Latest button (toggle)
+        if (latestModeIntended) {
+          // Toggle off Latest mode
+          setLatestModeIntended(false)
+        } else if (xAxisRange && data.length > 0) {
+          // Jump to latest and enable Latest mode
           const rangeStart = new Date(xAxisRange[0])
           const rangeEnd = new Date(xAxisRange[1])
           const currentWidth = rangeEnd.getTime() - rangeStart.getTime()
           const latestTime = new Date(data[0].timestamp)
           const newStart = new Date(latestTime.getTime() - currentWidth)
           const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)]
+          ignoreLatestModeCheckRef.current = true // Don't disable Latest mode for our own update
           setXAxisRange(newRange)
           setHasSetDefaultRange(true)
           setLatestModeIntended(true)
@@ -1139,13 +1160,18 @@ export function AwairChart({ data, summary }: Props) {
               <button
                 className={`latest-button ${latestModeIntended || getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
                 onClick={() => {
-                  if (xAxisRange && data.length > 0) {
+                  if (latestModeIntended) {
+                    // Toggle off Latest mode
+                    setLatestModeIntended(false)
+                  } else if (xAxisRange && data.length > 0) {
+                    // Jump to latest and enable Latest mode
                     const rangeStart = new Date(xAxisRange[0])
                     const rangeEnd = new Date(xAxisRange[1])
                     const currentWidth = rangeEnd.getTime() - rangeStart.getTime()
                     const latestTime = new Date(data[0].timestamp)
                     const newStart = new Date(latestTime.getTime() - currentWidth)
                     const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)]
+                    ignoreLatestModeCheckRef.current = true // Don't disable Latest mode for our own update
                     setXAxisRange(newRange)
                     setHasSetDefaultRange(true)
                     setLatestModeIntended(true)
@@ -1207,6 +1233,9 @@ export function AwairChart({ data, summary }: Props) {
 
           const clampedStart = new Date(Math.max(newStart.getTime(), globalStart.getTime()))
           const clampedEnd = new Date(Math.min(newEnd.getTime(), globalEnd.getTime()))
+
+          // Don't disable Latest mode for table navigation
+          ignoreLatestModeCheckRef.current = true
 
           // If we hit bounds, maintain range width if possible
           if (clampedStart.getTime() === globalStart.getTime()) {
