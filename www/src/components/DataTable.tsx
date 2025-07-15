@@ -102,8 +102,10 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
 
   const handlePageChange = (newPage: number) => {
     const pageOffset = newPage - page
+    console.log('📋 Table pagination:', { oldPage: page, newPage, pageOffset })
     setPage(newPage)
     if (onPageChange && pageOffset !== 0) {
+      console.log('📋 Calling onPageChange with offset:', pageOffset)
       onPageChange(pageOffset)
     }
   }

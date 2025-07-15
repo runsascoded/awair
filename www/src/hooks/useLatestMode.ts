@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import type { AwairRecord } from '../types/awair'
 
 export function useLatestMode(data: AwairRecord[], xAxisRange: [string, string] | null, formatForPlotly: (date: Date) => string) {
@@ -20,7 +20,7 @@ export function useLatestMode(data: AwairRecord[], xAxisRange: [string, string] 
   }, [latestModeIntended])
 
   // Calculate auto-update range when new data arrives in Latest mode
-  const autoUpdateRange = (() => {
+  const autoUpdateRange = useMemo(() => {
     if (data.length === 0 || !xAxisRange || !latestTimestamp || !latestModeIntended) return null
 
     console.log('📈 Chart auto-update check:', {
@@ -42,7 +42,10 @@ export function useLatestMode(data: AwairRecord[], xAxisRange: [string, string] 
     // Check if we have new data (latest timestamp is newer than current range end)
     // Use a tolerance to avoid precision issues with formatForPlotly truncating milliseconds
     const timeDiffMs = currentLatestTime.getTime() - currentRangeEnd.getTime()
-    if (timeDiffMs > 1000) { // Only update if difference is more than 1 second
+    console.log('📈 Time diff check:', { timeDiffMs, threshold: 60000 })
+    
+    // Only update if there's more than 1 minute of new data to avoid constant updates
+    if (timeDiffMs > 60000) { // 1 minute threshold instead of 1 second
       console.log('📈 Updating chart range for new data')
       const rangeStart = new Date(xAxisRange[0])
       const rangeWidth = currentRangeEnd.getTime() - rangeStart.getTime()
@@ -52,7 +55,7 @@ export function useLatestMode(data: AwairRecord[], xAxisRange: [string, string] 
       return newRange
     }
     return null
-  })()
+  }, [data.length, xAxisRange, latestTimestamp, latestModeIntended, formatForPlotly])
 
   // Check if user panned away from latest data and disable Latest mode
   const checkUserPanAway = useCallback((newEnd: Date) => {

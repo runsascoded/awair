@@ -162,7 +162,7 @@ export function AwairChart({ data, summary }: Props) {
     if (isFullRange) return 'all'
 
     // Check range width with tolerance
-    if (Math.abs(rangeHours - 24) < 2) return isLatestView ? 'latest-24h' : '24h'
+    if (Math.abs(rangeHours - 24) < 2) return isLatestView ? 'latest-1d' : '1d'
     if (Math.abs(rangeHours - (24 * 3)) < 6) return isLatestView ? 'latest-3d' : '3d'
     if (Math.abs(rangeHours - (24 * 7)) < 12) return isLatestView ? 'latest-7d' : '7d'
     if (Math.abs(rangeHours - (24 * 14)) < 24) return isLatestView ? 'latest-14d' : '14d'
@@ -509,10 +509,11 @@ export function AwairChart({ data, summary }: Props) {
         fullDataEndTime={data.length > 0 ? data[0].timestamp : undefined}
         windowMinutes={selectedWindow.minutes}
         onPageChange={useCallback((pageOffset: number) => {
-          if (!xAxisRange || data.length === 0) return
-
-          // Set ignore flag first
-          setIgnoreNextPanCheck()
+          console.log('📈 Chart onPageChange called with offset:', pageOffset)
+          if (!xAxisRange || data.length === 0) {
+            console.log('📈 Chart onPageChange early return - no range or data')
+            return
+          }
 
           const pageSize = 20
           const timeShiftMinutes = pageOffset * pageSize * selectedWindow.minutes
@@ -530,6 +531,14 @@ export function AwairChart({ data, summary }: Props) {
 
           const clampedStart = new Date(Math.max(newStart.getTime(), globalStart.getTime()))
           const clampedEnd = new Date(Math.min(newEnd.getTime(), globalEnd.getTime()))
+
+          // Check if this navigation moves us away from latest data
+          const latestTime = new Date(data[0].timestamp)
+          const timeDiffMinutes = Math.abs(clampedEnd.getTime() - latestTime.getTime()) / (1000 * 60)
+          if (timeDiffMinutes > 10) {
+            console.log('📈 Table navigation moved away from latest, disabling Latest mode')
+            setLatestModeIntended(false)
+          }
 
           if (clampedStart.getTime() === globalStart.getTime()) {
             const adjustedEnd = new Date(clampedStart.getTime() + rangeWidth)
@@ -549,8 +558,9 @@ export function AwairChart({ data, summary }: Props) {
           }
 
           const newRange: [string, string] = [formatForPlotly(clampedStart), formatForPlotly(clampedEnd)]
+          console.log('📈 Chart setting new range from table:', { oldRange: xAxisRange, newRange })
           setXAxisRange(newRange)
-        }, [xAxisRange, data, selectedWindow, formatForPlotly, setIgnoreNextPanCheck])}
+        }, [xAxisRange, data, selectedWindow, formatForPlotly, setLatestModeIntended])}
       />
     </div>
   )
