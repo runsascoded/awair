@@ -25,6 +25,7 @@ interface AggregatedData {
   pm25_stddev: number;
   voc_avg: number;
   voc_stddev: number;
+  count: number;
 }
 
 interface Props {
@@ -245,7 +246,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                   {isRawData ? (
                     record.temp_avg.toFixed(1)
                   ) : (
-                    <ValueTooltip content={`±1σ: ${(record.temp_avg - record.temp_stddev).toFixed(1)} - ${(record.temp_avg + record.temp_stddev).toFixed(1)} °F`}>
+                    <ValueTooltip content={`±1σ: ${(record.temp_avg - record.temp_stddev).toFixed(1)} - ${(record.temp_avg + record.temp_stddev).toFixed(1)} °F${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
                       <span style={{ cursor: 'help' }}>{record.temp_avg.toFixed(1)}</span>
                     </ValueTooltip>
                   )}
@@ -254,7 +255,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                   {isRawData ? (
                     record.humid_avg.toFixed(1)
                   ) : (
-                    <ValueTooltip content={`±1σ: ${(record.humid_avg - record.humid_stddev).toFixed(1)} - ${(record.humid_avg + record.humid_stddev).toFixed(1)} %`}>
+                    <ValueTooltip content={`±1σ: ${(record.humid_avg - record.humid_stddev).toFixed(1)} - ${(record.humid_avg + record.humid_stddev).toFixed(1)} %${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
                       <span style={{ cursor: 'help' }}>{record.humid_avg.toFixed(1)}</span>
                     </ValueTooltip>
                   )}
@@ -263,7 +264,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                   {isRawData ? (
                     Math.round(record.co2_avg)
                   ) : (
-                    <ValueTooltip content={`±1σ: ${Math.round(record.co2_avg - record.co2_stddev)} - ${Math.round(record.co2_avg + record.co2_stddev)} ppm`}>
+                    <ValueTooltip content={`±1σ: ${Math.round(record.co2_avg - record.co2_stddev)} - ${Math.round(record.co2_avg + record.co2_stddev)} ppm${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
                       <span style={{ cursor: 'help' }}>{Math.round(record.co2_avg)}</span>
                     </ValueTooltip>
                   )}
@@ -272,7 +273,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                   {isRawData ? (
                     Math.round(record.voc_avg)
                   ) : (
-                    <ValueTooltip content={`±1σ: ${Math.round(record.voc_avg - record.voc_stddev)} - ${Math.round(record.voc_avg + record.voc_stddev)} ppb`}>
+                    <ValueTooltip content={`±1σ: ${Math.round(record.voc_avg - record.voc_stddev)} - ${Math.round(record.voc_avg + record.voc_stddev)} ppb${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
                       <span style={{ cursor: 'help' }}>{Math.round(record.voc_avg)}</span>
                     </ValueTooltip>
                   )}
@@ -281,7 +282,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                   {isRawData ? (
                     record.pm25_avg.toFixed(1)
                   ) : (
-                    <ValueTooltip content={`±1σ: ${(record.pm25_avg - record.pm25_stddev).toFixed(1)} - ${(record.pm25_avg + record.pm25_stddev).toFixed(1)} μg/m³`}>
+                    <ValueTooltip content={`±1σ: ${(record.pm25_avg - record.pm25_stddev).toFixed(1)} - ${(record.pm25_avg + record.pm25_stddev).toFixed(1)} μg/m³${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
                       <span style={{ cursor: 'help' }}>{record.pm25_avg.toFixed(1)}</span>
                     </ValueTooltip>
                   )}

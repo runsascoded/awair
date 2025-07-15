@@ -18,6 +18,7 @@ interface AggregatedData {
   pm25_stddev: number
   voc_avg: number
   voc_stddev: number
+  count: number
 }
 
 const TIME_WINDOWS: TimeWindow[] = [
@@ -52,6 +53,7 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
       pm25_stddev: 0,
       voc_avg: record.voc,
       voc_stddev: 0,
+      count: 1,
     }))
   }
 
@@ -100,6 +102,7 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
         pm25_stddev: calculateStdDev(pm25s),
         voc_avg: vocs.reduce((a, b) => a + b, 0) / vocs.length,
         voc_stddev: calculateStdDev(vocs),
+        count: records.length,
       }
     })
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())

@@ -417,16 +417,18 @@ export function AwairChart({ data, summary }: Props) {
                   hovertemplate: `<b>%{x}</b><br>` +
                                `${secondaryConfig.label}: %{y:.1f} ${secondaryConfig.unit}<extra></extra>`
                 } : {
-                  customdata: aggregatedData.map((_d, i) => ([
+                  customdata: aggregatedData.map((d, i) => ([
                     secondaryAvgValues[i],
                     secondaryUpperValues[i],
                     secondaryLowerValues[i],
-                    secondaryStddevValues[i]
+                    secondaryStddevValues[i],
+                    d.count
                   ])),
                   hovertemplate: `<b>%{x}</b><br>` +
                                `Avg: %{y:.1f} ${secondaryConfig.unit}<br>` +
                                `±1σ: %{customdata[2]:.1f} - %{customdata[1]:.1f} ${secondaryConfig.unit}<br>` +
-                               `σ: %{customdata[3]:.1f} ${secondaryConfig.unit}<extra></extra>`
+                               `σ: %{customdata[3]:.1f} ${secondaryConfig.unit}<br>` +
+                               `n = %{customdata[4]}<extra></extra>`
                 })
               } as any
             ] : []),
@@ -469,16 +471,18 @@ export function AwairChart({ data, summary }: Props) {
                 hovertemplate: `<b>%{x}</b><br>` +
                              `${config.label}: %{y:.1f} ${config.unit}<extra></extra>`
               } : {
-                customdata: aggregatedData.map((_d, i) => ([
+                customdata: aggregatedData.map((d, i) => ([
                   avgValues[i],
                   upperValues[i],
                   lowerValues[i],
-                  stddevValues[i]
+                  stddevValues[i],
+                  d.count
                 ])),
                 hovertemplate: `<b>%{x}</b><br>` +
                              `Avg: %{y:.1f} ${config.unit}<br>` +
                              `±1σ: %{customdata[2]:.1f} - %{customdata[1]:.1f} ${config.unit}<br>` +
-                             `σ: %{customdata[3]:.1f} ${config.unit}<extra></extra>`
+                             `σ: %{customdata[3]:.1f} ${config.unit}<br>` +
+                             `n = %{customdata[4]}<extra></extra>`
               })
             } as any
           ]}
