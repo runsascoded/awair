@@ -1,6 +1,6 @@
-import { readParquet } from 'hyparquet'
+import { parquetRead } from 'hyparquet'
 import { describe, it, expect } from 'vitest'
-import { S3_PARQUET_URL } from "../hooks/useAwairData.ts"
+import { S3_PARQUET_URL } from "../services/awairService"
 
 // Mock data that matches the structure we expect
 const mockData = [
@@ -65,7 +65,7 @@ describe('Timezone Conversion', () => {
     })
 
     // CORRECT: Convert UTC to actual local time string
-    const correctConversion = testData.map(record => {
+    testData.map(record => {
       const utcTime = new Date(record.timestamp + 'Z') // Parse as UTC
       // Get local time representation (this accounts for timezone automatically)
       const localTimestamp = new Date(utcTime.getTime()).toISOString().slice(0, 19)
@@ -137,13 +137,13 @@ describe('S3 Data Fetching', () => {
       console.log('Fetched parquet file, size:', arrayBuffer.byteLength, 'bytes')
 
       // Parse the parquet file
-      const uint8Array = new Uint8Array(arrayBuffer)
-
       const records: any[] = []
-      await readParquet({
-        data: uint8Array,
-        onRow: (row) => {
-          records.push(row)
+      await parquetRead({
+        file: arrayBuffer,
+        onComplete: (data) => {
+          if (Array.isArray(data)) {
+            records.push(...data)
+          }
         }
       })
 

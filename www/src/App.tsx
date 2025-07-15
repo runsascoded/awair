@@ -8,7 +8,7 @@ import { queryClient } from './lib/queryClient'
 import './App.css'
 
 function AppContent() {
-  const { data, summary, loading, error, lastUpdated, refresh } = useAwairData()
+  const { data, summary, loading, error } = useAwairData()
 
   if (loading) {
     return (
