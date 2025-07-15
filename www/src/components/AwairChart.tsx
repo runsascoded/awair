@@ -19,13 +19,17 @@ export function AwairChart({ data, summary }: Props) {
     return (sessionStorage.getItem('awair-metric') as any) || 'temp'
   })
   const [secondaryMetric, setSecondaryMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none'>(() => {
-    return (sessionStorage.getItem('awair-secondary-metric') as any) || 'humid'
+    return (sessionStorage.getItem('awair-secondary-metric') as any) || 'co2'
   })
   const [xAxisRange, setXAxisRange] = useState<[string, string] | null>(() => {
     const stored = sessionStorage.getItem('awair-time-range')
     return stored ? JSON.parse(stored) : null
   })
   const [hasSetDefaultRange, setHasSetDefaultRange] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => {
+    const mobileQuery = window.matchMedia('(max-width: 767px) or (max-height: 599px)')
+    return mobileQuery.matches
+  })
 
   // Refs for handling programmatic updates
   const ignoreNextRelayoutRef = useRef(false)
@@ -133,7 +137,7 @@ export function AwairChart({ data, summary }: Props) {
   useEffect(() => {
     if (!hasSetDefaultRange && data.length > 0 && !xAxisRange) {
       const latestTime = new Date(data[0].timestamp)
-      const earliestTime = new Date(latestTime.getTime() - (3 * 24 * 60 * 60 * 1000))
+      const earliestTime = new Date(latestTime.getTime() - (1 * 24 * 60 * 60 * 1000))
       const defaultRange: [string, string] = [formatForPlotly(earliestTime), formatForPlotly(latestTime)]
       setXAxisRange(defaultRange)
       setHasSetDefaultRange(true)
@@ -228,6 +232,21 @@ export function AwairChart({ data, summary }: Props) {
     setIgnoreNextPanCheck
   })
 
+  // Handle responsive plot height using matchMedia
+  useEffect(() => {
+    const mobileQuery = window.matchMedia('(max-width: 767px) or (max-height: 599px)')
+
+    const handleMediaQueryChange = (e: MediaQueryListEvent) => {
+      setIsMobile(e.matches)
+    }
+
+    mobileQuery.addEventListener('change', handleMediaQueryChange)
+
+    return () => {
+      mobileQuery.removeEventListener('change', handleMediaQueryChange)
+    }
+  }, [])
+
   // Theme-aware plot colors
   const [plotColors, setPlotColors] = useState(() => ({
     gridcolor: getComputedStyle(document.documentElement).getPropertyValue('--plot-grid').trim() || '#ddd',
@@ -309,7 +328,7 @@ export function AwairChart({ data, summary }: Props) {
                 y: secondaryAvgValues,
                 mode: 'lines',
                 line: { color: secondaryConfig.color, width: 2 },
-                name: secondaryConfig.label,
+                name: `${secondaryConfig.label} (${secondaryConfig.unit})`,
                 yaxis: 'y2',
                 zorder: 1,
                 ...(isRawData ? {
@@ -362,7 +381,7 @@ export function AwairChart({ data, summary }: Props) {
               y: avgValues,
               mode: 'lines',
               line: { color: config.color, width: 3 },
-              name: config.label,
+              name: `${config.label} (${config.unit})`,
               zorder: 10,
               ...(isRawData ? {
                 hovertemplate: `<b>%{x}</b><br>` +
@@ -383,7 +402,7 @@ export function AwairChart({ data, summary }: Props) {
           ]}
           layout={{
             autosize: true,
-            height: 500,
+            height: isMobile ? 300 : 500,
             xaxis: {
               type: 'date',
               ...(xAxisRange && { range: xAxisRange }),
@@ -403,11 +422,7 @@ export function AwairChart({ data, summary }: Props) {
               tickfont: { color: plotColors.textColor },
               linecolor: plotColors.gridcolor,
               zerolinecolor: plotColors.gridcolor,
-              side: 'left',
-              title: {
-                text: secondaryConfig ? `${config.label} (${config.unit})` : '',
-                font: { color: plotColors.textColor, size: 12 }
-              }
+              side: 'left'
             },
             ...(secondaryConfig && {
               yaxis2: {
@@ -417,20 +432,19 @@ export function AwairChart({ data, summary }: Props) {
                 fixedrange: true,
                 tickfont: { color: plotColors.textColor },
                 linecolor: plotColors.gridcolor,
-                zerolinecolor: 'transparent',
-                title: {
-                  text: `${secondaryConfig.label} (${secondaryConfig.unit})`,
-                  font: { color: plotColors.textColor, size: 12 }
-                }
+                zerolinecolor: 'transparent'
               }
             }),
-            margin: { l: 40, r: secondaryConfig ? 45 : 10, t: 0, b: 45 },
+            margin: { l: 30, r: secondaryConfig ? 30 : 10, t: 0, b: 45 },
             hovermode: 'x',
             plot_bgcolor: plotColors.plotBg,
             paper_bgcolor: plotColors.plotBg,
             legend: {
-              x: 0.02,
-              y: 0.98,
+              orientation: 'h',
+              x: 0,
+              y: 1.02,
+              xanchor: 'left',
+              yanchor: 'bottom',
               bgcolor: plotColors.legendBg + '80',
               bordercolor: plotColors.gridcolor,
               borderwidth: 1,
