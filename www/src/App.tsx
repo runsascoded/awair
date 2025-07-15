@@ -1,6 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { AwairChart } from './components/AwairChart'
-import { DataSummary } from './components/DataSummary'
 import { ThemeToggle } from './components/ThemeToggle'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useAwairData } from './hooks/useAwairData'
@@ -36,8 +35,7 @@ function AppContent() {
   return (
     <div className="app">
       <main>
-        {data.length > 0 && <AwairChart data={data} />}
-        {summary && <DataSummary summary={summary} />}
+        {data.length > 0 && <AwairChart data={data} summary={summary} />}
       </main>
       <ThemeToggle />
     </div>

@@ -14,10 +14,11 @@ import {
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
 import { DataTable } from './DataTable'
-import type { AwairRecord } from '../types/awair'
+import type { AwairRecord, DataSummary } from '../types/awair'
 
 interface Props {
   data: AwairRecord[];
+  summary: DataSummary | null;
 }
 
 // Simple tooltip component using Floating UI
@@ -248,7 +249,7 @@ function findOptimalWindow(_dataLength: number, timeRangeMinutes?: number, data?
   }
 }
 
-export function AwairChart({ data }: Props) {
+export function AwairChart({ data, summary }: Props) {
   const [metric, setMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc'>(() => {
     const stored = sessionStorage.getItem('awair-metric') as 'temp' | 'co2' | 'humid' | 'pm25' | 'voc'
     const validMetrics = ['temp', 'co2', 'humid', 'pm25', 'voc']
@@ -1081,24 +1082,26 @@ export function AwairChart({ data }: Props) {
             >
               30d
             </button>
-            <button
-              className={getActiveTimeRange() === 'all' ? 'active' : ''}
-              onClick={() => {
-                if (data.length > 0) {
-                  // Explicitly set range to full data bounds
-                  const fullRange: [string, string] = [
-                    formatForPlotly(new Date(data[data.length - 1].timestamp)),
-                    formatForPlotly(new Date(data[0].timestamp))
-                  ]
-                  setXAxisRange(fullRange)
-                  setHasSetDefaultRange(true)
-                } else {
-                  setXAxisRange(null)
-                }
-              }}
-            >
-              All
-            </button>
+            <Tooltip content={summary ? `Date Range: ${summary.dateRange}${summary.latest ? ` | Latest: ${formatCompactDate(new Date(summary.latest))}` : ''}` : 'Show all data'}>
+              <button
+                className={getActiveTimeRange() === 'all' ? 'active' : ''}
+                onClick={() => {
+                  if (data.length > 0) {
+                    // Explicitly set range to full data bounds
+                    const fullRange: [string, string] = [
+                      formatForPlotly(new Date(data[data.length - 1].timestamp)),
+                      formatForPlotly(new Date(data[0].timestamp))
+                    ]
+                    setXAxisRange(fullRange)
+                    setHasSetDefaultRange(true)
+                  } else {
+                    setXAxisRange(null)
+                  }
+                }}
+              >
+                All
+              </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -1139,7 +1142,7 @@ export function AwairChart({ data }: Props) {
         </div>
       </div>
 
-      <Tooltip content="Window size adapts automatically to zoom level. Drag to pan, wheel to zoom, double-click to show all data.">
+      <Tooltip content={`Window size adapts automatically to zoom level. Drag to pan, wheel to zoom, double-click to show all data.${summary ? ` | Total records: ${summary.count.toLocaleString()}` : ''}`}>
         <div className="chart-status">
           Showing {aggregatedData.length} {selectedWindow.label} windows
         </div>
