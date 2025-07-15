@@ -60,15 +60,30 @@ export function AwairChart({ data, summary }: Props) {
   }, [])
 
   const formatFullDate = useCallback((date: Date) => {
+    const currentYear = new Date().getFullYear()
+    const dateYear = date.getFullYear()
     const month = String(date.getMonth() + 1)
     const day = String(date.getDate())
-    const year = String(date.getFullYear()).slice(-2)
     const hours = date.getHours()
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    const seconds = String(date.getSeconds()).padStart(2, '0')
+    const minutes = date.getMinutes()
+    const seconds = date.getSeconds()
     const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
     const ampm = hours < 12 ? 'am' : 'pm'
-    return `${month}/${day}/${year} ${hour12}:${minutes}:${seconds}${ampm}`
+
+    // Build time string, omitting :00 seconds and :00 minutes
+    let timeStr = `${hour12}`
+    if (minutes !== 0 || seconds !== 0) {
+      timeStr += `:${String(minutes).padStart(2, '0')}`
+    }
+    if (seconds !== 0) {
+      timeStr += `:${String(seconds).padStart(2, '0')}`
+    }
+    timeStr += ampm
+
+    // Build date string, omitting year if current year
+    const dateStr = dateYear === currentYear ? `${month}/${day}` : `${month}/${day}/${String(dateYear).slice(-2)}`
+
+    return `${dateStr} ${timeStr}`
   }, [])
 
   // Save state to session storage
@@ -414,21 +429,23 @@ export function AwairChart({ data, summary }: Props) {
                 yaxis: 'y2',
                 zorder: 1,
                 ...(isRawData ? {
-                  hovertemplate: `<b>%{x}</b><br>` +
+                  customdata: aggregatedData.map(d => formatFullDate(new Date(d.timestamp))),
+                  hovertemplate: `<b>%{customdata}</b><br>` +
                                `${secondaryConfig.label}: %{y:.1f} ${secondaryConfig.unit}<extra></extra>`
                 } : {
                   customdata: aggregatedData.map((d, i) => ([
+                    formatFullDate(new Date(d.timestamp)),
                     secondaryAvgValues[i],
                     secondaryUpperValues[i],
                     secondaryLowerValues[i],
                     secondaryStddevValues[i],
                     d.count
                   ])),
-                  hovertemplate: `<b>%{x}</b><br>` +
+                  hovertemplate: `<b>%{customdata[0]}</b><br>` +
                                `Avg: %{y:.1f} ${secondaryConfig.unit}<br>` +
-                               `±1σ: %{customdata[2]:.1f} - %{customdata[1]:.1f} ${secondaryConfig.unit}<br>` +
-                               `σ: %{customdata[3]:.1f} ${secondaryConfig.unit}<br>` +
-                               `n = %{customdata[4]}<extra></extra>`
+                               `±1σ: %{customdata[3]:.1f} - %{customdata[2]:.1f} ${secondaryConfig.unit}<br>` +
+                               `σ: %{customdata[4]:.1f} ${secondaryConfig.unit}<br>` +
+                               `n = %{customdata[5]}<extra></extra>`
                 })
               } as any
             ] : []),
@@ -468,21 +485,23 @@ export function AwairChart({ data, summary }: Props) {
               name: `${config.label} (${config.unit})`,
               zorder: 10,
               ...(isRawData ? {
-                hovertemplate: `<b>%{x}</b><br>` +
+                customdata: aggregatedData.map(d => formatFullDate(new Date(d.timestamp))),
+                hovertemplate: `<b>%{customdata}</b><br>` +
                              `${config.label}: %{y:.1f} ${config.unit}<extra></extra>`
               } : {
                 customdata: aggregatedData.map((d, i) => ([
+                  formatFullDate(new Date(d.timestamp)),
                   avgValues[i],
                   upperValues[i],
                   lowerValues[i],
                   stddevValues[i],
                   d.count
                 ])),
-                hovertemplate: `<b>%{x}</b><br>` +
+                hovertemplate: `<b>%{customdata[0]}</b><br>` +
                              `Avg: %{y:.1f} ${config.unit}<br>` +
-                             `±1σ: %{customdata[2]:.1f} - %{customdata[1]:.1f} ${config.unit}<br>` +
-                             `σ: %{customdata[3]:.1f} ${config.unit}<br>` +
-                             `n = %{customdata[4]}<extra></extra>`
+                             `±1σ: %{customdata[3]:.1f} - %{customdata[2]:.1f} ${config.unit}<br>` +
+                             `σ: %{customdata[4]:.1f} ${config.unit}<br>` +
+                             `n = %{customdata[5]}<extra></extra>`
               })
             } as any
           ]}
@@ -501,6 +520,7 @@ export function AwairChart({ data, summary }: Props) {
               tickfont: { color: plotColors.textColor },
               linecolor: plotColors.gridcolor,
               zerolinecolor: plotColors.gridcolor,
+              hoverformat: ' ',
               ...(tickvals.length > 0 && {
                 tickvals: tickvals,
                 ticktext: ticktext,
@@ -513,7 +533,7 @@ export function AwairChart({ data, summary }: Props) {
               tickfont: { color: plotColors.textColor },
               linecolor: plotColors.gridcolor,
               zerolinecolor: plotColors.gridcolor,
-              side: 'left'
+              side: 'left',
             },
             ...(secondaryConfig && {
               yaxis2: {
@@ -523,11 +543,11 @@ export function AwairChart({ data, summary }: Props) {
                 fixedrange: true,
                 tickfont: { color: plotColors.textColor },
                 linecolor: plotColors.gridcolor,
-                zerolinecolor: 'transparent'
+                zerolinecolor: 'transparent',
               }
             }),
             margin: { l: 30, r: secondaryConfig ? 30 : 10, t: 0, b: 45 },
-            hovermode: 'x',
+            hovermode: isMobile ? 'closest' : 'x',
             plot_bgcolor: plotColors.plotBg,
             paper_bgcolor: plotColors.plotBg,
             legend: {
