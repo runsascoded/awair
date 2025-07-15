@@ -1,9 +1,12 @@
 """Tests for CLI commands using snapshot data."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
-from awair.cli import awair
 from click.testing import CliRunner
+
+from awair.cli import awair
 
 # Path to test data
 TEST_DATA_PATH = Path(__file__).parent / 'data' / 'snapshot.parquet'
@@ -24,9 +27,9 @@ def verify(
 
 
 def test_data_info_command():
-    """Test the data-info command output."""
-    verify(['data-info', '-d', TEST_DATA_PATH], [
-        'Data file: /Users/ryan/c/380nwk/awair/test/data/snapshot.parquet',
+    """Test the data info command output."""
+    verify(['data', 'info', '-d', TEST_DATA_PATH], [
+        f'Data file: {TEST_DATA_PATH}',
         'Total records: 46797',
         'Date range: 2025-06-05 18:00:58 to 2025-07-08 10:05:06.948000',
         'File size: 0.68 MB'
@@ -35,7 +38,7 @@ def test_data_info_command():
 
 def test_hist_command():
     """Test the hist command output."""
-    verify(['hist', '-d', TEST_DATA_PATH], [
+    verify(['data', 'hist', '-d', TEST_DATA_PATH], [
         '    358 2025-06-05',
         '   1433 2025-06-06',
         '   1422 2025-06-07',
@@ -75,15 +78,15 @@ def test_hist_command():
 
 def test_hist_command_with_date_range():
     """Test the hist command with date range filtering."""
-    verify(['hist', '-d', TEST_DATA_PATH, '-f', '20250607', '-t', '20250608'], [
+    verify(['data', 'hist', '-d', TEST_DATA_PATH, '-f', '20250607', '-t', '20250608'], [
         '   1422 2025-06-07'
     ])
 
 
 def test_gaps_command():
     """Test the gaps command output."""
-    verify(['gaps', '-d', TEST_DATA_PATH, '-n', '5'], [
-        'Gap analysis for /Users/ryan/c/380nwk/awair/test/data/snapshot.parquet',
+    verify(['data', 'gaps', '-d', TEST_DATA_PATH, '-n', '5'], [
+        f'Gap analysis for {TEST_DATA_PATH}',
         'Date range: 2025-06-05 to 2025-07-08',
         'Total records: 46797',
         '',
@@ -98,8 +101,8 @@ def test_gaps_command():
 
 def test_gaps_command_with_min_gap():
     """Test the gaps command with minimum gap filter."""
-    verify(['gaps', '-d', TEST_DATA_PATH, '-m', '300', '-n', '3'], [
-        'Gap analysis for /Users/ryan/c/380nwk/awair/test/data/snapshot.parquet',
+    verify(['data', 'gaps', '-d', TEST_DATA_PATH, '-m', '300', '-n', '3'], [
+        f'Gap analysis for {TEST_DATA_PATH}',
         'Date range: 2025-06-05 to 2025-07-08',
         'Total records: 46797',
         'Gaps >= 300s: 3',
@@ -114,8 +117,8 @@ def test_gaps_command_with_min_gap():
 
 def test_gaps_command_with_date_range():
     """Test the gaps command with date range filtering."""
-    verify(['gaps', '-d', TEST_DATA_PATH, '-f', '20250607', '-t', '20250608', '-n', '3'], [
-        'Gap analysis for /Users/ryan/c/380nwk/awair/test/data/snapshot.parquet',
+    verify(['data', 'gaps', '-d', TEST_DATA_PATH, '-f', '20250607', '-t', '20250608', '-n', '3'], [
+        f'Gap analysis for {TEST_DATA_PATH}',
         'Date range: 2025-06-07 to 2025-06-07',
         'Total records: 1422',
         '',
@@ -128,14 +131,14 @@ def test_gaps_command_with_date_range():
 
 def test_flexible_date_parsing():
     """Test that flexible date parsing works in commands."""
-    verify(['hist', '-d', TEST_DATA_PATH, '-f', '250607', '-t', '250608'], [
+    verify(['data', 'hist', '-d', TEST_DATA_PATH, '-f', '250607', '-t', '250608'], [
         '   1422 2025-06-07'
     ])
 
 
 def test_nonexistent_file():
     """Test behavior with nonexistent data file."""
-    verify(['data-info', '-d', 'nonexistent.parquet'], [
+    verify(['data', 'info', '-d', 'nonexistent.parquet'], [
         'Data file: nonexistent.parquet',
         'Total records: 0',
         'No data in file'
@@ -145,24 +148,24 @@ def test_nonexistent_file():
 def test_hist_flexible_date_formats():
     """Test various flexible date formats with hist command."""
     # Test short format
-    verify(['hist', '-d', TEST_DATA_PATH, '-f', '250607', '-t', '250608'], [
+    verify(['data', 'hist', '-d', TEST_DATA_PATH, '-f', '250607', '-t', '250608'], [
         '   1422 2025-06-07'
     ])
 
     # Test full format
-    verify(['hist', '-d', TEST_DATA_PATH, '-f', '20250607', '-t', '20250608'], [
+    verify(['data', 'hist', '-d', TEST_DATA_PATH, '-f', '20250607', '-t', '20250608'], [
         '   1422 2025-06-07'
     ])
 
     # Test with hour - should only show partial day data
-    verify(['hist', '-d', TEST_DATA_PATH, '-f', '250607T10', '-t', '250607T14'], [
+    verify(['data', 'hist', '-d', TEST_DATA_PATH, '-f', '250607T10', '-t', '250607T14'], [
         '    239 2025-06-07'
     ])
 
 
 def test_gaps_no_gaps_scenario():
     """Test gaps command when no significant gaps exist."""
-    verify(['gaps', '-d', TEST_DATA_PATH, '-m', '10000'], [
+    verify(['data', 'gaps', '-d', TEST_DATA_PATH, '-m', '10000'], [
         'No gaps >= 10000 seconds found'
     ])
 
@@ -172,14 +175,13 @@ def test_command_help_includes_docstrings():
     verify(['--help'], [
         'Usage: awair [OPTIONS] COMMAND [ARGS]...',
         '',
+        '  Awair API client and data collection system.',
+        '',
         'Options:',
         '  --help  Show this message and exit.',
         '',
         'Commands:',
-        '  data-info  Show data file information.',
-        '  devices    List all devices associated with the authenticated user account.',
-        '  gaps       Find and report the largest timing gaps in the data.',
-        '  hist       Generate histogram of record counts per day.',
-        '  raw        Fetch raw air data from an Awair Element device.',
-        '  self       Get information about the authenticated user account.'
+        '  api     Direct API interaction commands.',
+        '  data    Analyze archived data.',
+        '  lambda  AWS Lambda operations for scheduled data updates.'
     ])

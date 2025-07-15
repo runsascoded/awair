@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from datetime import datetime
-from os.path import getsize, exists
+from os.path import exists, getsize
 
 import pandas as pd
 

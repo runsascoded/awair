@@ -2,17 +2,24 @@
 """CDK app for Awair Lambda infrastructure."""
 
 import aws_cdk as cdk
-from constructs import Construct
 from aws_cdk import (
-    Stack,
-    Duration,
-    aws_lambda as _lambda,
-    aws_events as events,
-    aws_events_targets as targets,
-    aws_iam as iam,
-    aws_logs as logs,
     CfnOutput,
+    Duration,
+    Stack,
 )
+from aws_cdk import (
+    aws_events as events,
+)
+from aws_cdk import (
+    aws_events_targets as targets,
+)
+from aws_cdk import (
+    aws_iam as iam,
+)
+from aws_cdk import (
+    aws_lambda as _lambda,
+)
+from constructs import Construct
 
 
 class AwairLambdaStack(Stack):
@@ -193,7 +200,8 @@ def create_app(
 
 if __name__ == '__main__':
     import os
-    from awair.cli.config import get_token, get_default_data_path
+
+    from awair.cli.config import get_default_data_path, get_token
 
     # Use unified token and data path flows
     try:

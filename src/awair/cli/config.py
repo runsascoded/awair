@@ -1,12 +1,11 @@
 """Configuration and utility functions for Awair CLI."""
 
-import requests
+from functools import cache, partial
 from os import getenv, makedirs
 from os.path import exists, expanduser, join
-from functools import cache, partial
 
+import requests
 from click import echo, option
-
 
 err = partial(echo, err=True)
 

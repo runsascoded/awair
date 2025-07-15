@@ -1,12 +1,14 @@
 """Data analysis and management commands."""
 
-from click import option, echo
-import pandas as pd
+from __future__ import annotations
 
-from .base import awair
-from .config import err, data_path_opt
+import pandas as pd
+from click import echo, option
+
 from ..dt import dt_range_opts
 from ..storage import ParquetStorage
+from .base import awair
+from .config import data_path_opt, err
 
 
 @awair.group

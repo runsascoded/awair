@@ -50,8 +50,9 @@ def test_updater():
 
     # Set up environment
     if not os.environ.get('AWAIR_TOKEN'):
-        # Try to read from .token file
-        token_file = Path.cwd() / '.token'
+        # Try to read from .token file - look in project root (4 levels up from this file)
+        project_root = Path(__file__).parent.parent.parent.parent
+        token_file = project_root / '.token'
         if token_file.exists():
             os.environ['AWAIR_TOKEN'] = token_file.read_text().strip()
         else:

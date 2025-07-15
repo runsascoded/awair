@@ -2,7 +2,6 @@
 
 from click import option
 
-
 # Version option for Lambda operations (used in deploy and package commands)
 version_opt = option(
     '-v', '--version',

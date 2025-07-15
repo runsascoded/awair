@@ -7,8 +7,8 @@ import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from click import echo, Abort
-from utz.proc import run, output, check
+from click import Abort, echo
+from utz.proc import check, output, run
 
 
 def bake_device_config(package_dir: Path, use_pypi_import: bool = False):
@@ -221,7 +221,7 @@ def deploy_lambda(version: str = None, refresh_interval_minutes: int = 3):
     """Deploy the stack."""
     try:
         # Get token and data path via unified flows
-        from awair.cli.config import get_token, get_default_data_path
+        from awair.cli.config import get_default_data_path, get_token
 
         token = get_token()
         data_path = get_default_data_path()
@@ -253,7 +253,7 @@ def synth_lambda():
     """Synthesize CloudFormation template."""
     try:
         # Get token and data path via unified flows
-        from awair.cli.config import get_token, get_default_data_path
+        from awair.cli.config import get_default_data_path, get_token
 
         token = get_token()
         data_path = get_default_data_path()

@@ -1,14 +1,14 @@
 """Lambda deployment and management commands."""
 
-import sys
 import subprocess
-from os.path import join, dirname, exists
+import sys
+from os.path import dirname, exists, join
 
 from click import option
 
 from .base import awair
-from .config import get_token, err
 from .common_opts import version_opt
+from .config import err, get_token
 
 # Import deploy module conditionally - only when actually needed
 # This prevents import errors when running in Lambda where lmbda directory is excluded
@@ -36,7 +36,7 @@ def deploy(version: str = None, dry_run: bool = False, refresh_interval: int = 3
     """Deploy the scheduled Lambda updater to AWS using CDK."""
     # Validate token via unified flow and pass to subprocess
     try:
-        token = get_token()
+        get_token()  # Just validate token exists
     except ValueError as e:
         err(f'Token error: {e}')
         sys.exit(1)
@@ -80,7 +80,7 @@ def test():
         return
 
     try:
-        subprocess.run([sys.executable, test_script], check=True, cwd=LAMBDA_DIR)
+        subprocess.run([sys.executable, '-m', 'awair.lmbda.test_updater'], check=True)
     except subprocess.CalledProcessError as e:
         err(f'Test failed: {e}')
         sys.exit(1)
@@ -91,7 +91,7 @@ def synth():
     """Synthesize CloudFormation template from CDK (without deploying)."""
     # Validate token via unified flow and pass to subprocess
     try:
-        token = get_token()
+        get_token()  # Just validate token exists
     except ValueError as e:
         err(f'Token error: {e}')
         sys.exit(1)

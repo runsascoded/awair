@@ -1,5 +1,7 @@
 """API-related commands for direct interaction with Awair services."""
 
+from __future__ import annotations
+
 import json
 import time
 from datetime import datetime, timedelta
@@ -7,12 +9,12 @@ from sys import stdout
 from urllib.parse import quote_plus
 
 import requests
-from click import option, Choice
+from click import Choice, option
 
-from .base import awair
-from .config import get_device_info, get, DEVICES, err, data_path_opt, SELF
 from ..dt import dt_range_opts
-from ..storage import ParquetStorage, FIELDS
+from ..storage import FIELDS, ParquetStorage
+from .base import awair
+from .config import DEVICES, SELF, data_path_opt, err, get, get_device_info
 
 
 @awair.group

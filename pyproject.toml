@@ -59,7 +59,7 @@ all = [
     "utz>=0.20.0",
 ]
 [project.scripts]
-awair = "awair.cli:awair"
+awair = "awair.cli.base:awair"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]

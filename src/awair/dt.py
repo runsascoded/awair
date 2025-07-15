@@ -1,5 +1,7 @@
 """DateTime parsing and handling utilities for the Awair CLI."""
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 from functools import partial
 from typing import Callable
