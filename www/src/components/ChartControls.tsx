@@ -153,7 +153,7 @@ export function ChartControls({
         {isMobile ? (
           <label className="unselectable">Range Width:</label>
         ) : (
-          <Tooltip content="Keyboard: 1=1day, 3=3days, 2=14days(2wk), a=All">
+          <Tooltip content="Keyboard: 1=1day, 3=3days, 7=7days, 2=14days(2wk), m=30days, a=All">
             <label className="unselectable">Range Width:</label>
           </Tooltip>
         )}

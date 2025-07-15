@@ -126,9 +126,17 @@ export function useKeyboardShortcuts({
         // 3 = 3 days
         handleTimeRangeClick(24 * 3)
         event.preventDefault()
+      } else if (key === '7') {
+        // 7 = 7 days
+        handleTimeRangeClick(24 * 7)
+        event.preventDefault()
       } else if (key === '2') {
         // 2 = 14 days (2 weeks)
         handleTimeRangeClick(24 * 14)
+        event.preventDefault()
+      } else if (key === 'm') {
+        // M = 30 days (month)
+        handleTimeRangeClick(24 * 30)
         event.preventDefault()
       }
     }
