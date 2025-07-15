@@ -1,14 +1,16 @@
-# [Awair] API Client & Data Collection System
+# [Awair] Air Quality Dashboard
 
 [![PyPI version](https://badge.fury.io/py/awair.svg)](https://badge.fury.io/py/awair)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Dashboard](https://img.shields.io/badge/Dashboard-awair.runsascoded.com-blue)](https://awair.runsascoded.com)
+[![Dashboard](https://img.shields.io/badge/Dashboard-awair.runsascoded.com-blue)][awair.runsascoded.com]
 
 A Python CLI tool and automated data collection system for [Awair] air quality sensors. Provides real-time data fetching using [the Awair API][API], historical analysis, automated S3 storage via AWS Lambda, and a web dashboard for visualization.
 
+[![Awair Dashboard](www/public/awair.png)][awair.runsascoded.com]
+
 ## Features
 
-- **Web Dashboard**: Real-time visualization at [awair.runsascoded.com](https://awair.runsascoded.com)
+- **Web Dashboard**: Real-time visualization at [awair.runsascoded.com]
 - **CLI Interface**: Raw data fetching, analysis, and export from Awair sensors
 - **Automated Collection**: AWS Lambda function that collects data every 5 minutes
 - **S3 Storage**: Efficient Parquet format with incremental updates
@@ -246,3 +248,4 @@ MIT License - see LICENSE file for details.
 
 [Awair]: https://www.getawair.com/
 [API]: https://docs.developer.getawair.com/
+[awair.runsascoded.com]: https://awair.runsascoded.com

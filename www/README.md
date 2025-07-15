@@ -2,6 +2,8 @@
 
 A real-time air quality monitoring dashboard for Awair sensors, built with React, TypeScript, and Plotly.js.
 
+[![Awair Dashboard](public/awair.png)](https://awair.runsascoded.com)
+
 ## Features
 
 - **Real-time Charts**: Interactive time-series visualization of air quality metrics

@@ -431,6 +431,7 @@ footer p {
   gap: 2rem;
   align-items: center;
   flex-wrap: wrap;
+  padding: 0 1rem;
 }
 
 .control-group {
