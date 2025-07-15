@@ -66,6 +66,8 @@ export function ChartControls({
   setIgnoreNextPanCheck
 }: ChartControlsProps) {
 
+  const isMobile = window.innerWidth < 768 || window.innerHeight < 600
+
   const handleTimeRangeButtonClick = (hours: number) => {
     const activeRange = getActiveTimeRange()
     if (activeRange.startsWith('latest-') || activeRange === 'all') {
@@ -117,9 +119,13 @@ export function ChartControls({
   return (
     <div className="chart-controls">
       <div className="control-group">
-        <Tooltip content="Keyboard: t=Temperature, c=CO₂, h=Humidity, p=PM2.5, v=VOC">
-          <label>Primary Metric:</label>
-        </Tooltip>
+        {isMobile ? (
+          <label className="unselectable">Primary Metric:</label>
+        ) : (
+          <Tooltip content="Keyboard: t=Temperature, c=CO₂, h=Humidity, p=PM2.5, v=VOC">
+            <label className="unselectable">Primary Metric:</label>
+          </Tooltip>
+        )}
         <select value={metric} onChange={(e) => setMetric(e.target.value as any)}>
           {Object.entries(metricConfig).map(([key, cfg]) => (
             <option key={key} value={key}>{cfg.label}</option>
@@ -128,9 +134,13 @@ export function ChartControls({
       </div>
 
       <div className="control-group">
-        <Tooltip content="Keyboard: T=Temperature, C=CO₂, H=Humidity, P=PM2.5, V=VOC, N=None. Shift+same letter swaps primary/secondary.">
-          <label>Secondary Metric:</label>
-        </Tooltip>
+        {isMobile ? (
+          <label className="unselectable">Secondary Metric:</label>
+        ) : (
+          <Tooltip content="Keyboard: T=Temperature, C=CO₂, H=Humidity, P=PM2.5, V=VOC, N=None. Shift+same letter swaps primary/secondary.">
+            <label className="unselectable">Secondary Metric:</label>
+          </Tooltip>
+        )}
         <select value={secondaryMetric} onChange={(e) => setSecondaryMetric(e.target.value as any)}>
           <option value="none">None</option>
           {Object.entries(metricConfig).map(([key, cfg]) => (
@@ -140,32 +150,36 @@ export function ChartControls({
       </div>
 
       <div className="control-group">
-        <Tooltip content="Keyboard: 1=1day, 3=3days, 2=14days(2wk), a=All">
-          <label>Range Width:</label>
-        </Tooltip>
+        {isMobile ? (
+          <label className="unselectable">Range Width:</label>
+        ) : (
+          <Tooltip content="Keyboard: 1=1day, 3=3days, 2=14days(2wk), a=All">
+            <label className="unselectable">Range Width:</label>
+          </Tooltip>
+        )}
         <div className="time-range-buttons">
           {timeRangeButtons.map(({ label, hours }) => (
             <button
               key={label}
-              className={getActiveTimeRange() === label || getActiveTimeRange() === `latest-${label}` ? 'active' : ''}
+              className={`unselectable ${getActiveTimeRange() === label || getActiveTimeRange() === `latest-${label}` ? 'active' : ''}`}
               onClick={() => handleTimeRangeButtonClick(hours)}
             >
               {label}
             </button>
           ))}
-          <Tooltip content={summary ? `Date Range: ${summary.dateRange}${summary.latest ? ` | Latest: ${formatCompactDate(new Date(summary.latest))}` : ''}` : 'Show all data'}>
-            <button
-              className={getActiveTimeRange() === 'all' ? 'active' : ''}
-              onClick={handleAllButtonClick}
-            >
-              All
-            </button>
-          </Tooltip>
+          <button
+            className={`unselectable ${getActiveTimeRange() === 'all' ? 'active' : ''}`}
+            onClick={handleAllButtonClick}
+          >
+            All
+          </button>
         </div>
       </div>
 
       <div className="control-group">
-        <label>Range:</label>
+        <Tooltip content={summary ? `Date Range: ${summary.dateRange}${summary.latest ? ` | Latest: ${formatCompactDate(new Date(summary.latest))}` : ''}` : 'Show all data'}>
+          <label className="unselectable">Range:</label>
+        </Tooltip>
         <div className="range-info">
           {xAxisRange ? (
             <Tooltip content={`${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`}>
@@ -178,14 +192,23 @@ export function ChartControls({
           ) : (
             <span className="range-display">All data</span>
           )}
-          <Tooltip content="Jump to latest data (Keyboard: l)">
+          {isMobile ? (
             <button
-              className={`latest-button ${latestModeIntended || getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
+              className={`unselectable latest-button ${latestModeIntended || getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
               onClick={handleLatestButtonClick}
             >
               Latest
             </button>
-          </Tooltip>
+          ) : (
+            <Tooltip content="Jump to latest data (Keyboard: l)">
+              <button
+                className={`unselectable latest-button ${latestModeIntended || getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
+                onClick={handleLatestButtonClick}
+              >
+                Latest
+              </button>
+            </Tooltip>
+          )}
         </div>
       </div>
     </div>

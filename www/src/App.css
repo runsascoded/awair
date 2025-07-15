@@ -403,6 +403,13 @@ footer p {
   min-height: 300px;
 }
 
+.unselectable {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
 .chart-header {
   padding: 2rem;
   border-bottom: 1px solid var(--border-primary);
