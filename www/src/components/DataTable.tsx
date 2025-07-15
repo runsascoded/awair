@@ -221,7 +221,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
         <table>
           <thead>
             <tr>
-              <th>Timestamp</th>
+              <th>Time</th>
               <th>Temp (°F)</th>
               <th>Humidity (%)</th>
               <th>CO₂ (ppm)</th>

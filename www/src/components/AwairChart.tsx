@@ -30,6 +30,7 @@ export function AwairChart({ data, summary }: Props) {
     const mobileQuery = window.matchMedia('(max-width: 767px) or (max-height: 599px)')
     return mobileQuery.matches
   })
+  const [viewportWidth, setViewportWidth] = useState(window.innerWidth)
 
   // Refs for handling programmatic updates
   const ignoreNextRelayoutRef = useRef(false)
@@ -232,7 +233,7 @@ export function AwairChart({ data, summary }: Props) {
     setIgnoreNextPanCheck
   })
 
-  // Handle responsive plot height using matchMedia
+  // Handle responsive plot height and viewport width using matchMedia
   useEffect(() => {
     const mobileQuery = window.matchMedia('(max-width: 767px) or (max-height: 599px)')
 
@@ -240,10 +241,18 @@ export function AwairChart({ data, summary }: Props) {
       setIsMobile(e.matches)
     }
 
+    const handleResize = () => {
+      setViewportWidth(window.innerWidth)
+    }
+
     mobileQuery.addEventListener('change', handleMediaQueryChange)
+    window.addEventListener('resize', handleResize)
+    window.addEventListener('orientationchange', handleResize)
 
     return () => {
       mobileQuery.removeEventListener('change', handleMediaQueryChange)
+      window.removeEventListener('resize', handleResize)
+      window.removeEventListener('orientationchange', handleResize)
     }
   }, [])
 
@@ -271,6 +280,79 @@ export function AwairChart({ data, summary }: Props) {
 
     return () => observer.disconnect()
   }, [])
+
+  // Custom tick formatting
+  const generateCustomTicks = useCallback(() => {
+    if (!xAxisRange || data.length === 0) return { tickvals: [], ticktext: [] }
+
+    const startTime = new Date(xAxisRange[0])
+    const endTime = new Date(xAxisRange[1])
+    const totalHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)
+
+    // Dynamic tick count based on actual viewport width
+    const plotWidth = Math.max(300, viewportWidth - 100) // Account for margins, min 300px
+    const maxTicks = Math.floor(plotWidth / 30) // ~80px per tick
+    const minTicks = Math.max(3, Math.floor(plotWidth / 120)) // At least 3 ticks
+
+    let tickIntervalHours: number
+    if (totalHours <= 6) tickIntervalHours = 1
+    else if (totalHours <= 24) tickIntervalHours = 2
+    else if (totalHours <= 72) tickIntervalHours = 6
+    else if (totalHours <= 168) tickIntervalHours = 12
+    else tickIntervalHours = 24
+
+    // Adjust interval to fit within tick count limits
+    const estimatedTicks = Math.ceil(totalHours / tickIntervalHours)
+    if (estimatedTicks > maxTicks) {
+      tickIntervalHours = Math.ceil(totalHours / maxTicks)
+    } else if (estimatedTicks < minTicks) {
+      tickIntervalHours = Math.max(1, Math.floor(totalHours / minTicks))
+    }
+
+    const tickvals: string[] = []
+    const ticktext: string[] = []
+    let currentDate = ''
+    let isFirstTick = true
+
+    // Generate ticks starting from a rounded hour, but ensure first tick is within range
+    const startHour = new Date(startTime)
+    startHour.setMinutes(0, 0, 0)
+
+    // If rounded hour is before start time, advance to next interval
+    if (startHour < startTime) {
+      startHour.setHours(startHour.getHours() + tickIntervalHours)
+    }
+
+    for (let tickTime = new Date(startHour); tickTime <= endTime; tickTime.setHours(tickTime.getHours() + tickIntervalHours)) {
+      const currentYear = new Date().getFullYear()
+      const tickYear = tickTime.getFullYear()
+      const isCurrentYear = tickYear === currentYear
+
+      const tickDate = isCurrentYear
+        ? tickTime.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
+        : tickTime.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' })
+
+      const tickHour = tickTime.getHours()
+      const hour12 = tickHour === 0 ? 12 : tickHour > 12 ? tickHour - 12 : tickHour
+      const ampm = tickHour < 12 ? 'am' : 'pm'
+
+      tickvals.push(formatForPlotly(tickTime))
+
+      if (isFirstTick || tickDate !== currentDate) {
+        // First tick overall OR first tick for this date - show date and time
+        ticktext.push(`${hour12}${ampm}<br>${tickDate}`)
+        currentDate = tickDate
+        isFirstTick = false
+      } else {
+        // Subsequent ticks for same date - show only time
+        ticktext.push(`${hour12}${ampm}`)
+      }
+    }
+
+    return { tickvals, ticktext }
+  }, [xAxisRange, data, isMobile, viewportWidth, formatForPlotly])
+
+  const { tickvals, ticktext } = generateCustomTicks()
 
   // Plot data preparation
   const config = metricConfig[metric] || metricConfig.temp
@@ -414,7 +496,12 @@ export function AwairChart({ data, summary }: Props) {
               gridcolor: plotColors.gridcolor,
               tickfont: { color: plotColors.textColor },
               linecolor: plotColors.gridcolor,
-              zerolinecolor: plotColors.gridcolor
+              zerolinecolor: plotColors.gridcolor,
+              ...(tickvals.length > 0 && {
+                tickvals: tickvals,
+                ticktext: ticktext,
+                tickmode: 'array'
+              })
             },
             yaxis: {
               gridcolor: plotColors.gridcolor,
