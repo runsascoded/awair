@@ -18,14 +18,22 @@ from aws_cdk import (
 class AwairLambdaStack(Stack):
     """Stack for Awair scheduled data updater Lambda."""
 
-    def __init__(self, scope: Construct, construct_id: str, awair_token: str, data_path: str,
-                 package_type: str = "source", version: str = None,
-                 refresh_interval_minutes: int = 3, **kwargs) -> None:
+    def __init__(
+        self,
+        scope: Construct,
+        construct_id: str,
+        awair_token: str,
+        data_path: str,
+        package_type: str = 'source',
+        version: str = None,
+        refresh_interval_minutes: int = 3,
+        **kwargs,
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Parse S3 path for IAM permissions
         if not data_path.startswith('s3://'):
-            raise ValueError(f"Lambda requires S3 data path, got: {data_path}")
+            raise ValueError(f'Lambda requires S3 data path, got: {data_path}')
 
         s3_path = data_path[5:]  # Remove 's3://'
         parts = s3_path.split('/', 1)
@@ -33,7 +41,7 @@ class AwairLambdaStack(Stack):
         s3_key = parts[1] if len(parts) > 1 else ''
 
         if not s3_bucket or not s3_key:
-            raise ValueError(f"Invalid S3 path: {data_path}. Expected format: s3://bucket/key")
+            raise ValueError(f'Invalid S3 path: {data_path}. Expected format: s3://bucket/key')
 
         # IAM role for Lambda
         lambda_role = iam.Role(
@@ -65,12 +73,12 @@ class AwairLambdaStack(Stack):
         )
 
         # Determine deployment package based on package type
-        if package_type == "pypi":
-            deployment_zip = "lambda-updater-pypi-deployment.zip"
-            description_suffix = f" (PyPI {version})" if version else " (PyPI latest)"
+        if package_type == 'pypi':
+            deployment_zip = 'lambda-updater-pypi-deployment.zip'
+            description_suffix = f' (PyPI {version})' if version else ' (PyPI latest)'
         else:
-            deployment_zip = "lambda-updater-deployment.zip"
-            description_suffix = " (source)"
+            deployment_zip = 'lambda-updater-deployment.zip'
+            description_suffix = ' (source)'
 
         # Lambda function
         updater_function = _lambda.Function(
@@ -142,36 +150,48 @@ class AwairLambdaStack(Stack):
 class AwairCdkApp(cdk.App):
     """CDK App for Awair infrastructure."""
 
-    def __init__(self, awair_token: str, data_path: str, stack_name: str = "awair-data-updater",
-                 package_type: str = "source", version: str = None,
-                 refresh_interval_minutes: int = 3):
+    def __init__(
+        self,
+        awair_token: str,
+        data_path: str,
+        stack_name: str = 'awair-data-updater',
+        package_type: str = 'source',
+        version: str = None,
+        refresh_interval_minutes: int = 3,
+    ):
         super().__init__()
 
         # Create the stack
         self.stack = AwairLambdaStack(
-            self, stack_name,
+            self,
+            stack_name,
             awair_token=awair_token,
             data_path=data_path,
             package_type=package_type,
             version=version,
             refresh_interval_minutes=refresh_interval_minutes,
-            description="Awair Data Updater - Scheduled Lambda for S3 updates",
+            description='Awair Data Updater - Scheduled Lambda for S3 updates',
             env=cdk.Environment(
                 # Use default AWS credentials/region
                 account=None,
-                region=None
-            )
+                region=None,
+            ),
         )
 
 
-def create_app(awair_token: str, data_path: str, stack_name: str = "awair-data-updater",
-               package_type: str = "source", version: str = None,
-               refresh_interval_minutes: int = 3) -> AwairCdkApp:
+def create_app(
+    awair_token: str,
+    data_path: str,
+    stack_name: str = 'awair-data-updater',
+    package_type: str = 'source',
+    version: str = None,
+    refresh_interval_minutes: int = 3,
+) -> AwairCdkApp:
     """Create and return the CDK app."""
     return AwairCdkApp(awair_token, data_path, stack_name, package_type, version, refresh_interval_minutes)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import os
     from awair.cli.config import get_token, get_default_data_path
 
@@ -186,12 +206,18 @@ if __name__ == "__main__":
         refresh_interval = int(os.getenv('AWAIR_REFRESH_INTERVAL_MINUTES', '3'))
 
     except ValueError as e:
-        print(f"Configuration error: {e}")
+        print(f'Configuration error: {e}')
         import sys
+
         sys.exit(1)
 
-    app = create_app(token, data_path, package_type=package_type, version=version,
-                     refresh_interval_minutes=refresh_interval)
+    app = create_app(
+        token,
+        data_path,
+        package_type=package_type,
+        version=version,
+        refresh_interval_minutes=refresh_interval,
+    )
 
     # Synthesize the app (generate CloudFormation)
     app.synth()

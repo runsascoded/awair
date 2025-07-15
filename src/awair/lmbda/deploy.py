@@ -13,7 +13,7 @@ from utz.proc import run, output, check
 
 def bake_device_config(package_dir: Path, use_pypi_import: bool = False):
     """Bake device configuration into Lambda package."""
-    print("Baking in device configuration...")
+    print('Baking in device configuration...')
     try:
         if use_pypi_import:
             # Import from the installed PyPI package
@@ -24,22 +24,22 @@ def bake_device_config(package_dir: Path, use_pypi_import: bool = False):
             from awair.cli.config import get_device_info
 
         device_type, device_id = get_device_info()
-        device_config_content = f"{device_type},{device_id}"
+        device_config_content = f'{device_type},{device_id}'
 
         # Create .awair directory in package
-        awair_config_dir = package_dir / ".awair"
+        awair_config_dir = package_dir / '.awair'
         awair_config_dir.mkdir(exist_ok=True)
 
         # Write device config file
-        device_config_file = awair_config_dir / "device"
+        device_config_file = awair_config_dir / 'device'
         with open(device_config_file, 'w') as f:
             f.write(device_config_content)
 
-        print(f"Baked in device: {device_type} ID: {device_id}")
+        print(f'Baked in device: {device_type} ID: {device_id}')
 
     except Exception as e:
-        echo(f"Warning: Could not bake in device config: {e}", err=True)
-        echo("Lambda will auto-discover device on first run", err=True)
+        echo(f'Warning: Could not bake in device config: {e}', err=True)
+        echo('Lambda will auto-discover device on first run', err=True)
     finally:
         # Clean up sys.path if we modified it
         if use_pypi_import and str(package_dir) in sys.path:
@@ -48,13 +48,13 @@ def bake_device_config(package_dir: Path, use_pypi_import: bool = False):
 
 def create_zip_package(package_dir: Path, package_type: str) -> str:
     """Create ZIP file from package directory."""
-    print("Creating deployment package...")
+    print('Creating deployment package...')
 
     # Choose zip filename based on package type
-    if package_type == "pypi":
-        zip_filename = "lambda-updater-pypi-deployment.zip"
+    if package_type == 'pypi':
+        zip_filename = 'lambda-updater-pypi-deployment.zip'
     else:
-        zip_filename = "lambda-updater-deployment.zip"
+        zip_filename = 'lambda-updater-deployment.zip'
 
     zip_path = Path(__file__).parent / zip_filename
 
@@ -65,30 +65,29 @@ def create_zip_package(package_dir: Path, package_type: str) -> str:
                 arc_name = file_path.relative_to(package_dir)
                 zipf.write(file_path, arc_name)
 
-    print(f"Created {zip_path} ({zip_path.stat().st_size / 1024 / 1024:.1f} MB)")
+    print(f'Created {zip_path} ({zip_path.stat().st_size / 1024 / 1024:.1f} MB)')
     return str(zip_path)
 
 
-def create_lambda_package(package_type: str = "source", version: str = None) -> str:
+def create_lambda_package(package_type: str = 'source', version: str = None) -> str:
     """Create a deployment package for AWS Lambda from source or PyPI."""
 
     with TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
-        package_dir = temp_path / "package"
+        package_dir = temp_path / 'package'
         package_dir.mkdir()
 
-        if package_type == "pypi":
+        if package_type == 'pypi':
             # PyPI-based package
             if version:
-                awair_package = f"awair=={version}"
-                print(f"Installing awair {version} from PyPI...")
+                awair_package = f'awair=={version}'
+                print(f'Installing awair {version} from PyPI...')
             else:
-                awair_package = "awair"
-                print("Installing latest awair from PyPI...")
+                awair_package = 'awair'
+                print('Installing latest awair from PyPI...')
 
             # Install awair package without dependencies first
-            run(sys.executable, "-m", "pip", "install",
-                awair_package, "-t", str(package_dir), "--no-deps")
+            run(sys.executable, '-m', 'pip', 'install', awair_package, '-t', str(package_dir), '--no-deps')
 
             # Install only runtime dependencies (pandas/pyarrow come from layer)
             print("Installing runtime dependencies...")
@@ -99,8 +98,7 @@ def create_lambda_package(package_type: str = "source", version: str = None) -> 
             ]
 
             for dep in runtime_deps:
-                run(sys.executable, "-m", "pip", "install",
-                    dep, "-t", str(package_dir))
+                run(sys.executable, '-m', 'pip', 'install', dep, '-t', str(package_dir))
 
             use_pypi_import = True
         else:
@@ -111,36 +109,37 @@ def create_lambda_package(package_type: str = "source", version: str = None) -> 
                 "-t", str(package_dir),
                 cwd=Path(__file__).parent)
 
-            print("Copying source files...")
+            print('Copying source files...')
             # Copy awair module (excluding lmbda directory)
             # Path: /Users/ryan/c/380nwk/awair/src/awair/lmbda/deploy.py
             # We want: /Users/ryan/c/380nwk/awair/src/awair
             awair_src = Path(__file__).parent.parent
-            awair_dest = package_dir / "awair"
+            awair_dest = package_dir / 'awair'
 
             # Create the awair directory structure
             awair_dest.mkdir(parents=True, exist_ok=True)
 
             # Copy all files and directories from awair_src to awair_dest, excluding lmbda
             for item in awair_src.iterdir():
-                if item.name != "lmbda":  # Skip lmbda directory to avoid recursion
+                if item.name != 'lmbda':  # Skip lmbda directory to avoid recursion
                     dest_path = awair_dest / item.name
                     if item.is_dir():
                         # Use shutil.copytree for reliable recursive directory copying
                         import shutil
+
                         shutil.copytree(str(item), str(dest_path), dirs_exist_ok=True)
                     else:
                         # Copy individual files
                         import shutil
+
                         shutil.copy2(str(item), str(dest_path))
 
             use_pypi_import = False
 
         # Copy Lambda handler (common to both)
-        print("Copying Lambda handler...")
+        print('Copying Lambda handler...')
         lambda_dir = Path(__file__).parent
-        run("cp", "updater.py", str(package_dir / "lambda_function.py"),
-            cwd=lambda_dir)
+        run('cp', 'updater.py', str(package_dir / 'lambda_function.py'), cwd=lambda_dir)
 
         # Bake in device configuration
         bake_device_config(package_dir, use_pypi_import)
@@ -151,22 +150,20 @@ def create_lambda_package(package_type: str = "source", version: str = None) -> 
 
 def install_cdk_dependencies():
     """Install CDK dependencies if not already installed."""
-    if check(sys.executable, "-c", "import aws_cdk"):
-        print("CDK dependencies already installed")
+    if check(sys.executable, '-c', 'import aws_cdk'):
+        print('CDK dependencies already installed')
     else:
-        print("Installing CDK dependencies...")
-        run(sys.executable, "-m", "pip", "install",
-            "aws-cdk-lib>=2.0.0",
-            "constructs>=10.0.0")
+        print('Installing CDK dependencies...')
+        run(sys.executable, '-m', 'pip', 'install', 'aws-cdk-lib>=2.0.0', 'constructs>=10.0.0')
 
 
 def bootstrap_cdk():
     """Bootstrap CDK if needed."""
-    if not check("aws", "cloudformation", "describe-stacks", "--stack-name", "CDKToolkit"):
-        print("Bootstrapping CDK...")
-        run("cdk", "bootstrap")
+    if not check('aws', 'cloudformation', 'describe-stacks', '--stack-name', 'CDKToolkit'):
+        print('Bootstrapping CDK...')
+        run('cdk', 'bootstrap')
     else:
-        print("CDK already bootstrapped")
+        print('CDK already bootstrapped')
 
 
 def deploy_with_cdk(awair_token: str, data_path: str, package_type: str = "source",
@@ -225,6 +222,7 @@ def deploy_lambda(version: str = None, refresh_interval_minutes: int = 3):
     try:
         # Get token and data path via unified flows
         from awair.cli.config import get_token, get_default_data_path
+
         token = get_token()
         data_path = get_default_data_path()
 
@@ -236,19 +234,18 @@ def deploy_lambda(version: str = None, refresh_interval_minutes: int = 3):
         install_cdk_dependencies()
         bootstrap_cdk()
         create_lambda_package(final_package_type, final_version)
-        deploy_with_cdk(token, data_path, final_package_type, final_version,
-                        refresh_interval_minutes=refresh_interval_minutes)
+        deploy_with_cdk(token, data_path, final_package_type, final_version, refresh_interval_minutes=refresh_interval_minutes)
 
-        echo("\n✅ CDK deployment complete!")
-        echo(f"Lambda will run every {refresh_interval_minutes} minutes, updating {data_path}")
+        echo('\n✅ CDK deployment complete!')
+        echo(f'Lambda will run every {refresh_interval_minutes} minutes, updating {data_path}')
         if final_package_type == 'pypi' and final_version:
-            echo(f"Deployed awair version: {final_version}")
+            echo(f'Deployed awair version: {final_version}')
         elif final_package_type == 'source':
-            echo("Deployed from source code")
-        echo("Monitor logs: aws logs tail /aws/lambda/awair-data-updater --follow")
+            echo('Deployed from source code')
+        echo('Monitor logs: aws logs tail /aws/lambda/awair-data-updater --follow')
 
     except Exception as e:
-        echo(f"❌ Deployment failed: {e}", err=True)
+        echo(f'❌ Deployment failed: {e}', err=True)
         raise Abort()
 
 
@@ -257,17 +254,18 @@ def synth_lambda():
     try:
         # Get token and data path via unified flows
         from awair.cli.config import get_token, get_default_data_path
+
         token = get_token()
         data_path = get_default_data_path()
 
         install_cdk_dependencies()
         create_lambda_package()  # CDK needs the zip file to exist
         template = synthesize_cloudformation(token, data_path)
-        echo("CloudFormation template:")
+        echo('CloudFormation template:')
         echo(template)
 
     except Exception as e:
-        echo(f"❌ Synthesis failed: {e}", err=True)
+        echo(f'❌ Synthesis failed: {e}', err=True)
         raise Abort()
 
 
@@ -280,14 +278,12 @@ def package_lambda(version: str = None):
         final_version = None if use_source else version
 
         zip_path = create_lambda_package(final_package_type, final_version)
-        echo(f"✅ Package created: {zip_path}")
+        echo(f'✅ Package created: {zip_path}')
         if final_package_type == 'pypi' and final_version:
-            echo(f"Using awair version: {final_version}")
+            echo(f'Using awair version: {final_version}')
         elif final_package_type == 'source':
-            echo("Using source code")
+            echo('Using source code')
 
     except Exception as e:
-        echo(f"❌ Package creation failed: {e}", err=True)
+        echo(f'❌ Package creation failed: {e}', err=True)
         raise Abort()
-
-

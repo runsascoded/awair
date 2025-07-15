@@ -92,7 +92,7 @@ def gaps(
         return
 
     # Show summary
-    date_range = f"{df['timestamp'].min().date()} to {df['timestamp'].max().date()}"
+    date_range = f'{df["timestamp"].min().date()} to {df["timestamp"].max().date()}'
 
     echo(f'Gap analysis for {data_path}')
     echo(f'Date range: {date_range}')
@@ -102,7 +102,7 @@ def gaps(
         filtered_gaps = len(gaps_df)
         total_gap_time = gaps_df['gap_seconds'].sum()
         echo(f'Gaps >= {min_gap}s: {filtered_gaps}')
-        echo(f'Total gap time: {total_gap_time/60:.1f} minutes')
+        echo(f'Total gap time: {total_gap_time / 60:.1f} minutes')
 
     echo()
 

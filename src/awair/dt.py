@@ -75,8 +75,10 @@ def parse_flexible_datetime(dt_str: str | None) -> str | None:
 
 def click_cb(fn: Callable[[str | None], str | None]) -> Callable[[Context, Parameter, str | None], str | None]:
     """Convert a simple callback function to a click callback."""
+
     def cb(ctx: Context, param: Parameter, value: str | None) -> str | None:
         return fn(value)
+
     return cb
 
 
@@ -92,6 +94,7 @@ def dt_range_opts(from_default_days=None, to_default_minutes=None):
         Decorator function that adds the datetime range options to a click command
     """
     err = partial(echo, err=True)
+
     def from_callback(value: str | None) -> str | None:
         if value is None:
             if from_default_days is None:

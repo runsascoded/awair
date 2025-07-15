@@ -5,10 +5,7 @@
 from .cli import *
 
 # Import specific functions that might be used by other modules
-from .cli.config import (
-    get_token, get_device_info, get_default_data_path,
-    parse_s3_path, get, err
-)
+from .cli.config import get_token, get_device_info, get_default_data_path, parse_s3_path, get, err
 from .cli.raw import fetch_raw_data
 
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { FaGithub } from 'react-icons/fa'
 import { useTheme } from '../contexts/ThemeContext'
 
 export function ThemeToggle() {
@@ -47,13 +48,25 @@ export function ThemeToggle() {
   }
 
   return (
-    <button
-      className={`theme-toggle ${isVisible ? 'visible' : ''}`}
-      onClick={cycleTheme}
-      title={`Theme: ${getThemeLabel()}`}
-      aria-label={`Current theme: ${getThemeLabel()}. Click to cycle themes.`}
-    >
-      <span className="theme-icon">{getThemeIcon()}</span>
-    </button>
+    <div className={`theme-controls ${isVisible ? 'visible' : ''}`}>
+      <a
+        href="https://github.com/runsascoded/awair"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="github-link"
+        title="View on GitHub"
+        aria-label="View project on GitHub"
+      >
+        <FaGithub />
+      </a>
+      <button
+        className="theme-toggle"
+        onClick={cycleTheme}
+        title={`Theme: ${getThemeLabel()}`}
+        aria-label={`Current theme: ${getThemeLabel()}. Click to cycle themes.`}
+      >
+        <span className="theme-icon">{getThemeIcon()}</span>
+      </button>
+    </div>
   )
 }

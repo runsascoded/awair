@@ -9,6 +9,7 @@ from click import option
 from .base import awair
 from .config import get_token, err
 from .common_opts import version_opt
+
 # Import deploy module conditionally - only when actually needed
 # This prevents import errors when running in Lambda where lmbda directory is excluded
 try:
@@ -46,9 +47,9 @@ def deploy(version: str = None, dry_run: bool = False, refresh_interval: int = 3
     # Determine deployment type for logging
     use_source = version in ['source', 'src']
     if use_source:
-        deployment_type = "source"
+        deployment_type = 'source'
     else:
-        deployment_type = f"PyPI {version}" if version else "PyPI latest"
+        deployment_type = f'PyPI {version}' if version else 'PyPI latest'
 
     if not exists(deploy_script):
         err('Deployment script not found')
@@ -146,4 +147,3 @@ def logs(follow: bool, stack_name: str, since: str):
     except subprocess.CalledProcessError as e:
         err(f'Failed to fetch logs: {e}')
         sys.exit(1)
-

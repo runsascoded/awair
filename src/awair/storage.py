@@ -176,11 +176,12 @@ class ParquetStorage:
 
             try:
                 import boto3
+
                 s3_client = boto3.client('s3')
                 response = s3_client.head_object(Bucket=bucket, Key=key)
                 return response['ContentLength'] / (1024 * 1024)
             except ImportError:
-                raise ImportError("boto3 is required to get file size for S3 URIs")
+                raise ImportError('boto3 is required to get file size for S3 URIs')
         elif exists(self.file_path):
             return getsize(self.file_path) / (1024 * 1024)
         else:

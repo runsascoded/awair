@@ -5,6 +5,7 @@ import os
 import tempfile
 from pathlib import Path
 
+
 # Mock the S3 atomic_edit for testing
 class MockAtomicEdit:
     def __init__(self, bucket, key, **kwargs):
@@ -16,6 +17,7 @@ class MockAtomicEdit:
         test_data = Path(__file__).parent.parent.parent.parent / 'test' / 'data' / 'snapshot.parquet'
         if test_data.exists() and kwargs.get('download'):
             import shutil
+
             shutil.copy(test_data, self.tmp_path)
 
     def __enter__(self):
@@ -25,13 +27,15 @@ class MockAtomicEdit:
         # Print stats about the file
         if self.tmp_path.exists():
             import pandas as pd
+
             df = pd.read_parquet(self.tmp_path)
-            print(f"Final file has {len(df)} records")
+            print(f'Final file has {len(df)} records')
             if not df.empty:
-                print(f"Date range: {df['timestamp'].min()} to {df['timestamp'].max()}")
+                print(f'Date range: {df["timestamp"].min()} to {df["timestamp"].max()}')
         # Clean up
         if self.tmp_path.exists():
             self.tmp_path.unlink()
+
 
 def test_updater():
     """Test the updater function locally."""
@@ -51,13 +55,13 @@ def test_updater():
         if token_file.exists():
             os.environ['AWAIR_TOKEN'] = token_file.read_text().strip()
         else:
-            print("No AWAIR_TOKEN environment variable or .token file found")
+            print('No AWAIR_TOKEN environment variable or .token file found')
             return
 
     # Import and test the updater
     from .updater import lambda_handler
 
-    print("Testing lambda updater...")
+    print('Testing lambda updater...')
 
     # Mock event and context
     event = {}
@@ -67,8 +71,9 @@ def test_updater():
     # Run the handler
     result = lambda_handler(event, context)
 
-    print(f"Result: {result}")
+    print(f'Result: {result}')
     return result
+
 
 if __name__ == '__main__':
     test_updater()

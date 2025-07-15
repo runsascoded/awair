@@ -8,12 +8,13 @@ from awair.cli.api import fetch_raw_data
 from awair.cli.config import parse_s3_path
 from awair.storage import ParquetStorage
 
+
 def get_s3_config():
     """Get S3 bucket and key from environment variable."""
     data_path = os.getenv('AWAIR_DATA_PATH', 's3://380nwk/awair.parquet')
 
     if not data_path.startswith('s3://'):
-        raise ValueError(f"Lambda requires S3 data path, got: {data_path}")
+        raise ValueError(f'Lambda requires S3 data path, got: {data_path}')
 
     bucket, key = parse_s3_path(data_path)
     return bucket, key
@@ -30,6 +31,7 @@ def update_s3_data():
     try:
         # Check if S3 file exists first
         import boto3
+
         s3 = boto3.client('s3')
         try:
             s3.head_object(Bucket=s3_bucket, Key=s3_key)
@@ -43,11 +45,12 @@ def update_s3_data():
         with atomic_edit(s3_bucket, s3_key, create_ok=True, download=file_exists) as tmp_path:
             # Convert to Path object
             from pathlib import Path
+
             tmp_path = Path(tmp_path)
 
             # If file doesn't exist, create empty DataFrame
             if not tmp_path.exists():
-                print("Creating initial parquet file")
+                print('Creating initial parquet file')
                 empty_df = pd.DataFrame(columns=['timestamp', 'temp', 'humid', 'co2', 'voc', 'pm25'])
                 empty_df.to_parquet(tmp_path, index=False)
 
@@ -59,12 +62,12 @@ def update_s3_data():
                 if latest_timestamp:
                     # Fetch data since the latest timestamp (recent-only mode)
                     from_str = latest_timestamp.isoformat()
-                    print(f"Fetching data since: {from_str}")
+                    print(f'Fetching data since: {from_str}')
                 else:
                     # No existing data, fetch last 7 days to start
                     from_dt = datetime.now() - timedelta(days=7)
                     from_str = from_dt.isoformat()
-                    print(f"No existing data, fetching from: {from_str}")
+                    print(f'No existing data, fetching from: {from_str}')
 
                 # Fetch new data (10 minutes into future to ensure we get latest)
                 to_str = (datetime.now() + timedelta(minutes=10)).isoformat()
@@ -73,25 +76,25 @@ def update_s3_data():
                     from_str=from_str,
                     to_str=to_str,
                     limit=360,
-                    sleep_interval=0.0  # No sleep needed for single request
+                    sleep_interval=0.0,  # No sleep needed for single request
                 )
 
                 if result['success'] and result['data']:
                     inserted = storage.insert_air_data(result['data'])
-                    print(f"Inserted {inserted} new records")
+                    print(f'Inserted {inserted} new records')
 
                     # Log current data stats
                     summary = storage.get_data_summary()
-                    print(f"Total records: {summary['count']}")
+                    print(f'Total records: {summary["count"]}')
                     if summary['latest']:
-                        print(f"Latest timestamp: {summary['latest']}")
+                        print(f'Latest timestamp: {summary["latest"]}')
 
                     return inserted
                 elif result['success']:
-                    print("No new data available")
+                    print('No new data available')
                     return 0
                 else:
-                    print(f"Failed to fetch data: {result.get('error', 'Unknown error')}")
+                    print(f'Failed to fetch data: {result.get("error", "Unknown error")}')
                     return 0
     finally:
         # Restore original working directory

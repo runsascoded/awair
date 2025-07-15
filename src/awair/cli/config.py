@@ -27,9 +27,9 @@ def parse_s3_path(s3_path: str) -> tuple[str, str]:
     key = parts[1] if len(parts) > 1 else ''
 
     if not bucket:
-        raise ValueError(f"Invalid S3 path: {s3_path}. Missing bucket name")
+        raise ValueError(f'Invalid S3 path: {s3_path}. Missing bucket name')
     if not key:
-        raise ValueError(f"Invalid S3 path: {s3_path}. Missing key/object name")
+        raise ValueError(f'Invalid S3 path: {s3_path}. Missing key/object name')
 
     return bucket, key
 
@@ -77,7 +77,7 @@ def get_device_config() -> tuple[str, int]:
         '.awair-device',
         '.awair/device',  # Lambda package baked-in config (relative to working dir)
         '/var/task/.awair/device',  # Lambda package baked-in config (absolute path for Lambda)
-        join(expanduser('~/.awair'), 'device')
+        join(expanduser('~/.awair'), 'device'),
     ]
 
     for config_path in config_paths:
@@ -92,13 +92,13 @@ def get_device_config() -> tuple[str, int]:
     try:
         devices_data = get_devices()
         if not devices_data:
-            raise ValueError("No devices found in your Awair account")
+            raise ValueError('No devices found in your Awair account')
 
         if len(devices_data) > 1:
-            err(f"Multiple devices found ({len(devices_data)}). Please configure specific device.")
+            err(f'Multiple devices found ({len(devices_data)}). Please configure specific device.')
             for i, device in enumerate(devices_data):
-                err(f"  {i+1}. {device['deviceType']} ID: {device['deviceId']}")
-            raise ValueError("Multiple devices found - manual configuration required")
+                err(f'  {i + 1}. {device["deviceType"]} ID: {device["deviceId"]}')
+            raise ValueError('Multiple devices found - manual configuration required')
 
         # Single device found - use it and save for future
         device = devices_data[0]
@@ -110,15 +110,15 @@ def get_device_config() -> tuple[str, int]:
         makedirs(awair_dir, exist_ok=True)
         config_file = join(awair_dir, 'device')
         with open(config_file, 'w') as f:
-            f.write(f"{device_type},{device_id}")
+            f.write(f'{device_type},{device_id}')
 
-        echo(f"Auto-configured device: {device_type} ID: {device_id}")
-        echo(f"Saved to: {config_file}")
+        echo(f'Auto-configured device: {device_type} ID: {device_id}')
+        echo(f'Saved to: {config_file}')
 
         return device_type, device_id
 
     except Exception as e:
-        raise ValueError(f"Failed to get device configuration: {e}")
+        raise ValueError(f'Failed to get device configuration: {e}')
 
 
 @cache
@@ -146,7 +146,7 @@ def get_token():
         with open(token_file, 'r') as f:
             return f.read().strip()
 
-    raise ValueError("No Awair token found. Set AWAIR_TOKEN env var or create .token file")
+    raise ValueError('No Awair token found. Set AWAIR_TOKEN env var or create .token file')
 
 
 def get(url: str):
