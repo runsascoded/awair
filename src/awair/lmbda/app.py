@@ -82,10 +82,11 @@ class AwairLambdaStack(Stack):
         # Determine deployment package based on package type
         if package_type == 'pypi':
             deployment_zip = 'lambda-updater-pypi-deployment.zip'
-            description_suffix = f' (PyPI {version})' if version else ' (PyPI latest)'
+            # Use the actual resolved version in description
+            description_suffix = f' (PyPI {version})' if version else ' (PyPI)'
         else:
             deployment_zip = 'lambda-updater-deployment.zip'
-            description_suffix = ' (source)'
+            description_suffix = f' (source {version})' if version and version != 'source' else ' (source)'
 
         # Lambda function
         updater_function = _lambda.Function(

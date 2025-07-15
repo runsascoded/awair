@@ -69,8 +69,13 @@ def create_zip_package(package_dir: Path, package_type: str) -> str:
     return str(zip_path)
 
 
-def create_lambda_package(package_type: str = 'source', version: str = None) -> str:
-    """Create a deployment package for AWS Lambda from source or PyPI."""
+def create_lambda_package(package_type: str = 'source', version: str = None) -> tuple[str, str]:
+    """Create a deployment package for AWS Lambda from source or PyPI.
+
+    Returns:
+        tuple: (zip_path, resolved_version)
+    """
+    resolved_version = None
 
     with TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
@@ -88,6 +93,29 @@ def create_lambda_package(package_type: str = 'source', version: str = None) -> 
 
             # Install awair package without dependencies first
             run(sys.executable, '-m', 'pip', 'install', awair_package, '-t', str(package_dir), '--no-deps')
+
+            # Get the resolved version from the installed package metadata
+            try:
+                # Look for the dist-info directory
+                for item in package_dir.iterdir():
+                    if item.is_dir() and item.name.startswith('awair-') and item.name.endswith('.dist-info'):
+                        metadata_file = item / 'METADATA'
+                        if metadata_file.exists():
+                            with open(metadata_file, 'r') as f:
+                                for line in f:
+                                    if line.startswith('Version:'):
+                                        resolved_version = line.split(':', 1)[1].strip()
+                                        print(f'Resolved awair version: {resolved_version}')
+                                        break
+                                else:
+                                    resolved_version = version or 'unknown'
+                            break
+                else:
+                    print('Warning: Could not find awair dist-info directory')
+                    resolved_version = version or 'unknown'
+            except Exception as e:
+                print(f'Warning: Could not determine installed version: {e}')
+                resolved_version = version or 'unknown'
 
             # Install only runtime dependencies (pandas/pyarrow come from layer)
             print("Installing runtime dependencies...")
@@ -134,6 +162,23 @@ def create_lambda_package(package_type: str = 'source', version: str = None) -> 
 
                         shutil.copy2(str(item), str(dest_path))
 
+            # Get version from source
+            try:
+                # Read version from pyproject.toml
+                pyproject_path = Path(__file__).parent.parent.parent.parent / 'pyproject.toml'
+                if pyproject_path.exists():
+                    with open(pyproject_path, 'r') as f:
+                        for line in f:
+                            if line.startswith('version ='):
+                                resolved_version = line.split('=', 1)[1].strip().strip('"')
+                                break
+                        else:
+                            resolved_version = 'source'
+                else:
+                    resolved_version = 'source'
+            except:
+                resolved_version = 'source'
+
             use_pypi_import = False
 
         # Copy Lambda handler (common to both)
@@ -145,7 +190,8 @@ def create_lambda_package(package_type: str = 'source', version: str = None) -> 
         bake_device_config(package_dir, use_pypi_import)
 
         # Create ZIP package
-        return create_zip_package(package_dir, package_type)
+        zip_path = create_zip_package(package_dir, package_type)
+        return zip_path, resolved_version
 
 
 def install_cdk_dependencies():
@@ -167,7 +213,8 @@ def bootstrap_cdk():
 
 
 def deploy_with_cdk(awair_token: str, data_path: str, package_type: str = "source",
-                   version: str = None, stack_name: str = "awair-data-updater",
+                   version: str = None, resolved_version: str = None,
+                   stack_name: str = "awair-data-updater",
                    refresh_interval_minutes: int = 3):
     """Deploy using CDK."""
     lambda_dir = Path(__file__).parent
@@ -178,14 +225,18 @@ def deploy_with_cdk(awair_token: str, data_path: str, package_type: str = "sourc
     env['AWAIR_DATA_PATH'] = data_path
     env['AWAIR_LAMBDA_PACKAGE'] = package_type
     env['AWAIR_REFRESH_INTERVAL_MINUTES'] = str(refresh_interval_minutes)
-    if version:
-        env['AWAIR_VERSION'] = version
+    # Use resolved version if available, otherwise fall back to requested version
+    final_version = resolved_version or version
+    if final_version:
+        env['AWAIR_VERSION'] = final_version
 
     print(f"Deploying CDK stack: {stack_name}")
     print(f"Target S3 location: {data_path}")
     print(f"Refresh interval: {refresh_interval_minutes} minutes")
     if package_type == "pypi":
-        if version:
+        if resolved_version:
+            print(f"Using awair version: {resolved_version}")
+        elif version:
             print(f"Using awair version: {version}")
         else:
             print("Using latest awair version")
@@ -233,13 +284,13 @@ def deploy_lambda(version: str = None, refresh_interval_minutes: int = 3):
 
         install_cdk_dependencies()
         bootstrap_cdk()
-        create_lambda_package(final_package_type, final_version)
-        deploy_with_cdk(token, data_path, final_package_type, final_version, refresh_interval_minutes=refresh_interval_minutes)
+        zip_path, resolved_version = create_lambda_package(final_package_type, final_version)
+        deploy_with_cdk(token, data_path, final_package_type, final_version, resolved_version, refresh_interval_minutes=refresh_interval_minutes)
 
         echo('\n✅ CDK deployment complete!')
         echo(f'Lambda will run every {refresh_interval_minutes} minutes, updating {data_path}')
-        if final_package_type == 'pypi' and final_version:
-            echo(f'Deployed awair version: {final_version}')
+        if final_package_type == 'pypi' and resolved_version:
+            echo(f'Deployed awair version: {resolved_version}')
         elif final_package_type == 'source':
             echo('Deployed from source code')
         echo('Monitor logs: aws logs tail /aws/lambda/awair-data-updater --follow')
@@ -259,7 +310,7 @@ def synth_lambda():
         data_path = get_default_data_path()
 
         install_cdk_dependencies()
-        create_lambda_package()  # CDK needs the zip file to exist
+        zip_path, _ = create_lambda_package()  # CDK needs the zip file to exist
         template = synthesize_cloudformation(token, data_path)
         echo('CloudFormation template:')
         echo(template)
@@ -277,10 +328,10 @@ def package_lambda(version: str = None):
         final_package_type = 'source' if use_source else 'pypi'
         final_version = None if use_source else version
 
-        zip_path = create_lambda_package(final_package_type, final_version)
+        zip_path, resolved_version = create_lambda_package(final_package_type, final_version)
         echo(f'✅ Package created: {zip_path}')
-        if final_package_type == 'pypi' and final_version:
-            echo(f'Using awair version: {final_version}')
+        if final_package_type == 'pypi' and resolved_version:
+            echo(f'Using awair version: {resolved_version}')
         elif final_package_type == 'source':
             echo('Using source code')
 
