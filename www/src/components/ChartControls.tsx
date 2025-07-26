@@ -30,7 +30,7 @@ interface ChartControlsProps {
 }
 
 const metricConfig: { [key: string]: MetricConfig } = {
-  temp: { label: 'Temperature', unit: '°C', color: '#ff6384' },
+  temp: { label: 'Temperature', unit: '°F', color: '#ff6384' },
   co2: { label: 'CO₂', unit: 'ppm', color: '#36a2eb' },
   humid: { label: 'Humidity', unit: '%', color: '#4bc0c0' },
   pm25: { label: 'PM2.5', unit: 'μg/m³', color: '#9966ff' },
