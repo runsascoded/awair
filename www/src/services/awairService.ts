@@ -12,12 +12,12 @@ export async function fetchAwairData(): Promise<{ records: AwairRecord[]; summar
 
   const arrayBuffer = await response.arrayBuffer()
 
-  const rows: any[] = []
+  let rows: any[] = []
   await parquetRead({
     file: arrayBuffer,
     onComplete: (data) => {
       if (Array.isArray(data)) {
-        rows.push(...data)
+        rows = data
       }
     }
   })
