@@ -176,7 +176,7 @@ def create_lambda_package(package_type: str = 'source', version: str = None) -> 
                             resolved_version = 'source'
                 else:
                     resolved_version = 'source'
-            except:
+            except Exception:
                 resolved_version = 'source'
 
             use_pypi_import = False
