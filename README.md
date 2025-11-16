@@ -71,34 +71,34 @@ Configure default data file path via:
 
 ```bash
 # Fetch raw API data and save to configured data file
-awair raw --from-dt 250710T10 --to-dt 250710T11
+awair api raw --from-dt 250710T10 --to-dt 250710T11
 
 # Fetch raw API data and output as JSONL to stdout
-awair raw --from-dt 250710T10 --to-dt 250710T11 -d /dev/null
+awair api raw --from-dt 250710T10 --to-dt 250710T11 -d /dev/null
 
 # Fetch only new data since latest timestamp in storage
-awair raw --recent-only
+awair api raw --recent-only
 
 # Check your account info
-awair self
+awair api self
 
 # List your devices
-awair devices
+awair api devices
 ```
 
 ### Data Analysis
 
 ```bash
 # Show data file summary
-awair data-info
-awair data-info -d s3://your-bucket/data.parquet
+awair data info
+awair data info -d s3://your-bucket/data.parquet
 
 # Daily histogram of record counts
-awair hist
-awair hist --from-dt 250710 --to-dt 250712
+awair data hist
+awair data hist --from-dt 250710 --to-dt 250712
 
 # Find timing gaps in data
-awair gaps -n 5 -m 300  # Top 5 gaps over 5 minutes
+awair data gaps -n 5 -m 300  # Top 5 gaps over 5 minutes
 ```
 
 ### AWS Lambda Deployment
