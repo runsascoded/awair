@@ -101,6 +101,7 @@ function ValueTooltip({ children, content }: { children: React.ReactElement; con
 
 export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, onPageChange, onJumpToLatest }: Props) {
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
 
   const handlePageChange = (newPage: number) => {
     const pageOffset = newPage - page
@@ -111,7 +112,6 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
       onPageChange(pageOffset)
     }
   }
-  const pageSize = 20
 
   // Reverse the data to show most recent first (reverse chronological)
   const reversedData = [...data].reverse()
@@ -144,7 +144,35 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
     <div className="data-table">
       <div className="table-header">
         <h3>{isRawData ? 'Raw Data' : 'Aggregated Data'}</h3>
-        <div className="pagination">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <label htmlFor="rows-per-page" style={{ fontSize: '14px' }}>Rows:</label>
+            <select
+              id="rows-per-page"
+              value={pageSize}
+              onChange={(e) => {
+                const newSize = parseInt(e.target.value)
+                setPageSize(newSize)
+                setPage(0) // Reset to first page when changing page size
+              }}
+              style={{
+                padding: '4px 8px',
+                fontSize: '14px',
+                borderRadius: '4px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-color)',
+                color: 'var(--text-color)',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+            </select>
+          </div>
+          <div className="pagination">
           <button
             onClick={() => {
               if (plotStartTime && plotEndTime && onPageChange) {
@@ -215,6 +243,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
           >
             <i className="fas fa-angles-right"></i>
           </button>
+          </div>
         </div>
       </div>
 
