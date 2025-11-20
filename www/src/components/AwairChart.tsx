@@ -411,7 +411,7 @@ export function AwairChart({ data, summary }: Props) {
                 fillcolor: `${secondaryConfig.color}20`,
                 line: { color: 'transparent' },
                 mode: 'lines',
-                name: `±1σ ${secondaryConfig.label}`,
+                name: `±σ ${secondaryConfig.label}`,
                 showlegend: false,
                 hoverinfo: 'skip',
                 yaxis: 'y2',
@@ -443,7 +443,7 @@ export function AwairChart({ data, summary }: Props) {
                   ])),
                   hovertemplate: `<b>%{customdata[0]}</b><br>` +
                                `Avg: %{y:.1f} ${secondaryConfig.unit}<br>` +
-                               `±1σ: %{customdata[3]:.1f} - %{customdata[2]:.1f} ${secondaryConfig.unit}<br>` +
+                               `±σ: %{customdata[3]:.1f} - %{customdata[2]:.1f} ${secondaryConfig.unit}<br>` +
                                `σ: %{customdata[4]:.1f} ${secondaryConfig.unit}<br>` +
                                `n = %{customdata[5]}<extra></extra>`
                 })
@@ -470,7 +470,7 @@ export function AwairChart({ data, summary }: Props) {
                 fillcolor: `${config.color}20`,
                 line: { color: 'transparent' },
                 mode: 'lines',
-                name: `±1σ ${config.label}`,
+                name: `±σ ${config.label}`,
                 showlegend: false,
                 hoverinfo: 'skip',
                 zorder: 10
@@ -499,7 +499,7 @@ export function AwairChart({ data, summary }: Props) {
                 ])),
                 hovertemplate: `<b>%{customdata[0]}</b><br>` +
                              `Avg: %{y:.1f} ${config.unit}<br>` +
-                             `±1σ: %{customdata[3]:.1f} - %{customdata[2]:.1f} ${config.unit}<br>` +
+                             `±σ: %{customdata[3]:.1f} - %{customdata[2]:.1f} ${config.unit}<br>` +
                              `σ: %{customdata[4]:.1f} ${config.unit}<br>` +
                              `n = %{customdata[5]}<extra></extra>`
               })
