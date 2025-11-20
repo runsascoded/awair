@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The `awair` project is a Python CLI tool and automated data collection system for Awair air quality sensors. It consists of:
 
-1. **AWS Lambda function** that fetches data from the Awair API every 3-5 minutes and appends to `s3://380nwk/awair.parquet`
-2. **Web dashboard** (React/TypeScript) that reads the Parquet file directly from S3 and visualizes air quality metrics
-3. **CLI tool** for manual data fetching, analysis, and Lambda deployment
+1. **AWS Lambda functions** (one per device) that fetch data from the Awair API every 2 minutes and append to device-specific S3 Parquet files
+2. **Web dashboard** (React/TypeScript) that reads Parquet files directly from S3 and visualizes air quality metrics
+3. **CLI tool** for manual data fetching, analysis, and multi-device Lambda deployment
 
 ## Common Commands
 
@@ -40,19 +40,27 @@ awair gaps                    # Find timing gaps in data
 ### Lambda Deployment
 
 ```bash
-# Deploy Lambda from PyPI (production)
-awair lambda deploy                    # Deploy latest PyPI version
-awair lambda deploy -v 0.0.5          # Deploy specific version
-awair lambda deploy -r 5              # Set 5-minute refresh interval
+# Deploy Lambda for a device
+AWAIR_DATA_PATH=s3://380nwk/awair-17617.parquet \
+  awair lambda deploy -s awair-updater-17617 -r 2
 
-# Deploy Lambda from source (development)
-awair lambda deploy -v source         # Deploy local changes
+# Deploy multiple devices (separate stacks)
+AWAIR_DEVICE_ID=17617 AWAIR_DATA_PATH=s3://380nwk/awair-17617.parquet \
+  awair lambda deploy -s awair-updater-17617 -r 2
+
+AWAIR_DEVICE_ID=137496 AWAIR_DATA_PATH=s3://380nwk/awair-137496.parquet \
+  awair lambda deploy -s awair-updater-137496 -r 2
+
+# Deploy from source (development)
+awair lambda deploy -v source -s awair-updater-17617 -r 2
 
 # Other Lambda commands
 awair lambda package                  # Build package only
 awair lambda synth                    # View CloudFormation template
 awair lambda test                     # Test locally
-awair lambda logs --follow            # Monitor logs
+
+# Monitor logs (specify function)
+aws logs tail /aws/lambda/awair-updater-17617 --follow
 ```
 
 ### Web Dashboard Development
@@ -73,9 +81,13 @@ pnpm run test                 # Run tests
 ```
 Awair API
     ↓
-Lambda (every 3-5 min) → S3 (s3://380nwk/awair.parquet)
-    ↑                         ↓
-Python CLI              Web Dashboard (reads directly from S3)
+Lambda (every 2 min) → S3 (device-specific parquet files)
+    ↑                    ↓
+Python CLI         Web Dashboard (reads directly from S3)
+
+Multi-Device Example:
+  Device 17617:  EventBridge (2min) → Lambda → s3://380nwk/awair-17617.parquet
+  Device 137496: EventBridge (2min) → Lambda → s3://380nwk/awair-137496.parquet
 ```
 
 ### Key Components
@@ -91,9 +103,10 @@ The Lambda function runs on a schedule (EventBridge) and atomically updates the 
 
 - **`app.py`**: CDK infrastructure definition
   - Creates Lambda function with IAM permissions dynamically based on configured S3 path
-  - Sets up EventBridge schedule (default: 3 minutes)
+  - Sets up EventBridge schedule (default: 2 minutes, configurable)
   - Uses AWS Lambda Pandas layer for pandas/pyarrow dependencies
   - Reserved concurrency of 1 (prevents race conditions)
+  - Stack name configurable via `--stack-name` / `-s` flag
 
 - **`deploy.py`**: Deployment orchestration
   - `create_lambda_package()`: Builds deployment ZIP from PyPI or source
@@ -191,10 +204,12 @@ React + TypeScript + Vite application:
 
 ### Rate Limiting and Scheduling
 
-- **Awair API limit**: 500 requests/day
-- **Lambda schedule**: Every 3-5 minutes (configurable via `-r` flag)
-- **Daily requests**: 288/day (5 min) or 480/day (3 min) - well under limit
-- **Reserved concurrency**: 1 (no concurrent executions, prevents race conditions)
+- **Awair API limit**: 5,000 requests/day (confirmed by Awair support)
+- **Lambda schedule**: Every 2 minutes (configurable via `-r` flag)
+- **Daily requests per device**: 720/day (2 min intervals)
+- **Multi-device**: 720 × N devices per day (e.g., 1,440/day for 2 devices)
+- **Well within limits**: 5,000/day supports ~7 devices at 2-min intervals
+- **Reserved concurrency**: 1 per function (no concurrent executions, prevents race conditions)
 
 ### Atomic S3 Updates
 

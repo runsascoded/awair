@@ -1,46 +1,54 @@
 # AWS Lambda Integration
 
-The Awair CLI now includes integrated AWS Lambda deployment for scheduled data updates.
+The Awair CLI includes integrated AWS Lambda deployment for scheduled data updates with multi-device support.
 
 ## Quick Start
 
 ```bash
-# Deploy with CDK
-awair lambda deploy --token YOUR_AWAIR_TOKEN
-
-# Or with environment variable
+# Deploy for a specific device
 export AWAIR_TOKEN=your_token_here
-awair lambda deploy
+AWAIR_DATA_PATH=s3://bucket/awair-17617.parquet \
+  awair lambda deploy -s awair-updater-17617 -r 2
+
+# Deploy multiple devices (separate stacks)
+AWAIR_DEVICE_ID=17617 AWAIR_DATA_PATH=s3://bucket/awair-17617.parquet \
+  awair lambda deploy -s awair-updater-17617 -r 2
+
+AWAIR_DEVICE_ID=137496 AWAIR_DATA_PATH=s3://bucket/awair-137496.parquet \
+  awair lambda deploy -s awair-updater-137496 -r 2
 
 # Build package only
 awair lambda deploy --dry-run
 
-# Synthesize CloudFormation from CDK
-awair lambda synth --token YOUR_TOKEN
-
 # Test locally
 awair lambda test
 
-# View logs
-awair lambda logs --follow
+# View logs (specify function)
+aws logs tail /aws/lambda/awair-updater-17617 --follow
 ```
 
 ## What It Does
 
-Creates a scheduled Lambda function that:
-- ✅ Runs every 5 minutes via EventBridge
-- ✅ Updates `s3://380nwk/awair.parquet` with latest sensor data
+Creates a scheduled Lambda function per device that:
+- ✅ Runs every 2 minutes via EventBridge (configurable)
+- ✅ Updates device-specific S3 Parquet file with latest sensor data
 - ✅ Uses `utz.s3.atomic_edit` for safe concurrent updates
 - ✅ Integrates with existing CLI functions (`fetch_raw_data`, `ParquetStorage`)
-- ✅ Limited to 1 concurrent execution (no race conditions)
+- ✅ Limited to 1 concurrent execution per function (no race conditions)
+- ✅ Independent scheduling and storage per device
 
 ## Architecture
 
+**Multi-Device Setup:**
 ```
-EventBridge (5min) → Lambda → Awair API → S3 (atomic update)
-                      ↓
-                 CLI functions (reused)
+Device 17617:
+  EventBridge (2min) → Lambda (awair-updater-17617) → Awair API → s3://bucket/awair-17617.parquet
+
+Device 137496:
+  EventBridge (2min) → Lambda (awair-updater-137496) → Awair API → s3://bucket/awair-137496.parquet
 ```
+
+Each Lambda reuses CLI functions (`fetch_raw_data`, `ParquetStorage`) for consistency.
 
 ## Files
 
@@ -62,16 +70,23 @@ EventBridge (5min) → Lambda → Awair API → S3 (atomic update)
 
 ## Rate Limiting
 
-- **5-minute intervals** = 288 runs/day
-- **Well under 500/day** Awair API limit
-- **~$0.50/month** cost (mostly free tier)
+Per device:
+- **2-minute intervals** = 720 runs/day
+- **Multiple devices**: 720 × N devices per day
+- **Example (2 devices)**: 1,440 requests/day total
+- **Well within limits**: Awair confirmed 5,000 requests/day available
+- **Cost**: ~$0.50/month per device (mostly free tier)
 
 ## Monitoring
 
 ```bash
-# View logs
-aws logs tail /aws/lambda/awair-data-updater --follow
+# View logs for specific device
+aws logs tail /aws/lambda/awair-updater-17617 --follow
+aws logs tail /aws/lambda/awair-updater-137496 --follow
 
 # Check function status
-aws lambda get-function --function-name awair-data-updater
+aws lambda get-function --function-name awair-updater-17617
+
+# List all awair Lambda functions
+aws lambda list-functions | grep awair-updater
 ```

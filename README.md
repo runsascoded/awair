@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Dashboard](https://img.shields.io/badge/Dashboard-awair.runsascoded.com-blue)][awair.runsascoded.com]
 
-A Python CLI tool and automated data collection system for [Awair] air quality sensors. Provides real-time data fetching using [the Awair API][API], historical analysis, automated S3 storage via AWS Lambda, and a web dashboard for visualization.
+A Python CLI tool and automated data collection system for [Awair] air quality sensors. Provides real-time data fetching using [the Awair API][API], historical analysis, automated S3 storage via AWS Lambda (per-device), and a web dashboard for visualization.
 
 <a href="https://awair.runsascoded.com" target="_blank">
   <img src="https://raw.githubusercontent.com/runsascoded/awair/v0.0.5/www/public/awair.png" alt="Awair Dashboard" />
@@ -14,7 +14,8 @@ A Python CLI tool and automated data collection system for [Awair] air quality s
 
 - **Web Dashboard**: Real-time visualization at [awair.runsascoded.com]
 - **CLI Interface**: Raw data fetching, analysis, and export from Awair sensors
-- **Automated Collection**: AWS Lambda function that collects data every 5 minutes
+- **Automated Collection**: AWS Lambda functions that collect data every 2 minutes per device
+- **Multi-Device Support**: Separate Lambda stacks and Parquet files per device
 - **S3 Storage**: Efficient Parquet format with incremental updates
 - **Data Analysis**: Built-in tools for gaps analysis, histograms, and data summaries
 - **Flexible Storage**: Works with local files or S3 (configurable default paths)
@@ -60,10 +61,10 @@ Configure your Awair device via:
 
 ### Data Storage Location
 Configure default data file path via:
-- Environment variable: `export AWAIR_DATA_PATH="s3://your-bucket/data.parquet"`
-- Local file: `echo "s3://your-bucket/data.parquet" > .awair-data-path`
-- User config: `echo "s3://your-bucket/data.parquet" > ~/.awair/data-path`
-- Default: `s3://380nwk/awair.parquet`
+- Environment variable: `export AWAIR_DATA_PATH="s3://your-bucket/awair-17617.parquet"`
+- Local file: `echo "s3://your-bucket/awair-17617.parquet" > .awair-data-path`
+- User config: `echo "s3://your-bucket/awair-17617.parquet" > ~/.awair/data-path`
+- Default: `s3://380nwk/awair-{device_id}.parquet`
 
 ## Usage
 
@@ -104,14 +105,21 @@ awair data gaps -n 5 -m 300  # Top 5 gaps over 5 minutes
 ### AWS Lambda Deployment
 
 ```bash
-# Deploy automated data collector
-awair lambda deploy
+# Deploy automated data collector for a device
+awair lambda deploy -s awair-updater-17617 -r 2
+
+# Deploy for multiple devices (separate stacks)
+AWAIR_DEVICE_ID=17617 AWAIR_DATA_PATH=s3://bucket/awair-17617.parquet \
+  awair lambda deploy -s awair-updater-17617 -r 2
+
+AWAIR_DEVICE_ID=137496 AWAIR_DATA_PATH=s3://bucket/awair-137496.parquet \
+  awair lambda deploy -s awair-updater-137496 -r 2
 
 # View CloudFormation template
 awair lambda synth
 
-# Monitor logs
-awair lambda logs --follow
+# Monitor logs (specify function name)
+aws logs tail /aws/lambda/awair-updater-17617 --follow
 
 # Test locally
 awair lambda test
@@ -144,10 +152,12 @@ Sensor data is stored in Parquet format with these fields:
 
 The system uses AWS Lambda for automated data collection:
 
-- **Schedule**: Runs every 5 minutes via EventBridge
-- **Storage**: Updates S3 Parquet file incrementally
+- **Schedule**: Runs every 2 minutes via EventBridge
+- **Multi-Device**: Separate Lambda stack per device
+- **Storage**: Updates device-specific S3 Parquet file incrementally
 - **Efficiency**: Only fetches data since last update
 - **Reliability**: Uses `utz.s3.atomic_edit` for safe concurrent updates
+- **Scalability**: Each device has its own schedule and S3 path
 
 ### CLI Integration
 
@@ -193,19 +203,26 @@ pytest
 Deploy AWS Lambda function for automated data collection:
 
 ```bash
-# Deploy latest PyPI version (recommended)
-awair lambda deploy
+# Deploy latest PyPI version for a device (recommended)
+AWAIR_DATA_PATH=s3://bucket/awair-17617.parquet \
+  awair lambda deploy -s awair-updater-17617 -r 2
 
 # Deploy specific PyPI version
-awair lambda deploy -v 0.0.1
+awair lambda deploy -v 0.0.1 -s awair-updater-17617 -r 2
 
 # Deploy from local source (development)
-awair lambda deploy -v source
+awair lambda deploy -v source -s awair-updater-17617 -r 2
 
 # Build package only (no deploy)
 awair lambda deploy --dry-run
-awair lambda deploy -v 0.0.1 --dry-run
 ```
+
+**Multi-Device Deployment:**
+Each device gets its own Lambda stack with independent:
+- EventBridge schedule (default: 2 minutes)
+- S3 Parquet file (`awair-{device_id}.parquet`)
+- CloudWatch logs
+- IAM permissions
 
 **PyPI Deployment (Default):**
 - ✅ **Exact Versions**: Deploy specific, tested releases
@@ -219,13 +236,26 @@ awair lambda deploy -v 0.0.1 --dry-run
 
 ## AWS Infrastructure
 
-The Lambda deployment creates:
+Each Lambda deployment creates:
 
-- **Lambda Function**: `awair-data-updater`
-- **EventBridge Rule**: 5-minute schedule
-- **IAM Role**: S3 permissions for target bucket
+- **Lambda Function**: `awair-updater-{device_id}` (e.g., `awair-updater-17617`)
+- **EventBridge Rule**: Configurable schedule (default: 2 minutes)
+- **IAM Role**: S3 permissions for device-specific target path
 - **CloudWatch Logs**: 2-week retention
-- **Environment Variables**: `AWAIR_TOKEN`, `AWAIR_DATA_PATH`
+- **Environment Variables**: `AWAIR_TOKEN`, `AWAIR_DATA_PATH`, `AWAIR_DEVICE_ID`
+
+**Example: Two devices**
+```
+Stack: awair-updater-17617
+  ├─ Lambda: awair-updater-17617
+  ├─ EventBridge: rate(2 minutes)
+  └─ S3: s3://380nwk/awair-17617.parquet
+
+Stack: awair-updater-137496
+  ├─ Lambda: awair-updater-137496
+  ├─ EventBridge: rate(2 minutes)
+  └─ S3: s3://380nwk/awair-137496.parquet
+```
 
 ### Required AWS Permissions
 
