@@ -184,6 +184,8 @@ Device name resolution:
 - Non-numeric strings → regex pattern match against device names (case-insensitive)
 - Must match exactly one device (ambiguous patterns raise an error)
 - Lists available devices when pattern doesn't match
+- Device list cached in `~/.awair/devices-cache.json` (1 hour TTL)
+- Use `awair api devices --refresh` to force refresh cache
 
 #### 5. Web Dashboard (`www/`)
 

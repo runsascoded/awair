@@ -232,10 +232,15 @@ def self():
 
 
 @api.command
-def devices():
-    """List all devices associated with the authenticated user account."""
-    res = get(DEVICES)
-    devices = res['devices']
-    for device in devices:
+@option('-r', '--refresh', is_flag=True, help='Force refresh device list from API (bypass cache)')
+def devices(refresh: bool):
+    """List all devices associated with the authenticated user account.
+
+    By default, uses cached device list (1 hour TTL). Use --refresh to fetch fresh data.
+    """
+    from .config import get_devices as get_devices_cached
+
+    devices_list = get_devices_cached(force_refresh=refresh)
+    for device in devices_list:
         json.dump(device, stdout, indent=2)
         print()

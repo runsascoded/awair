@@ -90,8 +90,11 @@ awair api raw --recent-only
 # Check your account info
 awair api self
 
-# List your devices
+# List your devices (cached, 1 hour TTL)
 awair api devices
+
+# Force refresh device list from API
+awair api devices --refresh
 ```
 
 ### Data Analysis

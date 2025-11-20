@@ -1,6 +1,8 @@
 """Configuration and utility functions for Awair CLI."""
 
+import json
 import re
+import time
 from functools import cache, partial
 from os import getenv, makedirs
 from os.path import exists, expanduser, join
@@ -82,10 +84,52 @@ def get_default_data_path(device_id: int | None = None):
     return template
 
 
-def get_devices():
-    """Get devices list from API."""
+def get_devices(force_refresh: bool = False):
+    """Get devices list from API with file-based caching.
+
+    Args:
+        force_refresh: If True, bypass cache and fetch fresh data from API
+
+    Returns:
+        List of device dictionaries from Awair API
+
+    Cache behavior:
+        - Cached in ~/.awair/devices-cache.json
+        - TTL: 1 hour (3600 seconds)
+        - Use `awair api devices --refresh` to force refresh
+    """
+    awair_dir = expanduser('~/.awair')
+    cache_file = join(awair_dir, 'devices-cache.json')
+    cache_ttl = 3600  # 1 hour
+
+    # Check cache if not forcing refresh
+    if not force_refresh and exists(cache_file):
+        try:
+            with open(cache_file, 'r') as f:
+                cache_data = json.load(f)
+                cached_at = cache_data.get('cached_at', 0)
+                devices = cache_data.get('devices', [])
+
+                # Check if cache is still valid
+                if time.time() - cached_at < cache_ttl:
+                    return devices
+        except (json.JSONDecodeError, KeyError):
+            pass  # Invalid cache, fetch fresh data
+
+    # Fetch fresh data from API
     res = get(DEVICES)
-    return res['devices']
+    devices = res['devices']
+
+    # Save to cache
+    makedirs(awair_dir, exist_ok=True)
+    cache_data = {
+        'cached_at': time.time(),
+        'devices': devices,
+    }
+    with open(cache_file, 'w') as f:
+        json.dump(cache_data, f, indent=2)
+
+    return devices
 
 
 def resolve_device_by_name_or_id(name_or_id: str | int) -> tuple[str, int]:
