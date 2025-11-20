@@ -1,0 +1,20 @@
+# Awair CLI Configuration Example
+# Copy to .envrc and customize for your setup
+
+# API Token (required)
+# Get your token from: https://developer.getawair.com/
+export AWAIR_TOKEN="your-awair-api-token-here"
+
+# Data Path Template (recommended for multi-device setups)
+# Uses {device_id} placeholder for automatic path interpolation
+# Default: s3://380nwk/awair-{device_id}.parquet
+export AWAIR_DATA_PATH_TEMPLATE="s3://your-bucket/awair-{device_id}.parquet"
+
+# Device Configuration (optional - can also use ~/.awair/device or auto-discovery)
+# Set these to override saved device config:
+# export AWAIR_DEVICE_TYPE="awair-element"
+# export AWAIR_DEVICE_ID="12345"
+
+# Explicit Data Path (optional - overrides template)
+# Use this if you want a fixed path regardless of device:
+# export AWAIR_DATA_PATH="s3://your-bucket/custom-path.parquet"

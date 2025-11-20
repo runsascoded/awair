@@ -157,10 +157,21 @@ Unified configuration flow with cascading precedence:
 5. Auto-discovery (saves to `~/.awair/device`)
 
 **Data Path**:
-1. `AWAIR_DATA_PATH` environment variable
+1. `AWAIR_DATA_PATH` environment variable (explicit path, no template expansion)
 2. `.awair-data-path` file
 3. `~/.awair/data-path` file
-4. Default: `s3://380nwk/awair.parquet`
+4. `AWAIR_DATA_PATH_TEMPLATE` environment variable (interpolates `{device_id}`)
+5. Default template: `s3://380nwk/awair-{device_id}.parquet`
+
+The template system allows multi-device setups without hardcoding paths:
+```bash
+# Set template in .envrc for multi-device workflows
+export AWAIR_DATA_PATH_TEMPLATE='s3://your-bucket/awair-{device_id}.parquet'
+
+# Switch devices and path auto-updates
+AWAIR_DEVICE_ID=17617 awair data info    # Uses s3://your-bucket/awair-17617.parquet
+AWAIR_DEVICE_ID=137496 awair data info   # Uses s3://your-bucket/awair-137496.parquet
+```
 
 #### 5. Web Dashboard (`www/`)
 

@@ -8,6 +8,7 @@ from click import echo, option
 from ..dt import dt_range_opts
 from ..storage import ParquetStorage
 from .base import awair
+from .common_opts import device_id_opt
 from .config import data_path_opt, err
 
 
@@ -18,8 +19,9 @@ def data():
 
 
 @data.command
+@device_id_opt
 @data_path_opt
-def info(data_path: str):
+def info(device_id: int | None, data_path: str):
     """Show data file information."""
     storage = ParquetStorage(data_path)
     summary = storage.get_data_summary()
@@ -34,11 +36,13 @@ def info(data_path: str):
 
 
 @data.command
+@device_id_opt
 @data_path_opt
 @dt_range_opts()
 @option('-n', '--count', default=10, help='Number of largest gaps to show')
 @option('-m', '--min-gap', type=int, help='Minimum gap size in seconds to report')
 def gaps(
+    device_id: int | None,
     data_path: str,
     from_dt: str | None,
     to_dt: str | None,
@@ -119,9 +123,11 @@ def gaps(
 
 
 @data.command
+@device_id_opt
 @data_path_opt
 @dt_range_opts()
 def hist(
+    device_id: int | None,
     data_path: str,
     from_dt: str | None,
     to_dt: str | None,

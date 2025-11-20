@@ -33,9 +33,25 @@ def parse_s3_path(s3_path: str) -> tuple[str, str]:
     return bucket, key
 
 
-def get_default_data_path():
-    """Get default data file path from env var, local file, or fallback."""
-    # Try environment variable first
+def get_default_data_path(device_id: int | None = None):
+    """Get default data file path from env var, local file, or fallback with template support.
+
+    Supports path templates with {device_id} placeholder. For example:
+    - AWAIR_DATA_PATH_TEMPLATE='s3://my-bucket/awair-{device_id}.parquet'
+    - With device_id=17617, resolves to: s3://my-bucket/awair-17617.parquet
+
+    Args:
+        device_id: Optional device ID to use for template interpolation.
+                  If not provided, uses get_device_info() to determine device.
+
+    Configuration precedence:
+    1. AWAIR_DATA_PATH env var (explicit path, no template expansion)
+    2. .awair-data-path file (explicit path, no template expansion)
+    3. ~/.awair/data-path file (explicit path, no template expansion)
+    4. AWAIR_DATA_PATH_TEMPLATE env var with {device_id} interpolation
+    5. Default template: s3://380nwk/awair-{device_id}.parquet
+    """
+    # Try explicit environment variable first (no template expansion)
     data_path = getenv('AWAIR_DATA_PATH')
     if data_path:
         return data_path.strip()
@@ -52,8 +68,17 @@ def get_default_data_path():
         with open(data_path_file, 'r') as f:
             return f.read().strip()
 
-    # Default fallback
-    return 's3://380nwk/awair.parquet'
+    # Use template with device_id interpolation
+    template = getenv('AWAIR_DATA_PATH_TEMPLATE', 's3://380nwk/awair-{device_id}.parquet')
+
+    # If template contains {device_id}, interpolate it
+    if '{device_id}' in template:
+        if device_id is None:
+            _, device_id = get_device_info()
+        return template.format(device_id=device_id)
+
+    # Template without placeholder, return as-is
+    return template
 
 
 def get_devices():
@@ -159,4 +184,18 @@ def get(url: str):
 
 
 # Common click option
-data_path_opt = option('-d', '--data-path', default=get_default_data_path(), help='Data file path')
+# Note: default=None with callback to support lazy evaluation based on device_id
+def _resolve_data_path(ctx, param, value):
+    """Callback to resolve data path with device_id support."""
+    if value is not None:
+        return value
+    # Get device_id from context if available (passed via device_id_opt)
+    device_id = ctx.params.get('device_id')
+    return get_default_data_path(device_id)
+
+data_path_opt = option(
+    '-d', '--data-path',
+    default=None,
+    callback=_resolve_data_path,
+    help='Data file path (defaults to template-based path using device ID)'
+)

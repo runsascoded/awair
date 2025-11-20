@@ -7,3 +7,10 @@ version_opt = option(
     '-v', '--version',
     help='Version to deploy/package: PyPI version (e.g., "0.0.1") or "source"/"src" for local source'
 )
+
+# Device ID option for multi-device operations
+device_id_opt = option(
+    '-i', '--device-id',
+    type=int,
+    help='Device ID to use (overrides environment/config)'
+)

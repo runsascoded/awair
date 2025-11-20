@@ -61,10 +61,13 @@ Configure your Awair device via:
 
 ### Data Storage Location
 Configure default data file path via:
-- Environment variable: `export AWAIR_DATA_PATH="s3://your-bucket/awair-17617.parquet"`
+- Environment variable: `export AWAIR_DATA_PATH="s3://your-bucket/awair-17617.parquet"` (explicit path)
 - Local file: `echo "s3://your-bucket/awair-17617.parquet" > .awair-data-path`
 - User config: `echo "s3://your-bucket/awair-17617.parquet" > ~/.awair/data-path`
-- Default: `s3://380nwk/awair-{device_id}.parquet`
+- Path template: `export AWAIR_DATA_PATH_TEMPLATE="s3://your-bucket/awair-{device_id}.parquet"`
+  - Automatically interpolates `{device_id}` from device configuration
+  - Default template: `s3://380nwk/awair-{device_id}.parquet`
+  - Useful for multi-device setups where you switch between devices
 
 ## Usage
 
