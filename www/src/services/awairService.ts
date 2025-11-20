@@ -1,11 +1,44 @@
 import { parquetRead } from 'hyparquet'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
-export const S3_PARQUET_URL = 'https://380nwk.s3.amazonaws.com/awair-17617.parquet'
+export interface Device {
+  name: string
+  deviceId: number
+  deviceType: string
+}
 
-export async function fetchAwairData(): Promise<{ records: AwairRecord[]; summary: DataSummary }> {
-  console.log('🔄 Checking for new data...')
-  const response = await fetch(S3_PARQUET_URL)
+const S3_BUCKET = 'https://380nwk.s3.amazonaws.com'
+const DEVICES_CACHE_KEY = 'awair-devices-cache'
+const CACHE_TTL = 3600000 // 1 hour in milliseconds
+
+export async function fetchDevices(): Promise<Device[]> {
+  // For now, hardcode devices since we can't safely expose API token in frontend
+  // In a production app, this would come from a backend API
+  const devices: Device[] = [
+    { name: 'Gym', deviceId: 17617, deviceType: 'awair-element' },
+    { name: 'BR', deviceId: 137496, deviceType: 'awair-element' }
+  ]
+
+  return devices
+}
+
+function getParquetUrl(deviceId: number): string {
+  return `${S3_BUCKET}/awair-${deviceId}.parquet`
+}
+
+export async function fetchAwairData(deviceId?: number): Promise<{ records: AwairRecord[]; summary: DataSummary }> {
+  // If no device ID provided, use first available device
+  if (!deviceId) {
+    const devices = await fetchDevices()
+    if (devices.length === 0) {
+      throw new Error('No devices found')
+    }
+    deviceId = devices[0].deviceId
+  }
+
+  const url = getParquetUrl(deviceId)
+  console.log(`🔄 Checking for new data from device ${deviceId}...`)
+  const response = await fetch(url)
   if (!response.ok) {
     throw new Error(`Failed to fetch data: ${response.status}`)
   }

@@ -1,13 +1,20 @@
 import { QueryClientProvider } from '@tanstack/react-query'
+import { useState } from 'react'
 import { AwairChart } from './components/AwairChart'
 import { ThemeToggle } from './components/ThemeToggle'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useAwairData } from './hooks/useAwairData'
+import { useDevices } from './hooks/useDevices'
 import { queryClient } from './lib/queryClient'
 import './App.css'
 
 function AppContent() {
-  const { data, summary, loading, error } = useAwairData()
+  const { devices } = useDevices()
+  const [selectedDeviceId, setSelectedDeviceId] = useState<number | undefined>(undefined)
+
+  // Use first device by default
+  const deviceId = selectedDeviceId || devices[0]?.deviceId
+  const { data, summary, loading, error } = useAwairData(deviceId)
 
   if (loading) {
     return (
@@ -35,6 +42,36 @@ function AppContent() {
   return (
     <div className="app">
       <main>
+        {devices.length > 1 && (
+          <div style={{
+            padding: '1rem',
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            alignItems: 'center'
+          }}>
+            <label htmlFor="device-select" style={{ fontWeight: 'bold' }}>Device:</label>
+            <select
+              id="device-select"
+              value={deviceId || ''}
+              onChange={(e) => setSelectedDeviceId(Number(e.target.value))}
+              style={{
+                padding: '0.5rem',
+                fontSize: '1rem',
+                borderRadius: '4px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-color)',
+                color: 'var(--text-color)'
+              }}
+            >
+              {devices.map((device) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.name} (ID: {device.deviceId})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {data.length > 0 && <AwairChart data={data} summary={summary} />}
       </main>
       <ThemeToggle />

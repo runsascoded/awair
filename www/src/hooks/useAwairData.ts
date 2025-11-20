@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 import { fetchAwairData } from '../services/awairService'
 
-export function useAwairData() {
+export function useAwairData(deviceId?: number) {
   const {
     data: queryData,
     isLoading: loading,
@@ -10,8 +10,8 @@ export function useAwairData() {
     refetch: refresh,
     dataUpdatedAt,
   } = useQuery({
-    queryKey: ['awair-data'],
-    queryFn: fetchAwairData,
+    queryKey: ['awair-data', deviceId],
+    queryFn: () => fetchAwairData(deviceId),
   })
 
   const data = queryData?.records || []
