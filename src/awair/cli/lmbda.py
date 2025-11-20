@@ -31,8 +31,9 @@ def cli():
 @cli.command
 @option('-n', '--dry-run', is_flag=True, help='Build package only, do not deploy')
 @option('-r', '--refresh-interval', type=int, default=3, help='Update interval in minutes (default: 3)')
+@option('-s', '--stack-name', default='awair-data-updater', help='CloudFormation stack name (default: awair-data-updater)')
 @version_opt
-def deploy(version: str = None, dry_run: bool = False, refresh_interval: int = 3):
+def deploy(version: str = None, dry_run: bool = False, refresh_interval: int = 3, stack_name: str = 'awair-data-updater'):
     """Deploy the scheduled Lambda updater to AWS using CDK."""
     # Validate token via unified flow and pass to subprocess
     try:
@@ -63,7 +64,7 @@ def deploy(version: str = None, dry_run: bool = False, refresh_interval: int = 3
         if dry_run:
             deploy_module.package_lambda(version)
         else:
-            deploy_module.deploy_lambda(version, refresh_interval)
+            deploy_module.deploy_lambda(version, refresh_interval, stack_name)
 
     except Exception as e:
         err(f'{deployment_type} deployment failed: {e}')

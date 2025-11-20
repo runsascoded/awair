@@ -213,6 +213,7 @@ if __name__ == '__main__':
         package_type = os.getenv('AWAIR_LAMBDA_PACKAGE', 'source')
         version = os.getenv('AWAIR_VERSION')
         refresh_interval = int(os.getenv('AWAIR_REFRESH_INTERVAL_MINUTES', '3'))
+        stack_name = os.getenv('AWAIR_STACK_NAME', 'awair-data-updater')
 
     except ValueError as e:
         print(f'Configuration error: {e}')
@@ -223,6 +224,7 @@ if __name__ == '__main__':
     app = create_app(
         token,
         data_path,
+        stack_name=stack_name,
         package_type=package_type,
         version=version,
         refresh_interval_minutes=refresh_interval,

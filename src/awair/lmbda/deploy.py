@@ -226,6 +226,7 @@ def deploy_with_cdk(awair_token: str, data_path: str, package_type: str = "sourc
     env['AWAIR_DATA_PATH'] = data_path
     env['AWAIR_LAMBDA_PACKAGE'] = package_type
     env['AWAIR_REFRESH_INTERVAL_MINUTES'] = str(refresh_interval_minutes)
+    env['AWAIR_STACK_NAME'] = stack_name
     # Use resolved version if available, otherwise fall back to requested version
     final_version = resolved_version or version
     if final_version:
@@ -269,7 +270,7 @@ def synthesize_cloudformation(awair_token: str, data_path: str, stack_name: str 
                   env=env, cwd=lambda_dir).decode()
 
 
-def deploy_lambda(version: str = None, refresh_interval_minutes: int = 3):
+def deploy_lambda(version: str = None, refresh_interval_minutes: int = 3, stack_name: str = 'awair-data-updater'):
     """Deploy the stack."""
     try:
         # Get token and data path via unified flows
@@ -286,7 +287,7 @@ def deploy_lambda(version: str = None, refresh_interval_minutes: int = 3):
         install_cdk_dependencies()
         bootstrap_cdk()
         zip_path, resolved_version = create_lambda_package(final_package_type, final_version)
-        deploy_with_cdk(token, data_path, final_package_type, final_version, resolved_version, refresh_interval_minutes=refresh_interval_minutes)
+        deploy_with_cdk(token, data_path, final_package_type, final_version, resolved_version, stack_name=stack_name, refresh_interval_minutes=refresh_interval_minutes)
 
         echo('\n✅ CDK deployment complete!')
         echo(f'Lambda will run every {refresh_interval_minutes} minutes, updating {data_path}')
