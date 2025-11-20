@@ -92,7 +92,7 @@ def create_lambda_package(package_type: str = 'source', version: str = None) -> 
                 print('Installing latest awair from PyPI...')
 
             # Install awair package without dependencies first
-            run(sys.executable, '-m', 'pip', 'install', awair_package, '-t', str(package_dir), '--no-deps')
+            run('uv', 'pip', 'install', awair_package, '--target', str(package_dir), '--no-deps', '--python', sys.executable)
 
             # Get the resolved version from the installed package metadata
             try:
@@ -126,15 +126,16 @@ def create_lambda_package(package_type: str = 'source', version: str = None) -> 
             ]
 
             for dep in runtime_deps:
-                run(sys.executable, '-m', 'pip', 'install', dep, '-t', str(package_dir))
+                run('uv', 'pip', 'install', dep, '--target', str(package_dir), '--python', sys.executable)
 
             use_pypi_import = True
         else:
             # Source-based package
             print("Installing dependencies...")
-            run(sys.executable, "-m", "pip", "install",
+            run("uv", "pip", "install",
                 "-r", "requirements.txt",
-                "-t", str(package_dir),
+                "--target", str(package_dir),
+                "--python", sys.executable,
                 cwd=Path(__file__).parent)
 
             print('Copying source files...')
