@@ -58,6 +58,10 @@ Configure your Awair device via:
 - Local file: `echo "awair-element,12345" > .awair-device`
 - User config: `echo "awair-element,12345" > ~/.awair/device`
 - **Auto-discovery**: If not configured, the CLI will automatically detect your device on first use
+- **Command-line flag**: Use `-i/--device-id` with numeric ID or name pattern (regex):
+  - `awair data info -i 17617` (numeric ID)
+  - `awair data info -i "Ryan"` (name pattern)
+  - `awair data info -i "^Awair 2$"` (exact regex match)
 
 ### Data Storage Location
 Configure default data file path via:

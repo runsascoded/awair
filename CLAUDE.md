@@ -168,10 +168,22 @@ The template system allows multi-device setups without hardcoding paths:
 # Set template in .envrc for multi-device workflows
 export AWAIR_DATA_PATH_TEMPLATE='s3://your-bucket/awair-{device_id}.parquet'
 
-# Switch devices and path auto-updates
+# Switch devices using -i flag (numeric ID or name pattern)
+awair data info -i 17617                 # Numeric device ID
+awair data info -i "Ryan"                # Name pattern (case-insensitive regex)
+awair data info -i "^Awair 2$"           # Exact regex match
+awair data gaps -i 137496 -n 10 -m 5     # Works with all data commands
+
+# Or use environment variables
 AWAIR_DEVICE_ID=17617 awair data info    # Uses s3://your-bucket/awair-17617.parquet
 AWAIR_DEVICE_ID=137496 awair data info   # Uses s3://your-bucket/awair-137496.parquet
 ```
+
+Device name resolution:
+- Numeric strings or integers → exact device ID match
+- Non-numeric strings → regex pattern match against device names (case-insensitive)
+- Must match exactly one device (ambiguous patterns raise an error)
+- Lists available devices when pattern doesn't match
 
 #### 5. Web Dashboard (`www/`)
 

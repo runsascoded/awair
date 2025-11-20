@@ -1,5 +1,6 @@
 """Configuration and utility functions for Awair CLI."""
 
+import re
 from functools import cache, partial
 from os import getenv, makedirs
 from os.path import exists, expanduser, join
@@ -85,6 +86,59 @@ def get_devices():
     """Get devices list from API."""
     res = get(DEVICES)
     return res['devices']
+
+
+def resolve_device_by_name_or_id(name_or_id: str | int) -> tuple[str, int]:
+    """Resolve device by name pattern (regex) or numeric ID.
+
+    Args:
+        name_or_id: Device ID (int or numeric string) or name pattern (regex string)
+
+    Returns:
+        Tuple of (device_type, device_id)
+
+    Raises:
+        ValueError: If no devices match, multiple devices match, or other errors
+    """
+    # If it's an integer or numeric string, treat as device ID
+    if isinstance(name_or_id, int):
+        devices = get_devices()
+        for device in devices:
+            if device['deviceId'] == name_or_id:
+                return device['deviceType'], device['deviceId']
+        raise ValueError(f'No device found with ID: {name_or_id}')
+
+    # Try parsing as integer
+    try:
+        device_id = int(name_or_id)
+        return resolve_device_by_name_or_id(device_id)
+    except ValueError:
+        pass
+
+    # Treat as name pattern (regex)
+    devices = get_devices()
+    pattern = re.compile(name_or_id, re.IGNORECASE)
+
+    matches = []
+    for device in devices:
+        if pattern.search(device['name']):
+            matches.append(device)
+
+    if len(matches) == 0:
+        err(f'No devices match pattern: {name_or_id!r}')
+        err('Available devices:')
+        for device in devices:
+            err(f'  - {device["name"]!r} (ID: {device["deviceId"]})')
+        raise ValueError(f'No devices match pattern: {name_or_id!r}')
+
+    if len(matches) > 1:
+        err(f'Multiple devices match pattern: {name_or_id!r}')
+        for device in matches:
+            err(f'  - {device["name"]!r} (ID: {device["deviceId"]})')
+        raise ValueError(f'Ambiguous pattern - {len(matches)} devices match: {name_or_id!r}')
+
+    device = matches[0]
+    return device['deviceType'], device['deviceId']
 
 
 def get_device_config() -> tuple[str, int]:
@@ -190,7 +244,15 @@ def _resolve_data_path(ctx, param, value):
     if value is not None:
         return value
     # Get device_id from context if available (passed via device_id_opt)
-    device_id = ctx.params.get('device_id')
+    device_id_param = ctx.params.get('device_id')
+    if device_id_param is not None:
+        # Resolve name/pattern to numeric ID
+        if isinstance(device_id_param, str):
+            _, device_id = resolve_device_by_name_or_id(device_id_param)
+        else:
+            device_id = device_id_param
+    else:
+        device_id = None
     return get_default_data_path(device_id)
 
 data_path_opt = option(

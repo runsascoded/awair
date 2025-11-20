@@ -11,6 +11,6 @@ version_opt = option(
 # Device ID option for multi-device operations
 device_id_opt = option(
     '-i', '--device-id',
-    type=int,
-    help='Device ID to use (overrides environment/config)'
+    type=str,
+    help='Device ID (numeric) or name pattern (regex) to use (overrides environment/config)'
 )
