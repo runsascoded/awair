@@ -85,7 +85,7 @@ def get_default_data_path(device_id: int | None = None):
 
 
 def get_devices(force_refresh: bool = False):
-    """Get devices list from API with file-based caching.
+    """Get devices list from API with S3 Parquet caching.
 
     Args:
         force_refresh: If True, bypass cache and fetch fresh data from API
@@ -94,40 +94,48 @@ def get_devices(force_refresh: bool = False):
         List of device dictionaries from Awair API
 
     Cache behavior:
-        - Cached in ~/.awair/devices-cache.json
+        - Cached in s3://380nwk/devices.parquet
         - TTL: 1 hour (3600 seconds)
         - Use `awair api devices --refresh` to force refresh
     """
-    awair_dir = expanduser('~/.awair')
-    cache_file = join(awair_dir, 'devices-cache.json')
+    import pandas as pd
+    from datetime import datetime, timezone
+
+    devices_path = getenv('AWAIR_DEVICES_PATH', 's3://380nwk/devices.parquet')
     cache_ttl = 3600  # 1 hour
 
     # Check cache if not forcing refresh
-    if not force_refresh and exists(cache_file):
+    if not force_refresh:
         try:
-            with open(cache_file, 'r') as f:
-                cache_data = json.load(f)
-                cached_at = cache_data.get('cached_at', 0)
-                devices = cache_data.get('devices', [])
+            df = pd.read_parquet(devices_path)
+            if not df.empty and 'lastUpdated' in df.columns:
+                # Get the most recent lastUpdated timestamp
+                last_updated_str = df['lastUpdated'].max()
+                last_updated = pd.Timestamp(last_updated_str).timestamp()
 
                 # Check if cache is still valid
-                if time.time() - cached_at < cache_ttl:
-                    return devices
-        except (json.JSONDecodeError, KeyError):
-            pass  # Invalid cache, fetch fresh data
+                if time.time() - last_updated < cache_ttl:
+                    # Convert DataFrame to list of dicts matching API format
+                    return df.to_dict('records')
+        except (FileNotFoundError, Exception):
+            pass  # Cache doesn't exist or invalid, fetch fresh data
 
     # Fetch fresh data from API
     res = get(DEVICES)
     devices = res['devices']
 
-    # Save to cache
-    makedirs(awair_dir, exist_ok=True)
-    cache_data = {
-        'cached_at': time.time(),
-        'devices': devices,
-    }
-    with open(cache_file, 'w') as f:
-        json.dump(cache_data, f, indent=2)
+    # Convert to DataFrame and add metadata
+    df = pd.DataFrame(devices)
+    now = datetime.now(timezone.utc).isoformat()
+    df['lastUpdated'] = now
+    df['active'] = True
+
+    # Add dataPath for each device
+    template = getenv('AWAIR_DATA_PATH_TEMPLATE', 's3://380nwk/awair-{device_id}.parquet')
+    df['dataPath'] = df['deviceId'].apply(lambda did: template.format(device_id=did))
+
+    # Save to S3 Parquet
+    df.to_parquet(devices_path, index=False)
 
     return devices
 

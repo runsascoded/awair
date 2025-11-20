@@ -5,21 +5,62 @@ export interface Device {
   name: string
   deviceId: number
   deviceType: string
+  dataPath?: string
+  active?: boolean
+  lastUpdated?: string
 }
 
 const S3_BUCKET = 'https://380nwk.s3.amazonaws.com'
-const DEVICES_CACHE_KEY = 'awair-devices-cache'
-const CACHE_TTL = 3600000 // 1 hour in milliseconds
 
 export async function fetchDevices(): Promise<Device[]> {
-  // For now, hardcode devices since we can't safely expose API token in frontend
-  // In a production app, this would come from a backend API
-  const devices: Device[] = [
-    { name: 'Gym', deviceId: 17617, deviceType: 'awair-element' },
-    { name: 'BR', deviceId: 137496, deviceType: 'awair-element' }
-  ]
+  try {
+    const url = `${S3_BUCKET}/devices.parquet`
+    console.log('🔄 Fetching devices list from S3...')
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch devices: ${response.status}`)
+    }
 
-  return devices
+    const arrayBuffer = await response.arrayBuffer()
+
+    let rows: any[] = []
+    await parquetRead({
+      file: arrayBuffer,
+      onComplete: (data) => {
+        if (Array.isArray(data)) {
+          rows = data
+        }
+      }
+    })
+
+    if (rows.length === 0) {
+      throw new Error('No devices found in Parquet file')
+    }
+
+    // Convert array format to typed records
+    const devices: Device[] = rows.map((row: any[]) => ({
+      name: row[0],
+      deviceId: Number(row[1]),
+      deviceType: row[2],
+      // Skip deviceUUID, lat, lon, preference, locationName, roomType, spaceType, macAddress, timezone (indices 3-11)
+      lastUpdated: row[12],
+      active: Boolean(row[13]),
+      dataPath: row[14],
+    }))
+
+    // Filter to active devices only
+    const activeDevices = devices.filter(d => d.active !== false)
+
+    console.log(`📋 Loaded ${activeDevices.length} active devices`)
+    return activeDevices
+  } catch (error) {
+    console.error('Failed to fetch devices from S3, using fallback:', error)
+    // Fallback to hardcoded devices if S3 fetch fails
+    return [
+      { name: 'Gym', deviceId: 17617, deviceType: 'awair-element' },
+      { name: 'BR', deviceId: 137496, deviceType: 'awair-element' }
+    ]
+  }
 }
 
 function getParquetUrl(deviceId: number): string {
