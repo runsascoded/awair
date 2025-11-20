@@ -1,7 +1,7 @@
 import { parquetRead } from 'hyparquet'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
-export const S3_PARQUET_URL = 'https://380nwk.s3.amazonaws.com/awair.parquet'
+export const S3_PARQUET_URL = 'https://380nwk.s3.amazonaws.com/awair-17617.parquet'
 
 export async function fetchAwairData(): Promise<{ records: AwairRecord[]; summary: DataSummary }> {
   console.log('🔄 Checking for new data...')
