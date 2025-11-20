@@ -10,6 +10,6 @@ jobs:
   test:
     uses: ./.github/workflows/test.yml
     with:
-      python-versions: '["3.9", "3.10", "3.11", "3.12"]'
+      python-versions: '["3.10", "3.11", "3.12", "3.13"]'
       run-linting: true
       test-build: true
