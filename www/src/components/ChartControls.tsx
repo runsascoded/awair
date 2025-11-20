@@ -1,5 +1,6 @@
 import React from 'react'
 import { Tooltip } from './Tooltip'
+import type { Device } from '../services/awairService'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
 interface MetricConfig {
@@ -27,6 +28,9 @@ interface ChartControlsProps {
   handleTimeRangeClick: (hours: number) => void
   setRangeByWidth: (hours: number, centerTime?: Date) => void
   setIgnoreNextPanCheck: () => void
+  devices: Device[]
+  selectedDeviceId?: number
+  onDeviceChange: (deviceId: number) => void
 }
 
 const metricConfig: { [key: string]: MetricConfig } = {
@@ -63,7 +67,10 @@ export function ChartControls({
   getActiveTimeRange,
   handleTimeRangeClick,
   setRangeByWidth,
-  setIgnoreNextPanCheck
+  setIgnoreNextPanCheck,
+  devices,
+  selectedDeviceId,
+  onDeviceChange
 }: ChartControlsProps) {
 
   const isMobile = window.innerWidth < 768 || window.innerHeight < 600
@@ -118,6 +125,22 @@ export function ChartControls({
 
   return (
     <div className="chart-controls">
+      {devices.length > 1 && (
+        <div className="control-group">
+          <label className="unselectable">Device:</label>
+          <select
+            value={selectedDeviceId || ''}
+            onChange={(e) => onDeviceChange(Number(e.target.value))}
+          >
+            {devices.map((device) => (
+              <option key={device.deviceId} value={device.deviceId}>
+                {device.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="control-group">
         {isMobile ? (
           <label className="unselectable">Primary Metric:</label>

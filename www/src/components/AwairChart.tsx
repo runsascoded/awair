@@ -6,14 +6,18 @@ import { Tooltip } from './Tooltip'
 import { useDataAggregation } from '../hooks/useDataAggregation'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLatestMode } from '../hooks/useLatestMode'
+import type { Device } from '../services/awairService'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
 interface Props {
   data: AwairRecord[]
   summary: DataSummary | null
+  devices: Device[]
+  selectedDeviceId?: number
+  onDeviceChange: (deviceId: number) => void
 }
 
-export function AwairChart({ data, summary }: Props) {
+export function AwairChart({ data, summary, devices, selectedDeviceId, onDeviceChange }: Props) {
   // Basic state
   const [metric, setMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc'>(() => {
     return (sessionStorage.getItem('awair-metric') as any) || 'temp'
@@ -607,6 +611,9 @@ export function AwairChart({ data, summary }: Props) {
         handleTimeRangeClick={handleTimeRangeClick}
         setRangeByWidth={setRangeByWidth}
         setIgnoreNextPanCheck={setIgnoreNextPanCheck}
+        devices={devices}
+        selectedDeviceId={selectedDeviceId}
+        onDeviceChange={onDeviceChange}
       />
 
       <Tooltip content={`Window size adapts automatically to zoom level. Drag to pan, wheel to zoom, double-click to show all data.${summary ? ` | Total records: ${summary.count.toLocaleString()}` : ''}`}>

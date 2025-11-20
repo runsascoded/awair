@@ -42,37 +42,15 @@ function AppContent() {
   return (
     <div className="app">
       <main>
-        {devices.length > 1 && (
-          <div style={{
-            padding: '1rem',
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            alignItems: 'center'
-          }}>
-            <label htmlFor="device-select" style={{ fontWeight: 'bold' }}>Device:</label>
-            <select
-              id="device-select"
-              value={deviceId || ''}
-              onChange={(e) => setSelectedDeviceId(Number(e.target.value))}
-              style={{
-                padding: '0.5rem',
-                fontSize: '1rem',
-                borderRadius: '4px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'var(--bg-color)',
-                color: 'var(--text-color)'
-              }}
-            >
-              {devices.map((device) => (
-                <option key={device.deviceId} value={device.deviceId}>
-                  {device.name} (ID: {device.deviceId})
-                </option>
-              ))}
-            </select>
-          </div>
+        {data.length > 0 && (
+          <AwairChart
+            data={data}
+            summary={summary}
+            devices={devices}
+            selectedDeviceId={deviceId}
+            onDeviceChange={setSelectedDeviceId}
+          />
         )}
-        {data.length > 0 && <AwairChart data={data} summary={summary} />}
       </main>
       <ThemeToggle />
     </div>
