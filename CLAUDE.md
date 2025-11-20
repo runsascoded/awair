@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The `awair` project is a Python CLI tool and automated data collection system for Awair air quality sensors. It consists of:
 
-1. **AWS Lambda functions** (one per device) that fetch data from the Awair API every 2 minutes and append to device-specific S3 Parquet files
-2. **Web dashboard** (React/TypeScript) that reads Parquet files directly from S3 and visualizes air quality metrics
+1. **AWS Lambda functions** (one per device) that fetch data from the Awair API every minute and append to device-specific S3 Parquet files
+2. **Web dashboard** (React/TypeScript) that reads Parquet files directly from S3 and visualizes air quality metrics with multi-device support
 3. **CLI tool** for manual data fetching, analysis, and multi-device Lambda deployment
 
 ## Common Commands
@@ -40,19 +40,19 @@ awair gaps                    # Find timing gaps in data
 ### Lambda Deployment
 
 ```bash
-# Deploy Lambda for a device
+# Deploy Lambda for a device (1-minute intervals)
 AWAIR_DATA_PATH=s3://380nwk/awair-17617.parquet \
-  awair lambda deploy -s awair-updater-17617 -r 2
+  awair lambda deploy -s awair-updater-17617 -r 1
 
 # Deploy multiple devices (separate stacks)
 AWAIR_DEVICE_ID=17617 AWAIR_DATA_PATH=s3://380nwk/awair-17617.parquet \
-  awair lambda deploy -s awair-updater-17617 -r 2
+  awair lambda deploy -s awair-updater-17617 -r 1
 
 AWAIR_DEVICE_ID=137496 AWAIR_DATA_PATH=s3://380nwk/awair-137496.parquet \
-  awair lambda deploy -s awair-updater-137496 -r 2
+  awair lambda deploy -s awair-updater-137496 -r 1
 
 # Deploy from source (development)
-awair lambda deploy -v source -s awair-updater-17617 -r 2
+awair lambda deploy -v source -s awair-updater-17617 -r 1
 
 # Other Lambda commands
 awair lambda package                  # Build package only
@@ -81,13 +81,13 @@ pnpm run test                 # Run tests
 ```
 Awair API
     ↓
-Lambda (every 2 min) → S3 (device-specific parquet files)
+Lambda (every 1 min) → S3 (device-specific parquet files)
     ↑                    ↓
 Python CLI         Web Dashboard (reads directly from S3)
 
 Multi-Device Example:
-  Device 17617:  EventBridge (2min) → Lambda → s3://380nwk/awair-17617.parquet
-  Device 137496: EventBridge (2min) → Lambda → s3://380nwk/awair-137496.parquet
+  Device 17617:  EventBridge (1min) → Lambda → s3://380nwk/awair-17617.parquet
+  Device 137496: EventBridge (1min) → Lambda → s3://380nwk/awair-137496.parquet
 ```
 
 ### Key Components
@@ -103,7 +103,7 @@ The Lambda function runs on a schedule (EventBridge) and atomically updates the 
 
 - **`app.py`**: CDK infrastructure definition
   - Creates Lambda function with IAM permissions dynamically based on configured S3 path
-  - Sets up EventBridge schedule (default: 2 minutes, configurable)
+  - Sets up EventBridge schedule (default: 1 minute, configurable via `-r` flag)
   - Uses AWS Lambda Pandas layer for pandas/pyarrow dependencies
   - Reserved concurrency of 1 (prevents race conditions)
   - Stack name configurable via `--stack-name` / `-s` flag
@@ -230,10 +230,10 @@ React + TypeScript + Vite application:
 ### Rate Limiting and Scheduling
 
 - **Awair API limit**: 5,000 requests/day (confirmed by Awair support)
-- **Lambda schedule**: Every 2 minutes (configurable via `-r` flag)
-- **Daily requests per device**: 720/day (2 min intervals)
-- **Multi-device**: 720 × N devices per day (e.g., 1,440/day for 2 devices)
-- **Well within limits**: 5,000/day supports ~7 devices at 2-min intervals
+- **Lambda schedule**: Every 1 minute (configurable via `-r` flag)
+- **Daily requests per device**: 1,440/day (1 min intervals)
+- **Multi-device**: 1,440 × N devices per day (e.g., 2,880/day for 2 devices)
+- **Well within limits**: 5,000/day supports ~3 devices at 1-min intervals
 - **Reserved concurrency**: 1 per function (no concurrent executions, prevents race conditions)
 
 ### Atomic S3 Updates
@@ -295,4 +295,4 @@ Both CLI and Lambda respect the same configuration hierarchy for S3 paths. IAM p
 
 ### Web Dashboard Deployment
 
-The web dashboard is automatically deployed to GitHub Pages when changes are pushed to the `www/` directory on the `main` branch. It reads the Parquet file directly from S3 (no API server needed).
+The web dashboard is automatically deployed to GitHub Pages when changes are pushed to the `www/` directory on the `main` branch. It reads device-specific Parquet files directly from public S3 URLs (no API server needed). The device list is hardcoded in `src/services/awairService.ts` to avoid exposing API tokens in the frontend. A device selector dropdown appears when multiple devices are configured.

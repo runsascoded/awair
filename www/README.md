@@ -8,6 +8,7 @@ A real-time air quality monitoring dashboard for Awair sensors, built with React
 
 ## Features
 
+- **Multi-Device Support**: Device selector dropdown to switch between multiple sensors
 - **Real-time Charts**: Interactive time-series visualization of air quality metrics
 - **Dual Y-Axis Support**: Compare two metrics simultaneously
 - **Adaptive Aggregation**: Automatic data aggregation based on zoom level
@@ -49,22 +50,25 @@ The app is automatically deployed to GitHub Pages on push to `main` branch when 
 ### Components
 
 - `AwairChart.tsx`: Main chart component with Plotly.js integration
-- `ChartControls.tsx`: Time range and metric selection controls
+- `ChartControls.tsx`: Device selector, time range, and metric selection controls
 - `DataTable.tsx`: Paginated data table with navigation
 - `ThemeToggle.tsx`: Theme switcher and GitHub link
 
 ### Custom Hooks
 
+- `useDevices`: Manages device list for multi-device support
+- `useAwairData`: Fetches and caches Parquet data from S3 per device
 - `useLatestMode`: Manages auto-update functionality
 - `useDataAggregation`: Adaptive data aggregation logic
 - `useKeyboardShortcuts`: Keyboard navigation
 
 ### Data Flow
 
-1. Data is fetched from Lambda API endpoint
-2. Aggregated based on current zoom level
-3. Rendered in chart and table components
-4. Auto-updates when in Latest mode
+1. Device list is hardcoded in the frontend (to avoid exposing API tokens)
+2. Parquet data is fetched directly from public S3 URLs for selected device (using hyparquet library)
+3. Data is aggregated based on current zoom level
+4. Rendered in chart and table components
+5. Auto-updates when in Latest mode
 
 ## Keyboard Shortcuts
 
@@ -81,7 +85,7 @@ The app is automatically deployed to GitHub Pages on push to `main` branch when 
 
 ## Configuration
 
-The app loads data from the Lambda function API endpoint. Configuration is stored in session storage for persistence across page reloads.
+The app reads Parquet files directly from S3 (no backend API needed). Device configuration is hardcoded in `src/services/awairService.ts`. Chart settings (selected metrics, time range) are stored in session storage for persistence across page reloads.
 
 ## License
 
