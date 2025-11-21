@@ -54,12 +54,8 @@ export async function fetchDevices(): Promise<Device[]> {
     console.log(`📋 Loaded ${activeDevices.length} active devices`)
     return activeDevices
   } catch (error) {
-    console.error('Failed to fetch devices from S3, using fallback:', error)
-    // Fallback to hardcoded devices if S3 fetch fails
-    return [
-      { name: 'Gym', deviceId: 17617, deviceType: 'awair-element' },
-      { name: 'BR', deviceId: 137496, deviceType: 'awair-element' }
-    ]
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(`Failed to fetch devices from S3: ${message}`)
   }
 }
 

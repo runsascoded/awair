@@ -295,4 +295,22 @@ Both CLI and Lambda respect the same configuration hierarchy for S3 paths. IAM p
 
 ### Web Dashboard Deployment
 
-The web dashboard is automatically deployed to GitHub Pages when changes are pushed to the `www/` directory on the `main` branch. It reads device-specific Parquet files directly from public S3 URLs (no API server needed). The device list is hardcoded in `src/services/awairService.ts` to avoid exposing API tokens in the frontend. A device selector dropdown appears when multiple devices are configured.
+The web dashboard is automatically deployed to GitHub Pages when changes are pushed to the `www/` directory on the `main` branch. It reads device-specific Parquet files directly from public S3 URLs (no API server needed). The device list is read from `s3://380nwk/devices.parquet` (populated by `awair api devices --refresh`). A device selector dropdown appears when multiple devices are configured.
+
+### Data Fetching Architecture
+
+The frontend uses a `DataSource` interface (`www/src/services/dataSource.ts`) to abstract data fetching, enabling comparison of different strategies:
+
+| Source | Description | Status |
+|--------|-------------|--------|
+| `s3-hyparquet` | Direct S3 read with hyparquet library | Implemented |
+| `s3-duckdb-wasm` | Direct S3 read with DuckDB-WASM | Planned |
+| `lambda` | AWS Lambda endpoint with pandas/DuckDB | Planned |
+| `cfw` | CloudFlare Worker endpoint | Planned |
+
+**Current limitation:** Parquet files have 1 row group (~239k rows), so partial fetches aren't possible. Plan: configure writer to use `row_group_size=10000` to enable hyparquet's HTTP Range Request optimization.
+
+**Performance targets:**
+- CloudFlare Workers: ~5ms cold start
+- AWS Lambda + SnapStart: ~276ms cold start (Python 3.12+)
+- Direct S3: depends on row group structure

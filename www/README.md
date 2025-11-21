@@ -64,11 +64,22 @@ The app is automatically deployed to GitHub Pages on push to `main` branch when 
 
 ### Data Flow
 
-1. Device list is hardcoded in the frontend (to avoid exposing API tokens)
-2. Parquet data is fetched directly from public S3 URLs for selected device (using hyparquet library)
-3. Data is aggregated based on current zoom level
+1. Device list fetched from `s3://380nwk/devices.parquet` (managed by CLI)
+2. Parquet data fetched directly from public S3 URLs for selected device (using hyparquet)
+3. Data aggregated based on current zoom level
 4. Rendered in chart and table components
 5. Auto-updates when in Latest mode
+
+### Data Source Abstraction
+
+The app uses a `DataSource` interface (`src/services/dataSource.ts`) to enable benchmarking different fetch strategies:
+
+- **s3-hyparquet** (current): Direct S3 read with hyparquet, client-side filtering
+- **s3-duckdb-wasm** (planned): DuckDB-WASM for SQL queries against S3
+- **lambda** (planned): AWS Lambda endpoint for server-side filtering
+- **cfw** (planned): CloudFlare Worker endpoint for edge filtering
+
+Each implementation reports timing metrics (network, parse, bytes transferred) for comparison.
 
 ## Keyboard Shortcuts
 
@@ -85,7 +96,7 @@ The app is automatically deployed to GitHub Pages on push to `main` branch when 
 
 ## Configuration
 
-The app reads Parquet files directly from S3 (no backend API needed). Device configuration is hardcoded in `src/services/awairService.ts`. Chart settings (selected metrics, time range) are stored in session storage for persistence across page reloads.
+The app reads Parquet files directly from S3 (no backend API needed). Device list is fetched from `s3://380nwk/devices.parquet`. Chart settings (selected metrics, time range) are stored in session storage for persistence across page reloads.
 
 ## License
 
