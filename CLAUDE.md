@@ -41,18 +41,12 @@ awair gaps                    # Find timing gaps in data
 
 ```bash
 # Deploy Lambda for a device (1-minute intervals)
-AWAIR_DATA_PATH=s3://380nwk/awair-17617.parquet \
-  awair lambda deploy -s awair-updater-17617 -r 1
-
-# Deploy multiple devices (separate stacks)
-AWAIR_DEVICE_ID=17617 AWAIR_DATA_PATH=s3://380nwk/awair-17617.parquet \
-  awair lambda deploy -s awair-updater-17617 -r 1
-
-AWAIR_DEVICE_ID=137496 AWAIR_DATA_PATH=s3://380nwk/awair-137496.parquet \
-  awair lambda deploy -s awair-updater-137496 -r 1
+# Uses AWAIR_S3_ROOT (default: s3://380nwk) for data path
+AWAIR_DEVICE_ID=17617 awair lambda deploy -s awair-updater-17617 -r 1
+AWAIR_DEVICE_ID=137496 awair lambda deploy -s awair-updater-137496 -r 1
 
 # Deploy from source (development)
-awair lambda deploy -v source -s awair-updater-17617 -r 1
+AWAIR_DEVICE_ID=17617 awair lambda deploy -v source -s awair-updater-17617 -r 1
 
 # Other Lambda commands
 awair lambda package                  # Build package only
@@ -142,7 +136,18 @@ Fields: `timestamp`, `temp`, `co2`, `pm10`, `pm25`, `humid`, `voc`
 
 #### 4. Configuration (`src/awair/cli/config.py`)
 
-Unified configuration flow with cascading precedence:
+**S3 Root** (single config for all data storage):
+- `AWAIR_S3_ROOT` environment variable
+- Default: `s3://380nwk`
+
+All data files follow a fixed structure under the S3 root:
+```
+{S3_ROOT}/
+├── devices.parquet             # Device registry (cached from API)
+├── awair-17617.parquet         # Device data files
+├── awair-137496.parquet
+└── ...
+```
 
 **API Token** (required):
 1. `AWAIR_TOKEN` environment variable
@@ -156,44 +161,28 @@ Unified configuration flow with cascading precedence:
 4. `~/.awair/device` file
 5. Auto-discovery (saves to `~/.awair/device`)
 
-**Data Path**:
-1. `AWAIR_DATA_PATH` environment variable (explicit path, no template expansion)
-2. `.awair-data-path` file
-3. `~/.awair/data-path` file
-4. `AWAIR_DATA_PATH_TEMPLATE` environment variable (interpolates `{device_id}`)
-5. Default template: `s3://380nwk/awair-{device_id}.parquet`
-
-The template system allows multi-device setups without hardcoding paths:
+**Device selection** (for CLI commands):
 ```bash
-# Set template in .envrc for multi-device workflows
-export AWAIR_DATA_PATH_TEMPLATE='s3://your-bucket/awair-{device_id}.parquet'
-
 # Switch devices using -i flag (numeric ID or name pattern)
 awair data info -i 17617                 # Numeric device ID
-awair data info -i "Ryan"                # Name pattern (case-insensitive regex)
-awair data info -i "^Awair 2$"           # Exact regex match
-awair data gaps -i 137496 -n 10 -m 5     # Works with all data commands
-
-# Or use environment variables
-AWAIR_DEVICE_ID=17617 awair data info    # Uses s3://your-bucket/awair-17617.parquet
-AWAIR_DEVICE_ID=137496 awair data info   # Uses s3://your-bucket/awair-137496.parquet
+awair data info -i "gym"                 # Name pattern (case-insensitive regex)
+awair data gaps -i br -n 10 -m 5         # Works with all data commands
 ```
 
 Device name resolution:
 - Numeric strings or integers → exact device ID match
 - Non-numeric strings → regex pattern match against device names (case-insensitive)
 - Must match exactly one device (ambiguous patterns raise an error)
-- Lists available devices when pattern doesn't match
-- Device list cached in `~/.awair/devices-cache.json` (1 hour TTL)
+- Device list cached in `{S3_ROOT}/devices.parquet` (1 hour TTL)
 - Use `awair api devices --refresh` to force refresh cache
 
 #### 5. Web Dashboard (`www/`)
 
 React + TypeScript + Vite application:
 
-- **`src/services/awairService.ts`**: Fetches Parquet file from S3
+- **`src/services/awairService.ts`**: Fetches Parquet files from S3
   - Uses `hyparquet` library to read Parquet directly in browser
-  - Public S3 URL: `https://380nwk.s3.amazonaws.com/awair.parquet`
+  - S3 root: `https://380nwk.s3.amazonaws.com` (HTTP equivalent of `s3://380nwk`)
   - No backend API needed - reads S3 directly
 
 - **Components**:

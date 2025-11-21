@@ -10,11 +10,25 @@ export interface Device {
   lastUpdated?: string
 }
 
-const S3_BUCKET = 'https://380nwk.s3.amazonaws.com'
+/**
+ * S3 root for all data storage.
+ * Structure:
+ *   {S3_ROOT}/devices.parquet      - Device registry
+ *   {S3_ROOT}/awair-{id}.parquet   - Device data files
+ */
+const S3_ROOT = 'https://380nwk.s3.amazonaws.com'
+
+export function getDevicesUrl(): string {
+  return `${S3_ROOT}/devices.parquet`
+}
+
+export function getDataUrl(deviceId: number): string {
+  return `${S3_ROOT}/awair-${deviceId}.parquet`
+}
 
 export async function fetchDevices(): Promise<Device[]> {
   try {
-    const url = `${S3_BUCKET}/devices.parquet`
+    const url = getDevicesUrl()
     console.log('🔄 Fetching devices list from S3...')
     const response = await fetch(url)
     if (!response.ok) {
@@ -59,9 +73,8 @@ export async function fetchDevices(): Promise<Device[]> {
   }
 }
 
-function getParquetUrl(deviceId: number): string {
-  return `${S3_BUCKET}/awair-${deviceId}.parquet`
-}
+// Alias for backwards compatibility
+const getParquetUrl = getDataUrl
 
 export async function fetchAwairData(deviceId?: number): Promise<{ records: AwairRecord[]; summary: DataSummary }> {
   // If no device ID provided, use first available device

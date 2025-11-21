@@ -1,6 +1,5 @@
 """Configuration and utility functions for Awair CLI."""
 
-import json
 import re
 import time
 from functools import cache, partial
@@ -16,6 +15,33 @@ err = partial(echo, err=True)
 V1 = 'https://developer-apis.awair.is/v1'
 SELF = f'{V1}/users/self'
 DEVICES = f'{SELF}/devices'
+
+# Default S3 root for all data storage
+DEFAULT_S3_ROOT = 's3://380nwk'
+
+
+def get_s3_root() -> str:
+    """Get S3 root path from env var or default.
+
+    All data is stored under this root:
+      {S3_ROOT}/devices.parquet      - Device registry
+      {S3_ROOT}/awair-{id}.parquet   - Device data files
+
+    Configuration:
+    1. AWAIR_S3_ROOT env var
+    2. Default: s3://380nwk
+    """
+    return getenv('AWAIR_S3_ROOT', DEFAULT_S3_ROOT).rstrip('/')
+
+
+def get_devices_path() -> str:
+    """Get path to devices.parquet."""
+    return f'{get_s3_root()}/devices.parquet'
+
+
+def get_data_path(device_id: int) -> str:
+    """Get path to device data parquet file."""
+    return f'{get_s3_root()}/awair-{device_id}.parquet'
 
 
 def parse_s3_path(s3_path: str) -> tuple[str, str]:
@@ -36,52 +62,18 @@ def parse_s3_path(s3_path: str) -> tuple[str, str]:
     return bucket, key
 
 
-def get_default_data_path(device_id: int | None = None):
-    """Get default data file path from env var, local file, or fallback with template support.
-
-    Supports path templates with {device_id} placeholder. For example:
-    - AWAIR_DATA_PATH_TEMPLATE='s3://my-bucket/awair-{device_id}.parquet'
-    - With device_id=17617, resolves to: s3://my-bucket/awair-17617.parquet
+def get_default_data_path(device_id: int | None = None) -> str:
+    """Get data file path for a device.
 
     Args:
-        device_id: Optional device ID to use for template interpolation.
-                  If not provided, uses get_device_info() to determine device.
+        device_id: Device ID. If not provided, uses get_device_info() to determine device.
 
-    Configuration precedence:
-    1. AWAIR_DATA_PATH env var (explicit path, no template expansion)
-    2. .awair-data-path file (explicit path, no template expansion)
-    3. ~/.awair/data-path file (explicit path, no template expansion)
-    4. AWAIR_DATA_PATH_TEMPLATE env var with {device_id} interpolation
-    5. Default template: s3://380nwk/awair-{device_id}.parquet
+    Returns:
+        S3 path to device data file: {S3_ROOT}/awair-{device_id}.parquet
     """
-    # Try explicit environment variable first (no template expansion)
-    data_path = getenv('AWAIR_DATA_PATH')
-    if data_path:
-        return data_path.strip()
-
-    # Try local .awair-data-path file
-    if exists('.awair-data-path'):
-        with open('.awair-data-path', 'r') as f:
-            return f.read().strip()
-
-    # Try ~/.awair/data-path
-    awair_dir = expanduser('~/.awair')
-    data_path_file = join(awair_dir, 'data-path')
-    if exists(data_path_file):
-        with open(data_path_file, 'r') as f:
-            return f.read().strip()
-
-    # Use template with device_id interpolation
-    template = getenv('AWAIR_DATA_PATH_TEMPLATE', 's3://380nwk/awair-{device_id}.parquet')
-
-    # If template contains {device_id}, interpolate it
-    if '{device_id}' in template:
-        if device_id is None:
-            _, device_id = get_device_info()
-        return template.format(device_id=device_id)
-
-    # Template without placeholder, return as-is
-    return template
+    if device_id is None:
+        _, device_id = get_device_info()
+    return get_data_path(device_id)
 
 
 def get_devices(force_refresh: bool = False):
@@ -94,14 +86,14 @@ def get_devices(force_refresh: bool = False):
         List of device dictionaries from Awair API
 
     Cache behavior:
-        - Cached in s3://380nwk/devices.parquet
+        - Cached in {S3_ROOT}/devices.parquet
         - TTL: 1 hour (3600 seconds)
         - Use `awair api devices --refresh` to force refresh
     """
     import pandas as pd
     from datetime import datetime, timezone
 
-    devices_path = getenv('AWAIR_DEVICES_PATH', 's3://380nwk/devices.parquet')
+    devices_path = get_devices_path()
     cache_ttl = 3600  # 1 hour
 
     # Check cache if not forcing refresh
@@ -131,8 +123,8 @@ def get_devices(force_refresh: bool = False):
     df['active'] = True
 
     # Add dataPath for each device
-    template = getenv('AWAIR_DATA_PATH_TEMPLATE', 's3://380nwk/awair-{device_id}.parquet')
-    df['dataPath'] = df['deviceId'].apply(lambda did: template.format(device_id=did))
+    s3_root = get_s3_root()
+    df['dataPath'] = df['deviceId'].apply(lambda did: f'{s3_root}/awair-{did}.parquet')
 
     # Save to S3 Parquet
     df.to_parquet(devices_path, index=False)

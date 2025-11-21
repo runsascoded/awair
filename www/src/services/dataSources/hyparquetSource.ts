@@ -5,13 +5,8 @@
 
 import { parquetRead } from 'hyparquet'
 import type { AwairRecord } from '../../types/awair'
+import { getDataUrl } from '../awairService'
 import type { DataSource, FetchOptions, FetchResult, FetchTiming } from '../dataSource'
-
-const S3_BUCKET = 'https://380nwk.s3.amazonaws.com'
-
-function getParquetUrl(deviceId: number): string {
-  return `${S3_BUCKET}/awair-${deviceId}.parquet`
-}
 
 export class HyparquetSource implements DataSource {
   readonly type = 's3-hyparquet' as const
@@ -19,7 +14,7 @@ export class HyparquetSource implements DataSource {
 
   async fetch(options: FetchOptions): Promise<FetchResult> {
     const { deviceId, range } = options
-    const url = getParquetUrl(deviceId)
+    const url = getDataUrl(deviceId)
 
     const startTime = performance.now()
     let networkEndTime = startTime
