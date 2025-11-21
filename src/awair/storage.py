@@ -101,6 +101,27 @@ class ParquetStorage:
 
         return max(0, inserted_count)
 
+    def delete_range(self, from_dt: datetime, to_dt: datetime) -> int:
+        """Delete all records in the given time range (inclusive). Returns count of deleted records."""
+        if self._batch_df is None or self._batch_df.empty:
+            return 0
+
+        # Ensure timestamps are comparable (naive)
+        from_dt_naive = from_dt.replace(tzinfo=None) if from_dt.tzinfo else from_dt
+        to_dt_naive = to_dt.replace(tzinfo=None) if to_dt.tzinfo else to_dt
+
+        original_count = len(self._batch_df)
+
+        # Keep rows outside the range
+        mask = (self._batch_df['timestamp'] < from_dt_naive) | (self._batch_df['timestamp'] > to_dt_naive)
+        self._batch_df = self._batch_df[mask].reset_index(drop=True)
+
+        deleted_count = original_count - len(self._batch_df)
+        if deleted_count > 0:
+            self._dirty = True
+
+        return deleted_count
+
     def get_latest_timestamp(self) -> datetime | None:
         """Get the latest timestamp in the data."""
         # If we're in a context manager session, use batch data

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sys import stdout
 from urllib.parse import quote_plus
 
@@ -98,23 +98,56 @@ def fetch_raw_data(
     }
 
 
+def ensure_utc(dt: datetime) -> datetime:
+    """Ensure datetime is UTC-aware. Raises if naive."""
+    if dt.tzinfo is None:
+        raise ValueError(f'Datetime must be timezone-aware, got naive: {dt}')
+    return dt.astimezone(timezone.utc)
+
+
+def parse_datetime_utc(s: str) -> datetime:
+    """Parse datetime string to UTC-aware datetime."""
+    # Handle 'Z' suffix
+    s = s.replace('Z', '+00:00')
+    dt = datetime.fromisoformat(s)
+    if dt.tzinfo is None:
+        raise ValueError(f'Datetime string must include timezone, got: {s}')
+    return dt.astimezone(timezone.utc)
+
+
 def fetch_date_range(
     from_str: str,
     to_str: str,
     limit: int,
     sleep_s: float,
     storage: ParquetStorage | None,
-):
-    """Fetch data across a date range using adaptive chunking based on actual data returned."""
-    # Parse dates - keep them naive for simplicity, API handles timezone conversion
-    start_date = datetime.fromisoformat(from_str)
-    end_date = datetime.fromisoformat(to_str)
+    log=None,
+) -> int:
+    """Fetch data across a date range using adaptive chunking based on actual data returned.
+
+    When storage has conflict_action='replace', the entire time range is deleted first
+    to ensure a clean replacement of data.
+
+    Returns total number of inserted records.
+    """
+    if log is None:
+        log = err
+
+    # Parse dates - always UTC-aware
+    start_date = parse_datetime_utc(from_str)
+    end_date = parse_datetime_utc(to_str)
 
     total_inserted = 0
     total_requests = 0
     current_end = end_date
 
-    err(f'Fetching data from {start_date} to {end_date}')
+    log(f'Fetching data from {start_date} to {end_date}')
+
+    # In replace mode, delete existing data in range first
+    if storage and storage.conflict_action == 'replace':
+        deleted = storage.delete_range(start_date, end_date)
+        if deleted > 0:
+            log(f'Deleted {deleted} existing records in range (replace mode)')
 
     while current_end > start_date:
         from_str = start_date.isoformat()
@@ -124,23 +157,23 @@ def fetch_date_range(
         total_requests += 1
 
         if not result['success']:
-            handle_fetch_error(result)
+            handle_fetch_error(result, log)
             if result['error'] == 'rate_limit':
-                err(f'Stopping due to rate limit. Made {total_requests} requests.')
+                log(f'Stopping due to rate limit. Made {total_requests} requests.')
                 break
             else:
-                err('Continuing with next chunk...')
+                log('Continuing with next chunk...')
                 # Move back a bit and try again
                 current_end = current_end - timedelta(hours=1)
                 continue
 
-        print_fetch_result(result)
+        print_fetch_result(result, log)
 
         if storage and result['data']:
             # Save to Parquet file
             inserted = storage.insert_air_data(result['data'])
             total_inserted += inserted
-            err(f'Inserted {inserted} new records')
+            log(f'Inserted {inserted} new records')
         elif not storage and result['data']:
             # Output to stdout as JSONL
             for row in result['data']:
@@ -148,12 +181,11 @@ def fetch_date_range(
 
         # If no data returned, we're done
         if not result['data']:
-            err('No more data available')
+            log('No more data available')
             break
 
         # Use the oldest timestamp from returned data as the new end point
-        # Convert to naive datetime for consistency
-        oldest_timestamp = datetime.fromisoformat(result['actual_from'].replace('Z', '').replace('+00:00', ''))
+        oldest_timestamp = parse_datetime_utc(result['actual_from'])
 
         # If we didn't make progress (oldest timestamp is not older than our current end),
         # step back manually to avoid infinite loop
@@ -163,31 +195,37 @@ def fetch_date_range(
             # Subtract 1 second to avoid potential boundary overlap/gap issues
             current_end = oldest_timestamp - timedelta(seconds=1)
 
-        err(f'Next chunk will end at: {current_end}')
+        log(f'Next chunk will end at: {current_end}')
 
     if storage:
-        err(f'Complete! Total requests: {total_requests}, Total inserted: {total_inserted}')
-        err(f'Data file now contains {storage.get_record_count()} total records')
+        log(f'Complete! Total requests: {total_requests}, Total inserted: {total_inserted}')
+        log(f'Data file now contains {storage.get_record_count()} total records')
     else:
-        err(f'Complete! Total requests: {total_requests}')
+        log(f'Complete! Total requests: {total_requests}')
+
+    return total_inserted
 
 
-def handle_fetch_error(result: dict):
+def handle_fetch_error(result: dict, log=None):
     """Handle fetch errors with appropriate logging."""
+    if log is None:
+        log = err
     if result['error'] == 'rate_limit':
-        err('Rate limit exceeded. Please wait before making more requests.')
-        err(f'Requested range: {result["requested_from"]} to {result["requested_to"]}')
+        log('Rate limit exceeded. Please wait before making more requests.')
+        log(f'Requested range: {result["requested_from"]} to {result["requested_to"]}')
     else:
-        err(f'Error fetching data: {result["message"]}')
+        log(f'Error fetching data: {result["message"]}')
 
 
-def print_fetch_result(result: dict):
+def print_fetch_result(result: dict, log=None):
     """Print detailed information about a fetch result."""
-    err(f'Requested: {result["requested_from"]} to {result["requested_to"]} (limit: {result["requested_limit"]})')
-    err(f'Actual range: {result["actual_from"]} to {result["actual_to"]}')
-    err(f'Records: {result["record_count"]}')
+    if log is None:
+        log = err
+    log(f'Requested: {result["requested_from"]} to {result["requested_to"]} (limit: {result["requested_limit"]})')
+    log(f'Actual range: {result["actual_from"]} to {result["actual_to"]}')
+    log(f'Records: {result["record_count"]}')
     if result['avg_interval_minutes']:
-        err(f'Average interval: {result["avg_interval_minutes"]:.1f} minutes')
+        log(f'Average interval: {result["avg_interval_minutes"]:.1f} minutes')
 
 
 @api.command
