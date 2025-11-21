@@ -504,6 +504,52 @@ footer p {
   align-self: center;
 }
 
+/* Device checkboxes */
+.device-checkboxes {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.device-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.device-checkbox:hover:not(.disabled) {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.device-checkbox.checked {
+  background: var(--accent-tertiary);
+  border-color: var(--accent-primary);
+}
+
+.device-checkbox.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.device-checkbox input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: inherit;
+}
+
+.device-checkbox .device-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
 .time-range-buttons {
   display: flex;
   gap: 0.5rem;

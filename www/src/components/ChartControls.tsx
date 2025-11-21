@@ -1,5 +1,6 @@
 import React from 'react'
 import { Tooltip } from './Tooltip'
+import { MAX_SELECTED_DEVICES } from '../utils/colorUtils'
 import type { Device } from '../services/awairService'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
@@ -29,8 +30,8 @@ interface ChartControlsProps {
   setRangeByWidth: (hours: number, centerTime?: Date) => void
   setIgnoreNextPanCheck: () => void
   devices: Device[]
-  selectedDeviceId?: number
-  onDeviceChange: (deviceId: number) => void
+  selectedDeviceIds: number[]
+  onDeviceSelectionChange: (deviceIds: number[]) => void
 }
 
 const metricConfig: { [key: string]: MetricConfig } = {
@@ -69,8 +70,8 @@ export function ChartControls({
   setRangeByWidth,
   setIgnoreNextPanCheck,
   devices,
-  selectedDeviceId,
-  onDeviceChange
+  selectedDeviceIds,
+  onDeviceSelectionChange
 }: ChartControlsProps) {
 
   const isMobile = window.innerWidth < 768 || window.innerHeight < 600
@@ -127,17 +128,36 @@ export function ChartControls({
     <div className="chart-controls">
       {devices.length > 1 && (
         <div className="control-group">
-          <label className="unselectable">Device:</label>
-          <select
-            value={selectedDeviceId || ''}
-            onChange={(e) => onDeviceChange(Number(e.target.value))}
-          >
-            {devices.map((device) => (
-              <option key={device.deviceId} value={device.deviceId}>
-                {device.name}
-              </option>
-            ))}
-          </select>
+          <label className="unselectable">Devices:</label>
+          <div className="device-checkboxes">
+            {devices.map((device) => {
+              const isChecked = selectedDeviceIds.includes(device.deviceId)
+              const isDisabled = !isChecked && selectedDeviceIds.length >= MAX_SELECTED_DEVICES
+              return (
+                <label
+                  key={device.deviceId}
+                  className={`device-checkbox ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    disabled={isDisabled}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        onDeviceSelectionChange([...selectedDeviceIds, device.deviceId])
+                      } else {
+                        // Don't allow unchecking the last device
+                        if (selectedDeviceIds.length > 1) {
+                          onDeviceSelectionChange(selectedDeviceIds.filter(id => id !== device.deviceId))
+                        }
+                      }
+                    }}
+                  />
+                  <span className="device-name">{device.name}</span>
+                </label>
+              )
+            })}
+          </div>
         </div>
       )}
 

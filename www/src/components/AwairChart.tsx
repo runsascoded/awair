@@ -3,21 +3,32 @@ import Plot from 'react-plotly.js'
 import { ChartControls, metricConfig } from './ChartControls'
 import { DataTable } from './DataTable'
 import { Tooltip } from './Tooltip'
-import { useDataAggregation } from '../hooks/useDataAggregation'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLatestMode } from '../hooks/useLatestMode'
+import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
+import { getDeviceColor } from '../utils/colorUtils'
+import type { DeviceDataResult } from '../hooks/useMultiDeviceData'
 import type { Device } from '../services/awairService'
-import type { AwairRecord, DataSummary } from '../types/awair'
+import type { DataSummary } from '../types/awair'
 
 interface Props {
-  data: AwairRecord[]
+  deviceDataResults: DeviceDataResult[]
   summary: DataSummary | null
   devices: Device[]
-  selectedDeviceId?: number
-  onDeviceChange: (deviceId: number) => void
+  selectedDeviceIds: number[]
+  onDeviceSelectionChange: (deviceIds: number[]) => void
 }
 
-export function AwairChart({ data, summary, devices, selectedDeviceId, onDeviceChange }: Props) {
+export function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange }: Props) {
+  // Combine data from all devices for range calculations
+  const allData = useMemo(() => {
+    return deviceDataResults
+      .flatMap(r => r.data)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  }, [deviceDataResults])
+
+  // Use first device's data for backwards compatibility with hooks that need a single array
+  const data = allData
   // Basic state
   const [metric, setMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc'>(() => {
     return (sessionStorage.getItem('awair-metric') as any) || 'temp'
@@ -134,8 +145,15 @@ export function AwairChart({ data, summary, devices, selectedDeviceId, onDeviceC
     setXAxisRange(newRange)
   }, [xAxisRange, data, formatForPlotly])
 
-  // Extract custom hooks
-  const { aggregatedData, selectedWindow, isRawData } = useDataAggregation(data, xAxisRange)
+  // Extract custom hooks - use multi-device aggregation
+  const { deviceAggregations, selectedWindow, isRawData } = useMultiDeviceAggregation(
+    deviceDataResults,
+    devices,
+    xAxisRange
+  )
+
+  // For backwards compatibility with DataTable, use first device's aggregated data
+  const aggregatedData = deviceAggregations[0]?.aggregatedData || []
 
   const {
     latestModeIntended,
@@ -376,139 +394,169 @@ export function AwairChart({ data, summary, devices, selectedDeviceId, onDeviceC
   // Plot data preparation
   const config = metricConfig[metric] || metricConfig.temp
   const secondaryConfig = secondaryMetric !== 'none' ? metricConfig[secondaryMetric] : null
+  const totalDevices = deviceAggregations.length
 
-  const timestamps = aggregatedData.map(d => formatForPlotly(new Date(d.timestamp)))
-  const avgValues = aggregatedData.map(d => d[`${metric}_avg` as keyof typeof d] as number)
-  const stddevValues = aggregatedData.map(d => d[`${metric}_stddev` as keyof typeof d] as number)
-  const upperValues = avgValues.map((avg, i) => avg + stddevValues[i])
-  const lowerValues = avgValues.map((avg, i) => avg - stddevValues[i])
+  // Generate traces for all devices
+  const plotTraces = useMemo(() => {
+    const traces: any[] = []
 
-  const secondaryAvgValues = secondaryConfig && secondaryMetric !== 'none' ? aggregatedData.map(d => d[`${secondaryMetric}_avg` as keyof typeof d] as number) : []
-  const secondaryStddevValues = secondaryConfig && secondaryMetric !== 'none' ? aggregatedData.map(d => d[`${secondaryMetric}_stddev` as keyof typeof d] as number) : []
-  const secondaryUpperValues = secondaryConfig ? secondaryAvgValues.map((avg, i) => avg + secondaryStddevValues[i]) : []
-  const secondaryLowerValues = secondaryConfig ? secondaryAvgValues.map((avg, i) => avg - secondaryStddevValues[i]) : []
+    deviceAggregations.forEach((deviceAgg, deviceIndex) => {
+      const { aggregatedData: devData, deviceName } = deviceAgg
+      const timestamps = devData.map(d => formatForPlotly(new Date(d.timestamp)))
+      const primaryColor = getDeviceColor(config.color, deviceIndex, totalDevices)
+
+      // Primary metric data
+      const avgValues = devData.map(d => d[`${metric}_avg` as keyof typeof d] as number)
+      const stddevValues = devData.map(d => d[`${metric}_stddev` as keyof typeof d] as number)
+      const upperValues = avgValues.map((avg, i) => avg + stddevValues[i])
+      const lowerValues = avgValues.map((avg, i) => avg - stddevValues[i])
+
+      // Secondary metric data
+      const secondaryAvgValues = secondaryConfig && secondaryMetric !== 'none'
+        ? devData.map(d => d[`${secondaryMetric}_avg` as keyof typeof d] as number)
+        : []
+      const secondaryStddevValues = secondaryConfig && secondaryMetric !== 'none'
+        ? devData.map(d => d[`${secondaryMetric}_stddev` as keyof typeof d] as number)
+        : []
+      const secondaryUpperValues = secondaryConfig
+        ? secondaryAvgValues.map((avg, i) => avg + secondaryStddevValues[i])
+        : []
+      const secondaryLowerValues = secondaryConfig
+        ? secondaryAvgValues.map((avg, i) => avg - secondaryStddevValues[i])
+        : []
+      const secondaryColor = secondaryConfig
+        ? getDeviceColor(secondaryConfig.color, deviceIndex, totalDevices)
+        : ''
+
+      // Device name suffix for multi-device mode
+      const nameSuffix = totalDevices > 1 ? ` (${deviceName})` : ''
+
+      // Secondary metric stddev region (only show for first device to avoid clutter)
+      if (secondaryConfig && !isRawData && deviceIndex === 0) {
+        traces.push({
+          x: timestamps,
+          y: secondaryLowerValues,
+          mode: 'lines',
+          line: { color: 'transparent' },
+          name: `${secondaryConfig.label} Lower`,
+          showlegend: false,
+          hoverinfo: 'skip',
+          yaxis: 'y2',
+          zorder: 1
+        })
+        traces.push({
+          x: timestamps,
+          y: secondaryUpperValues,
+          fill: 'tonexty',
+          fillcolor: `${secondaryColor}20`,
+          line: { color: 'transparent' },
+          mode: 'lines',
+          name: `±σ ${secondaryConfig.label}`,
+          showlegend: false,
+          hoverinfo: 'skip',
+          yaxis: 'y2',
+          zorder: 1
+        })
+      }
+
+      // Secondary average line
+      if (secondaryConfig) {
+        traces.push({
+          x: timestamps,
+          y: secondaryAvgValues,
+          mode: 'lines',
+          line: { color: secondaryColor, width: 2 },
+          name: `${secondaryConfig.label} (${secondaryConfig.unit})${nameSuffix} →`,
+          legendgroup: 'secondary',
+          yaxis: 'y2',
+          zorder: 1,
+          ...(isRawData ? {
+            customdata: devData.map(d => formatFullDate(new Date(d.timestamp))),
+            hovertemplate: `<b>%{customdata}</b><br>` +
+                         `${secondaryConfig.label}: %{y:.1f} ${secondaryConfig.unit}<extra>${deviceName}</extra>`
+          } : {
+            customdata: devData.map((d, i) => ([
+              formatFullDate(new Date(d.timestamp)),
+              secondaryAvgValues[i],
+              secondaryUpperValues[i],
+              secondaryLowerValues[i],
+              secondaryStddevValues[i],
+              d.count
+            ])),
+            hovertemplate: `<b>%{customdata[0]}</b><br>` +
+                         `Avg: %{y:.1f} ${secondaryConfig.unit}<br>` +
+                         `±σ: %{customdata[3]:.1f} - %{customdata[2]:.1f} ${secondaryConfig.unit}<br>` +
+                         `σ: %{customdata[4]:.1f} ${secondaryConfig.unit}<br>` +
+                         `n = %{customdata[5]}<extra>${deviceName}</extra>`
+          })
+        })
+      }
+
+      // Primary metric stddev region (only show for first device to avoid clutter)
+      if (!isRawData && deviceIndex === 0) {
+        traces.push({
+          x: timestamps,
+          y: lowerValues,
+          mode: 'lines',
+          line: { color: 'transparent' },
+          name: `${config.label} Lower`,
+          showlegend: false,
+          hoverinfo: 'skip',
+          zorder: 10
+        })
+        traces.push({
+          x: timestamps,
+          y: upperValues,
+          fill: 'tonexty',
+          fillcolor: `${primaryColor}20`,
+          line: { color: 'transparent' },
+          mode: 'lines',
+          name: `±σ ${config.label}`,
+          showlegend: false,
+          hoverinfo: 'skip',
+          zorder: 10
+        })
+      }
+
+      // Primary metric average line
+      traces.push({
+        x: timestamps,
+        y: avgValues,
+        mode: 'lines',
+        line: { color: primaryColor, width: 3 },
+        name: `← ${config.label} (${config.unit})${nameSuffix}`,
+        legendgroup: 'primary',
+        zorder: 10,
+        ...(isRawData ? {
+          customdata: devData.map(d => formatFullDate(new Date(d.timestamp))),
+          hovertemplate: `<b>%{customdata}</b><br>` +
+                       `${config.label}: %{y:.1f} ${config.unit}<extra>${deviceName}</extra>`
+        } : {
+          customdata: devData.map((d, i) => ([
+            formatFullDate(new Date(d.timestamp)),
+            avgValues[i],
+            upperValues[i],
+            lowerValues[i],
+            stddevValues[i],
+            d.count
+          ])),
+          hovertemplate: `<b>%{customdata[0]}</b><br>` +
+                       `Avg: %{y:.1f} ${config.unit}<br>` +
+                       `±σ: %{customdata[3]:.1f} - %{customdata[2]:.1f} ${config.unit}<br>` +
+                       `σ: %{customdata[4]:.1f} ${config.unit}<br>` +
+                       `n = %{customdata[5]}<extra>${deviceName}</extra>`
+        })
+      })
+    })
+
+    return traces
+  }, [deviceAggregations, metric, secondaryMetric, config, secondaryConfig, totalDevices, isRawData, formatForPlotly, formatFullDate])
 
   return (
     <div className="awair-chart">
       <div className="plot-container">
         <Plot
-          data={[
-            // Build traces with proper indexing for fill references
-            ...(secondaryConfig && !isRawData ? [
-              // Secondary lower bound (index 0)
-              {
-                x: timestamps,
-                y: secondaryLowerValues,
-                mode: 'lines',
-                line: { color: 'transparent' },
-                name: `${secondaryConfig.label} Lower`,
-                showlegend: false,
-                hoverinfo: 'skip',
-                yaxis: 'y2',
-                zorder: 1
-              } as any,
-              // Secondary upper bound with fill (index 1)
-              {
-                x: timestamps,
-                y: secondaryUpperValues,
-                fill: 'tonexty',
-                fillcolor: `${secondaryConfig.color}20`,
-                line: { color: 'transparent' },
-                mode: 'lines',
-                name: `±σ ${secondaryConfig.label}`,
-                showlegend: false,
-                hoverinfo: 'skip',
-                yaxis: 'y2',
-                zorder: 1
-              } as any
-            ] : []),
-            // Secondary average line
-            ...(secondaryConfig ? [
-              {
-                x: timestamps,
-                y: secondaryAvgValues,
-                mode: 'lines',
-                line: { color: secondaryConfig.color, width: 2 },
-                name: `${secondaryConfig.label} (${secondaryConfig.unit})`,
-                yaxis: 'y2',
-                zorder: 1,
-                ...(isRawData ? {
-                  customdata: aggregatedData.map(d => formatFullDate(new Date(d.timestamp))),
-                  hovertemplate: `<b>%{customdata}</b><br>` +
-                               `${secondaryConfig.label}: %{y:.1f} ${secondaryConfig.unit}<extra></extra>`
-                } : {
-                  customdata: aggregatedData.map((d, i) => ([
-                    formatFullDate(new Date(d.timestamp)),
-                    secondaryAvgValues[i],
-                    secondaryUpperValues[i],
-                    secondaryLowerValues[i],
-                    secondaryStddevValues[i],
-                    d.count
-                  ])),
-                  hovertemplate: `<b>%{customdata[0]}</b><br>` +
-                               `Avg: %{y:.1f} ${secondaryConfig.unit}<br>` +
-                               `±σ: %{customdata[3]:.1f} - %{customdata[2]:.1f} ${secondaryConfig.unit}<br>` +
-                               `σ: %{customdata[4]:.1f} ${secondaryConfig.unit}<br>` +
-                               `n = %{customdata[5]}<extra></extra>`
-                })
-              } as any
-            ] : []),
-            // Primary metric stddev region
-            ...(!isRawData ? [
-              // Primary lower bound
-              {
-                x: timestamps,
-                y: lowerValues,
-                mode: 'lines',
-                line: { color: 'transparent' },
-                name: `${config.label} Lower`,
-                showlegend: false,
-                hoverinfo: 'skip',
-                zorder: 10
-              } as any,
-              // Primary upper bound with fill
-              {
-                x: timestamps,
-                y: upperValues,
-                fill: 'tonexty',
-                fillcolor: `${config.color}20`,
-                line: { color: 'transparent' },
-                mode: 'lines',
-                name: `±σ ${config.label}`,
-                showlegend: false,
-                hoverinfo: 'skip',
-                zorder: 10
-              } as any
-            ] : []),
-            // Primary metric average line (on top)
-            {
-              x: timestamps,
-              y: avgValues,
-              mode: 'lines',
-              line: { color: config.color, width: 3 },
-              name: `${config.label} (${config.unit})`,
-              zorder: 10,
-              ...(isRawData ? {
-                customdata: aggregatedData.map(d => formatFullDate(new Date(d.timestamp))),
-                hovertemplate: `<b>%{customdata}</b><br>` +
-                             `${config.label}: %{y:.1f} ${config.unit}<extra></extra>`
-              } : {
-                customdata: aggregatedData.map((d, i) => ([
-                  formatFullDate(new Date(d.timestamp)),
-                  avgValues[i],
-                  upperValues[i],
-                  lowerValues[i],
-                  stddevValues[i],
-                  d.count
-                ])),
-                hovertemplate: `<b>%{customdata[0]}</b><br>` +
-                             `Avg: %{y:.1f} ${config.unit}<br>` +
-                             `±σ: %{customdata[3]:.1f} - %{customdata[2]:.1f} ${config.unit}<br>` +
-                             `σ: %{customdata[4]:.1f} ${config.unit}<br>` +
-                             `n = %{customdata[5]}<extra></extra>`
-              })
-            } as any
-          ]}
+          data={plotTraces}
           layout={{
             autosize: true,
             height: isMobile ? 300 : 500,
@@ -563,7 +611,8 @@ export function AwairChart({ data, summary, devices, selectedDeviceId, onDeviceC
               bgcolor: plotColors.legendBg + '80',
               bordercolor: plotColors.gridcolor,
               borderwidth: 1,
-              font: { color: plotColors.textColor }
+              font: { color: plotColors.textColor },
+              traceorder: 'grouped',
             },
             dragmode: 'pan',
             showlegend: true,
@@ -612,8 +661,8 @@ export function AwairChart({ data, summary, devices, selectedDeviceId, onDeviceC
         setRangeByWidth={setRangeByWidth}
         setIgnoreNextPanCheck={setIgnoreNextPanCheck}
         devices={devices}
-        selectedDeviceId={selectedDeviceId}
-        onDeviceChange={onDeviceChange}
+        selectedDeviceIds={selectedDeviceIds}
+        onDeviceSelectionChange={onDeviceSelectionChange}
       />
 
       <Tooltip content={`Window size adapts automatically to zoom level. Drag to pan, wheel to zoom, double-click to show all data.${summary ? ` | Total records: ${summary.count.toLocaleString()}` : ''}`}>
