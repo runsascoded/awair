@@ -1,10 +1,10 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 from utz.s3 import atomic_edit
 
-from awair.cli.api import fetch_raw_data
+from awair.cli.api import fetch_date_range
 from awair.cli.config import parse_s3_path
 from awair.storage import ParquetStorage
 
@@ -60,42 +60,32 @@ def update_s3_data():
                 latest_timestamp = storage.get_latest_timestamp()
 
                 if latest_timestamp:
-                    # Fetch data since the latest timestamp (recent-only mode)
-                    from_str = latest_timestamp.isoformat()
-                    print(f'Fetching data since: {from_str}')
+                    # Fetch data since the latest timestamp
+                    # Use UTC-aware datetime for consistency
+                    if latest_timestamp.tzinfo is None:
+                        from_dt = latest_timestamp.replace(tzinfo=timezone.utc)
+                    else:
+                        from_dt = latest_timestamp
+                    print(f'Fetching data since: {from_dt.isoformat()}')
                 else:
                     # No existing data, fetch last 7 days to start
-                    from_dt = datetime.now() - timedelta(days=7)
-                    from_str = from_dt.isoformat()
-                    print(f'No existing data, fetching from: {from_str}')
+                    from_dt = datetime.now(timezone.utc) - timedelta(days=7)
+                    print(f'No existing data, fetching from: {from_dt.isoformat()}')
 
                 # Fetch new data (10 minutes into future to ensure we get latest)
-                to_str = (datetime.now() + timedelta(minutes=10)).isoformat()
+                to_dt = datetime.now(timezone.utc) + timedelta(minutes=10)
 
-                result = fetch_raw_data(
-                    from_str=from_str,
-                    to_str=to_str,
+                # Use fetch_date_range for automatic pagination/backfill
+                inserted = fetch_date_range(
+                    from_str=from_dt.isoformat(),
+                    to_str=to_dt.isoformat(),
                     limit=360,
-                    sleep_interval=0.0,  # No sleep needed for single request
+                    sleep_s=0.0,  # No sleep needed in Lambda
+                    storage=storage,
+                    log=print,  # Use print for CloudWatch logs
                 )
 
-                if result['success'] and result['data']:
-                    inserted = storage.insert_air_data(result['data'])
-                    print(f'Inserted {inserted} new records')
-
-                    # Log current data stats
-                    summary = storage.get_data_summary()
-                    print(f'Total records: {summary["count"]}')
-                    if summary['latest']:
-                        print(f'Latest timestamp: {summary["latest"]}')
-
-                    return inserted
-                elif result['success']:
-                    print('No new data available')
-                    return 0
-                else:
-                    print(f'Failed to fetch data: {result.get("error", "Unknown error")}')
-                    return 0
+                return inserted
     finally:
         # Restore original working directory
         os.chdir(original_cwd)
