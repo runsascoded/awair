@@ -194,6 +194,15 @@ def get_device_config() -> tuple[str, int]:
     if device_type and device_id:
         return device_type.strip(), int(device_id.strip())
 
+    # If only device_id is set, look up device type from devices list
+    if device_id:
+        device_id_int = int(device_id.strip())
+        devices = get_devices()
+        for device in devices:
+            if device['deviceId'] == device_id_int:
+                return device['deviceType'], device_id_int
+        raise ValueError(f'Device ID {device_id_int} not found in account')
+
     # Try config files (local, lambda package, then user config)
     config_paths = [
         '.awair-device',

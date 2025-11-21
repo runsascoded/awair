@@ -39,11 +39,15 @@ awair gaps                    # Find timing gaps in data
 
 ### Lambda Deployment
 
+**Device IDs:**
+- **Gym** = 17617
+- **BR** = 137496
+
 ```bash
 # Deploy Lambda for a device (1-minute intervals)
 # Uses AWAIR_S3_ROOT (default: s3://380nwk) for data path
-AWAIR_DEVICE_ID=17617 awair lambda deploy -s awair-updater-17617 -r 1
-AWAIR_DEVICE_ID=137496 awair lambda deploy -s awair-updater-137496 -r 1
+AWAIR_DEVICE_ID=17617 awair lambda deploy -s awair-updater-17617 -r 1    # Gym
+AWAIR_DEVICE_ID=137496 awair lambda deploy -s awair-updater-137496 -r 1  # BR
 
 # Deploy from source (development)
 AWAIR_DEVICE_ID=17617 awair lambda deploy -v source -s awair-updater-17617 -r 1
@@ -54,7 +58,8 @@ awair lambda synth                    # View CloudFormation template
 awair lambda test                     # Test locally
 
 # Monitor logs (specify function)
-aws logs tail /aws/lambda/awair-updater-17617 --follow
+aws logs tail /aws/lambda/awair-updater-17617 --follow  # Gym
+aws logs tail /aws/lambda/awair-updater-137496 --follow  # BR
 ```
 
 ### Web Dashboard Development
@@ -80,8 +85,8 @@ Lambda (every 1 min) → S3 (device-specific parquet files)
 Python CLI         Web Dashboard (reads directly from S3)
 
 Multi-Device Example:
-  Device 17617:  EventBridge (1min) → Lambda → s3://380nwk/awair-17617.parquet
-  Device 137496: EventBridge (1min) → Lambda → s3://380nwk/awair-137496.parquet
+  Gym (17617):  EventBridge (1min) → Lambda → s3://380nwk/awair-17617.parquet
+  BR (137496):   EventBridge (1min) → Lambda → s3://380nwk/awair-137496.parquet
 ```
 
 ### Key Components
