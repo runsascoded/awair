@@ -16,7 +16,10 @@ function AppContent() {
   const deviceId = selectedDeviceId || devices[0]?.deviceId
   const { data, summary, loading, error } = useAwairData(deviceId)
 
-  if (loading) {
+  // Show full-screen loading only on initial load (no data yet)
+  const isInitialLoad = loading && data.length === 0
+
+  if (isInitialLoad) {
     return (
       <div className="app">
         <div className="loading">
@@ -27,7 +30,7 @@ function AppContent() {
     )
   }
 
-  if (error) {
+  if (error && data.length === 0) {
     return (
       <div className="app">
         <div className="error">
@@ -42,6 +45,12 @@ function AppContent() {
   return (
     <div className="app">
       <main>
+        {/* Show loading overlay when switching devices (data exists but new data loading) */}
+        {loading && data.length > 0 && (
+          <div className="loading-overlay">
+            <div className="loading-spinner" />
+          </div>
+        )}
         {data.length > 0 && (
           <AwairChart
             data={data}
