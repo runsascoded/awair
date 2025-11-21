@@ -218,12 +218,14 @@ React + TypeScript + Vite application:
 
 ### Rate Limiting and Scheduling
 
-- **Awair API limit**: 5,000 requests/day (confirmed by Awair support)
+- **Awair API limit**: Unknown; requested 5-6k/day from Awair support (2025-11-21), awaiting confirmation
+  - Rate limit error: `{"code":8, "message":"Too many requests during the past 24 hours"}`
+  - Test: `curl -H 'Authorization: Bearer $AWAIR_TOKEN' 'https://developer-apis.awair.is/v1/users/self/devices/awair-element/17617/air-data/raw?limit=1'`
 - **Lambda schedule**: Every 1 minute (configurable via `-r` flag)
 - **Daily requests per device**: 1,440/day (1 min intervals)
 - **Multi-device**: 1,440 × N devices per day (e.g., 2,880/day for 2 devices)
-- **Well within limits**: 5,000/day supports ~3 devices at 1-min intervals
 - **Reserved concurrency**: 1 per function (no concurrent executions, prevents race conditions)
+- **Backfill on rate limit recovery**: Lambda fetches with `limit=360`, API returns up to 60 min/request; gaps catch up at ~1 hour per Lambda invocation
 
 ### Atomic S3 Updates
 
