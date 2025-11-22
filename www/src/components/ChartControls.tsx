@@ -6,6 +6,8 @@ import type { AwairRecord, DataSummary } from '../types/awair'
 
 interface MetricConfig {
   label: string
+  shortLabel: string
+  emoji: string
   unit: string
   color: string
 }
@@ -37,11 +39,11 @@ interface ChartControlsProps {
 }
 
 const metricConfig: { [key: string]: MetricConfig } = {
-  temp: { label: 'Temperature', unit: '°F', color: '#ff6384' },
-  co2: { label: 'CO₂', unit: 'ppm', color: '#36a2eb' },
-  humid: { label: 'Humidity', unit: '%', color: '#4bc0c0' },
-  pm25: { label: 'PM2.5', unit: 'μg/m³', color: '#9966ff' },
-  voc: { label: 'VOC', unit: 'ppb', color: '#ff9f40' }
+  temp: { label: 'Temperature', shortLabel: 'Temp', emoji: '🌡️', unit: '°F', color: '#ff6384' },
+  co2: { label: 'CO₂', shortLabel: 'CO₂', emoji: '💨', unit: 'ppm', color: '#36a2eb' },
+  humid: { label: 'Humidity', shortLabel: 'Hum.', emoji: '💦', unit: '%', color: '#4bc0c0' },
+  pm25: { label: 'PM2.5', shortLabel: 'PM2.5', emoji: '🏭', unit: 'μg/m³', color: '#9966ff' },
+  voc: { label: 'VOC', shortLabel: 'VOC', emoji: '🧪', unit: 'ppb', color: '#ff9f40' }
 }
 
 const timeRangeButtons = [
@@ -165,55 +167,47 @@ export function ChartControls({
         </div>
       )}
 
-      <div className="control-group metrics-group">
-        <div className="metric-select">
-          {isMobile ? (
-            <label className="unselectable">Primary:</label>
-          ) : (
-            <Tooltip content="Keyboard: t=Temperature, c=CO₂, h=Humidity, p=PM2.5, v=VOC">
-              <label className="unselectable">Primary:</label>
-            </Tooltip>
-          )}
-          <select value={metric} onChange={(e) => setMetric(e.target.value as any)}>
-            {Object.entries(metricConfig).map(([key, cfg]) => (
-              <option key={key} value={key}>{cfg.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="metric-select">
-          {isMobile ? (
-            <label className="unselectable">Secondary:</label>
-          ) : (
-            <Tooltip content="Keyboard: T=Temperature, C=CO₂, H=Humidity, P=PM2.5, V=VOC, N=None. Shift+same letter swaps primary/secondary.">
-              <label className="unselectable">Secondary:</label>
-            </Tooltip>
-          )}
-          <select value={secondaryMetric} onChange={(e) => setSecondaryMetric(e.target.value as any)}>
-            <option value="none">None</option>
-            {Object.entries(metricConfig).map(([key, cfg]) => (
-              key !== metric ? <option key={key} value={key}>{cfg.label}</option> : null
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="control-group">
+      <div className="control-group yaxes-group">
         {isMobile ? (
           <label className="unselectable">Y-axes:</label>
         ) : (
-          <Tooltip content="Show Y-axes range from zero to better compare absolute values across devices (Keyboard: z)">
+          <Tooltip content="Keyboard: t=Temp, c=CO₂, h=Humid, p=PM2.5, v=VOC (Shift for right axis, z to toggle from zero)">
             <label className="unselectable">Y-axes:</label>
           </Tooltip>
         )}
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={yAxisFromZero}
-            onChange={(e) => setYAxisFromZero(e.target.checked)}
-          />
-          <span>From zero</span>
-        </label>
+        <div className="yaxes-controls">
+          <div className="metric-select">
+            <label className="unselectable metric-side-label">Left:</label>
+            <Tooltip content={metricConfig[metric].label}>
+              <select value={metric} onChange={(e) => setMetric(e.target.value as any)}>
+                {Object.entries(metricConfig).map(([key, cfg]) => (
+                  <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option>
+                ))}
+              </select>
+            </Tooltip>
+          </div>
+
+          <div className="metric-select">
+            <label className="unselectable metric-side-label">Right:</label>
+            <Tooltip content={secondaryMetric !== 'none' ? metricConfig[secondaryMetric].label : 'No secondary axis'}>
+              <select value={secondaryMetric} onChange={(e) => setSecondaryMetric(e.target.value as any)}>
+                <option value="none">None</option>
+                {Object.entries(metricConfig).map(([key, cfg]) => (
+                  key !== metric ? <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option> : null
+                ))}
+              </select>
+            </Tooltip>
+          </div>
+
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={yAxisFromZero}
+              onChange={(e) => setYAxisFromZero(e.target.checked)}
+            />
+            <span>From zero</span>
+          </label>
+        </div>
       </div>
 
       <div className="control-group">

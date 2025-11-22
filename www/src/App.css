@@ -476,12 +476,32 @@ footer p {
   flex-wrap: wrap;
 }
 
+.control-group.yaxes-group {
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.yaxes-controls {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .metric-select {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 0.5rem;
   flex: 0 1 auto;
   min-width: 0;
+  align-items: center;
+}
+
+.metric-side-label {
+  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
 }
 
 .control-group label {
