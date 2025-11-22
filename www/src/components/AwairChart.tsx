@@ -632,7 +632,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             selectdirection: 'h'
           }}
           config={{
-            displayModeBar: true,
+            displayModeBar: false,
             displaylogo: false,
             responsive: true,
             scrollZoom: true,
