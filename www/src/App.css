@@ -653,6 +653,17 @@ footer p {
   cursor: help;
 }
 
+.control-group.range-group {
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.range-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .range-info {
   display: flex;
   align-items: center;

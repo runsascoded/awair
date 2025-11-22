@@ -252,22 +252,11 @@ export function ChartControls({
         </div>
       </div>
 
-      <div className="control-group">
-        <Tooltip content={summary ? `Date Range: ${summary.dateRange}${summary.latest ? ` | Latest: ${formatCompactDate(new Date(summary.latest))}` : ''}` : 'Show all data'}>
-          <label className="unselectable">Range:</label>
-        </Tooltip>
-        <div className="range-info">
-          {xAxisRange ? (
-            <Tooltip content={`${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`}>
-              <div className="range-display">
-                <span className="range-start">{formatCompactDate(new Date(xAxisRange[0]))}</span>
-                <span className="range-separator"> → </span>
-                <span className="range-end">{formatCompactDate(new Date(xAxisRange[1]))}</span>
-              </div>
-            </Tooltip>
-          ) : (
-            <span className="range-display">All data</span>
-          )}
+      <div className="control-group range-group">
+        <div className="range-label-row">
+          <Tooltip content={summary ? `Date Range: ${summary.dateRange}${summary.latest ? ` | Latest: ${formatCompactDate(new Date(summary.latest))}` : ''}` : 'Show all data'}>
+            <label className="unselectable">Range:</label>
+          </Tooltip>
           {isMobile ? (
             <button
               className={`unselectable latest-button ${latestModeIntended || getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
@@ -284,6 +273,19 @@ export function ChartControls({
                 Latest
               </button>
             </Tooltip>
+          )}
+        </div>
+        <div className="range-info">
+          {xAxisRange ? (
+            <Tooltip content={`${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`}>
+              <div className="range-display">
+                <span className="range-start">{formatCompactDate(new Date(xAxisRange[0]))}</span>
+                <span className="range-separator"> → </span>
+                <span className="range-end">{formatCompactDate(new Date(xAxisRange[1]))}</span>
+              </div>
+            </Tooltip>
+          ) : (
+            <span className="range-display">All data</span>
           )}
         </div>
       </div>
