@@ -607,7 +607,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             paper_bgcolor: plotColors.plotBg,
             legend: {
               orientation: 'h',
-              x: -0.02,
+              x: isMobile ? -0.07 : -0.02,
               y: 1.02,
               xanchor: 'left',
               yanchor: 'bottom',
@@ -618,7 +618,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             ...(secondaryConfig && {
               legend2: {
                 orientation: 'h',
-                x: 1.02,
+                x: isMobile ? 1.07 : 1.02,
                 y: 1.02,
                 xanchor: 'right',
                 yanchor: 'bottom',
