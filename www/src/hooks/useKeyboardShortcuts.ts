@@ -6,6 +6,8 @@ interface UseKeyboardShortcutsProps {
   secondaryMetric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none'
   setMetric: (metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc') => void
   setSecondaryMetric: (metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none') => void
+  yAxisFromZero: boolean
+  setYAxisFromZero: (value: boolean) => void
   xAxisRange: [string, string] | null
   setXAxisRange: (range: [string, string] | null) => void
   setHasSetDefaultRange: (value: boolean) => void
@@ -22,6 +24,8 @@ export function useKeyboardShortcuts({
   secondaryMetric,
   setMetric,
   setSecondaryMetric,
+  yAxisFromZero,
+  setYAxisFromZero,
   xAxisRange,
   setXAxisRange,
   setHasSetDefaultRange,
@@ -138,6 +142,10 @@ export function useKeyboardShortcuts({
         // M = 30 days (month)
         handleTimeRangeClick(24 * 30)
         event.preventDefault()
+      } else if (key === 'z') {
+        // Z = Toggle Y-axis from zero
+        setYAxisFromZero(!yAxisFromZero)
+        event.preventDefault()
       }
     }
 
@@ -148,6 +156,8 @@ export function useKeyboardShortcuts({
     secondaryMetric,
     setMetric,
     setSecondaryMetric,
+    yAxisFromZero,
+    setYAxisFromZero,
     xAxisRange,
     setXAxisRange,
     setHasSetDefaultRange,

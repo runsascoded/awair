@@ -267,6 +267,8 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     secondaryMetric,
     setMetric,
     setSecondaryMetric,
+    yAxisFromZero,
+    setYAxisFromZero,
     xAxisRange,
     setXAxisRange,
     setHasSetDefaultRange,

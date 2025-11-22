@@ -200,10 +200,10 @@ export function ChartControls({
 
       <div className="control-group">
         {isMobile ? (
-          <label className="unselectable">Y-axis:</label>
+          <label className="unselectable">Y-axes:</label>
         ) : (
-          <Tooltip content="Show Y-axis range from zero to better compare absolute values across devices">
-            <label className="unselectable">Y-axis:</label>
+          <Tooltip content="Show Y-axes range from zero to better compare absolute values across devices (Keyboard: z)">
+            <label className="unselectable">Y-axes:</label>
           </Tooltip>
         )}
         <label className="checkbox-label">
