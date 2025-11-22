@@ -161,35 +161,37 @@ export function ChartControls({
         </div>
       )}
 
-      <div className="control-group">
-        {isMobile ? (
-          <label className="unselectable">Primary Metric:</label>
-        ) : (
-          <Tooltip content="Keyboard: t=Temperature, c=CO₂, h=Humidity, p=PM2.5, v=VOC">
-            <label className="unselectable">Primary Metric:</label>
-          </Tooltip>
-        )}
-        <select value={metric} onChange={(e) => setMetric(e.target.value as any)}>
-          {Object.entries(metricConfig).map(([key, cfg]) => (
-            <option key={key} value={key}>{cfg.label}</option>
-          ))}
-        </select>
-      </div>
+      <div className="control-group metrics-group">
+        <div className="metric-select">
+          {isMobile ? (
+            <label className="unselectable">Primary:</label>
+          ) : (
+            <Tooltip content="Keyboard: t=Temperature, c=CO₂, h=Humidity, p=PM2.5, v=VOC">
+              <label className="unselectable">Primary:</label>
+            </Tooltip>
+          )}
+          <select value={metric} onChange={(e) => setMetric(e.target.value as any)}>
+            {Object.entries(metricConfig).map(([key, cfg]) => (
+              <option key={key} value={key}>{cfg.label}</option>
+            ))}
+          </select>
+        </div>
 
-      <div className="control-group">
-        {isMobile ? (
-          <label className="unselectable">Secondary Metric:</label>
-        ) : (
-          <Tooltip content="Keyboard: T=Temperature, C=CO₂, H=Humidity, P=PM2.5, V=VOC, N=None. Shift+same letter swaps primary/secondary.">
-            <label className="unselectable">Secondary Metric:</label>
-          </Tooltip>
-        )}
-        <select value={secondaryMetric} onChange={(e) => setSecondaryMetric(e.target.value as any)}>
-          <option value="none">None</option>
-          {Object.entries(metricConfig).map(([key, cfg]) => (
-            key !== metric ? <option key={key} value={key}>{cfg.label}</option> : null
-          ))}
-        </select>
+        <div className="metric-select">
+          {isMobile ? (
+            <label className="unselectable">Secondary:</label>
+          ) : (
+            <Tooltip content="Keyboard: T=Temperature, C=CO₂, H=Humidity, P=PM2.5, V=VOC, N=None. Shift+same letter swaps primary/secondary.">
+              <label className="unselectable">Secondary:</label>
+            </Tooltip>
+          )}
+          <select value={secondaryMetric} onChange={(e) => setSecondaryMetric(e.target.value as any)}>
+            <option value="none">None</option>
+            {Object.entries(metricConfig).map(([key, cfg]) => (
+              key !== metric ? <option key={key} value={key}>{cfg.label}</option> : null
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="control-group">

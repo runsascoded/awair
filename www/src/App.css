@@ -470,6 +470,20 @@ footer p {
   gap: 0.5rem;
 }
 
+.control-group.metrics-group {
+  flex-direction: row;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.metric-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 150px;
+}
+
 .control-group label {
   font-weight: 600;
   color: var(--text-tertiary);
