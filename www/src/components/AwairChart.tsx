@@ -31,13 +31,13 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   const data = allData
   // Basic state
   const [metric, setMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc'>(() => {
-    return (sessionStorage.getItem('awair-metric') as any) || 'temp'
+    return (localStorage.getItem('awair-metric') as any) || 'temp'
   })
   const [secondaryMetric, setSecondaryMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none'>(() => {
-    return (sessionStorage.getItem('awair-secondary-metric') as any) || 'co2'
+    return (localStorage.getItem('awair-secondary-metric') as any) || 'co2'
   })
   const [xAxisRange, setXAxisRange] = useState<[string, string] | null>(() => {
-    const stored = sessionStorage.getItem('awair-time-range')
+    const stored = localStorage.getItem('awair-time-range')
     return stored ? JSON.parse(stored) : null
   })
   const [hasSetDefaultRange, setHasSetDefaultRange] = useState(false)
@@ -103,18 +103,18 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // Save state to session storage
   useEffect(() => {
-    sessionStorage.setItem('awair-metric', metric)
+    localStorage.setItem('awair-metric', metric)
   }, [metric])
 
   useEffect(() => {
-    sessionStorage.setItem('awair-secondary-metric', secondaryMetric)
+    localStorage.setItem('awair-secondary-metric', secondaryMetric)
   }, [secondaryMetric])
 
   useEffect(() => {
     if (xAxisRange) {
-      sessionStorage.setItem('awair-time-range', JSON.stringify(xAxisRange))
+      localStorage.setItem('awair-time-range', JSON.stringify(xAxisRange))
     } else {
-      sessionStorage.removeItem('awair-time-range')
+      localStorage.removeItem('awair-time-range')
     }
   }, [xAxisRange])
 
@@ -466,7 +466,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           y: secondaryAvgValues,
           mode: 'lines',
           line: { color: secondaryColor, width: 2 },
-          name: `${secondaryConfig.label} (${secondaryConfig.unit})${nameSuffix} →`,
+          name: `${secondaryConfig.label} (${secondaryConfig.unit})${nameSuffix}`,
           legendgroup: 'secondary',
           yaxis: 'y2',
           zorder: 1,
@@ -524,7 +524,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         y: avgValues,
         mode: 'lines',
         line: { color: primaryColor, width: 3 },
-        name: `← ${config.label} (${config.unit})${nameSuffix}`,
+        name: `${config.label} (${config.unit})${nameSuffix}`,
         legendgroup: 'primary',
         zorder: 10,
         ...(isRawData ? {
@@ -606,9 +606,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             paper_bgcolor: plotColors.plotBg,
             legend: {
               orientation: 'h',
-              x: 0,
+              x: 0.5,
               y: 1.02,
-              xanchor: 'left',
+              xanchor: 'center',
               yanchor: 'bottom',
               bgcolor: plotColors.legendBg + '80',
               bordercolor: plotColors.gridcolor,
@@ -616,6 +616,30 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
               font: { color: plotColors.textColor },
               traceorder: 'grouped',
             },
+            annotations: [
+              {
+                text: '←',
+                xref: 'paper',
+                yref: 'paper',
+                x: 0,
+                y: 1.02,
+                xanchor: 'left',
+                yanchor: 'bottom',
+                showarrow: false,
+                font: { size: 14, color: plotColors.textColor },
+              },
+              ...(secondaryConfig ? [{
+                text: '→',
+                xref: 'paper' as const,
+                yref: 'paper' as const,
+                x: 1,
+                y: 1.02,
+                xanchor: 'right',
+                yanchor: 'bottom',
+                showarrow: false,
+                font: { size: 14, color: plotColors.textColor },
+              }] : []),
+            ],
             dragmode: 'pan',
             showlegend: true,
             selectdirection: 'h'

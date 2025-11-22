@@ -10,14 +10,24 @@ import './App.css'
 
 function AppContent() {
   const { devices } = useDevices()
-  const [selectedDeviceIds, setSelectedDeviceIds] = useState<number[]>([])
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<number[]>(() => {
+    const stored = localStorage.getItem('awair-selected-devices')
+    return stored ? JSON.parse(stored) : []
+  })
 
-  // Initialize with first device when devices load
+  // Initialize with first device when devices load (if no stored selection)
   useEffect(() => {
     if (devices.length > 0 && selectedDeviceIds.length === 0) {
       setSelectedDeviceIds([devices[0].deviceId])
     }
   }, [devices, selectedDeviceIds.length])
+
+  // Persist device selection
+  useEffect(() => {
+    if (selectedDeviceIds.length > 0) {
+      localStorage.setItem('awair-selected-devices', JSON.stringify(selectedDeviceIds))
+    }
+  }, [selectedDeviceIds])
 
   // Fetch data for all selected devices
   const deviceDataResults = useMultiDeviceData(selectedDeviceIds)
