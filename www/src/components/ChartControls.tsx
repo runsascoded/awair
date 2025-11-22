@@ -168,91 +168,6 @@ export function ChartControls({
           </div>
         )}
 
-        <div className="control-group yaxes-group">
-          <label className="unselectable">Y-axes:</label>
-          <div className="yaxes-controls">
-            <div className="metric-select">
-              {isMobile ? (
-                <label className="unselectable metric-side-label">L:</label>
-              ) : (
-                <Tooltip content="Left Y-axis metric (Keyboard: t=Temp, c=CO₂, h=Humid, p=PM2.5, v=VOC)">
-                  <label className="unselectable metric-side-label">L:</label>
-                </Tooltip>
-              )}
-              <select value={metric} onChange={(e) => setMetric(e.target.value as any)}>
-                {Object.entries(metricConfig).map(([key, cfg]) => (
-                  <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="metric-select">
-              {isMobile ? (
-                <label className="unselectable metric-side-label">R:</label>
-              ) : (
-                <Tooltip content="Right Y-axis metric (Keyboard: Shift+T, Shift+C, Shift+H, Shift+P, Shift+V, Shift+N=None)">
-                  <label className="unselectable metric-side-label">R:</label>
-                </Tooltip>
-              )}
-              <select value={secondaryMetric} onChange={(e) => setSecondaryMetric(e.target.value as any)}>
-                <option value="none">None</option>
-                {Object.entries(metricConfig).map(([key, cfg]) => (
-                  key !== metric ? <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option> : null
-                ))}
-              </select>
-            </div>
-
-            {isMobile ? (
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={yAxisFromZero}
-                  onChange={(e) => setYAxisFromZero(e.target.checked)}
-                />
-                <span>≥0</span>
-              </label>
-            ) : (
-              <Tooltip content="Start Y-axes from zero (Keyboard: z)">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={yAxisFromZero}
-                    onChange={(e) => setYAxisFromZero(e.target.checked)}
-                  />
-                  <span>≥0</span>
-                </label>
-              </Tooltip>
-            )}
-          </div>
-        </div>
-
-        <div className="control-group">
-          {isMobile ? (
-            <label className="unselectable">Range Width:</label>
-          ) : (
-            <Tooltip content="Keyboard: 1=1day, 3=3days, 7=7days, 2=14days(2wk), m=30days, a=All">
-              <label className="unselectable">Range Width:</label>
-            </Tooltip>
-          )}
-          <div className="time-range-buttons">
-            {timeRangeButtons.map(({ label, hours }) => (
-              <button
-                key={label}
-                className={`unselectable ${getActiveTimeRange() === label || getActiveTimeRange() === `latest-${label}` ? 'active' : ''}`}
-                onClick={() => handleTimeRangeButtonClick(hours)}
-              >
-                {label}
-              </button>
-            ))}
-            <button
-              className={`unselectable ${getActiveTimeRange() === 'all' ? 'active' : ''}`}
-              onClick={handleAllButtonClick}
-            >
-            All
-            </button>
-          </div>
-        </div>
-
         <div className="control-group range-group range-section">
           <div className="range-label-row">
             <Tooltip content={summary ? `Date Range: ${summary.dateRange}${summary.latest ? ` | Latest: ${formatCompactDate(new Date(summary.latest))}` : ''}` : 'Show all data'}>
@@ -289,6 +204,91 @@ export function ChartControls({
               <span className="range-display">All data</span>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="control-group yaxes-group">
+        <label className="unselectable">Y-axes:</label>
+        <div className="yaxes-controls">
+          <div className="metric-select">
+            {isMobile ? (
+              <label className="unselectable metric-side-label">L:</label>
+            ) : (
+              <Tooltip content="Left Y-axis metric (Keyboard: t=Temp, c=CO₂, h=Humid, p=PM2.5, v=VOC)">
+                <label className="unselectable metric-side-label">L:</label>
+              </Tooltip>
+            )}
+            <select value={metric} onChange={(e) => setMetric(e.target.value as any)}>
+              {Object.entries(metricConfig).map(([key, cfg]) => (
+                <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="metric-select">
+            {isMobile ? (
+              <label className="unselectable metric-side-label">R:</label>
+            ) : (
+              <Tooltip content="Right Y-axis metric (Keyboard: Shift+T, Shift+C, Shift+H, Shift+P, Shift+V, Shift+N=None)">
+                <label className="unselectable metric-side-label">R:</label>
+              </Tooltip>
+            )}
+            <select value={secondaryMetric} onChange={(e) => setSecondaryMetric(e.target.value as any)}>
+              <option value="none">None</option>
+              {Object.entries(metricConfig).map(([key, cfg]) => (
+                key !== metric ? <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option> : null
+              ))}
+            </select>
+          </div>
+
+          {isMobile ? (
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={yAxisFromZero}
+                onChange={(e) => setYAxisFromZero(e.target.checked)}
+              />
+              <span>≥0</span>
+            </label>
+          ) : (
+            <Tooltip content="Start Y-axes from zero (Keyboard: z)">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={yAxisFromZero}
+                  onChange={(e) => setYAxisFromZero(e.target.checked)}
+                />
+                <span>≥0</span>
+              </label>
+            </Tooltip>
+          )}
+        </div>
+      </div>
+
+      <div className="control-group">
+        {isMobile ? (
+          <label className="unselectable">Range Width:</label>
+        ) : (
+          <Tooltip content="Keyboard: 1=1day, 3=3days, 7=7days, 2=14days(2wk), m=30days, a=All">
+            <label className="unselectable">Range Width:</label>
+          </Tooltip>
+        )}
+        <div className="time-range-buttons">
+          {timeRangeButtons.map(({ label, hours }) => (
+            <button
+              key={label}
+              className={`unselectable ${getActiveTimeRange() === label || getActiveTimeRange() === `latest-${label}` ? 'active' : ''}`}
+              onClick={() => handleTimeRangeButtonClick(hours)}
+            >
+              {label}
+            </button>
+          ))}
+          <button
+            className={`unselectable ${getActiveTimeRange() === 'all' ? 'active' : ''}`}
+            onClick={handleAllButtonClick}
+          >
+            All
+          </button>
         </div>
       </div>
     </div>
