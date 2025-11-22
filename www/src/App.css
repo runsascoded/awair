@@ -480,14 +480,15 @@ footer p {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  flex: 1;
-  min-width: 150px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .control-group label {
   font-weight: 600;
   color: var(--text-tertiary);
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .control-group select {
@@ -496,7 +497,7 @@ footer p {
   border-radius: 4px;
   background: white;
   font-size: 0.9rem;
-  min-width: 120px;
+  min-width: 0;
   cursor: pointer;
 }
 
