@@ -90,8 +90,9 @@ def get_devices(force_refresh: bool = False):
         - TTL: 1 hour (3600 seconds)
         - Use `awair api devices --refresh` to force refresh
     """
-    import pandas as pd
     from datetime import datetime, timezone
+
+    import pandas as pd
 
     devices_path = get_devices_path()
     cache_ttl = 3600  # 1 hour
