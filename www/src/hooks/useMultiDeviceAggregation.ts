@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import type { DeviceDataResult } from './useMultiDeviceData'
 import { useDataAggregation } from './useDataAggregation'
 import type { AggregatedData, TimeWindow } from './useDataAggregation'
+import type { DeviceDataResult } from './useMultiDeviceData'
 import type { AwairRecord } from '../types/awair'
 
 export interface DeviceAggregatedData {

@@ -15,6 +15,8 @@ interface ChartControlsProps {
   secondaryMetric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none'
   setMetric: (metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc') => void
   setSecondaryMetric: (metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none') => void
+  yAxisFromZero: boolean
+  setYAxisFromZero: (value: boolean) => void
   xAxisRange: [string, string] | null
   setXAxisRange: (range: [string, string] | null) => void
   setHasSetDefaultRange: (value: boolean) => void
@@ -55,6 +57,8 @@ export function ChartControls({
   secondaryMetric,
   setMetric,
   setSecondaryMetric,
+  yAxisFromZero,
+  setYAxisFromZero,
   xAxisRange,
   setXAxisRange,
   setHasSetDefaultRange,
@@ -192,6 +196,24 @@ export function ChartControls({
             ))}
           </select>
         </div>
+      </div>
+
+      <div className="control-group">
+        {isMobile ? (
+          <label className="unselectable">Y-axis:</label>
+        ) : (
+          <Tooltip content="Show Y-axis range from zero to better compare absolute values across devices">
+            <label className="unselectable">Y-axis:</label>
+          </Tooltip>
+        )}
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={yAxisFromZero}
+            onChange={(e) => setYAxisFromZero(e.target.checked)}
+          />
+          <span>From zero</span>
+        </label>
       </div>
 
       <div className="control-group">

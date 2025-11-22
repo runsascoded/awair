@@ -4,8 +4,8 @@
  */
 
 import { parquetRead } from 'hyparquet'
-import type { AwairRecord } from '../../types/awair'
 import { getDataUrl } from '../awairService'
+import type { AwairRecord } from '../../types/awair'
 import type { DataSource, FetchOptions, FetchResult, FetchTiming } from '../dataSource'
 
 export class HyparquetSource implements DataSource {

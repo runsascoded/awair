@@ -36,6 +36,10 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   const [secondaryMetric, setSecondaryMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none'>(() => {
     return (localStorage.getItem('awair-secondary-metric') as any) || 'co2'
   })
+  const [yAxisFromZero, setYAxisFromZero] = useState(() => {
+    const stored = localStorage.getItem('awair-yaxis-from-zero')
+    return stored === 'true'
+  })
   const [xAxisRange, setXAxisRange] = useState<[string, string] | null>(() => {
     const stored = localStorage.getItem('awair-time-range')
     return stored ? JSON.parse(stored) : null
@@ -109,6 +113,10 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   useEffect(() => {
     localStorage.setItem('awair-secondary-metric', secondaryMetric)
   }, [secondaryMetric])
+
+  useEffect(() => {
+    localStorage.setItem('awair-yaxis-from-zero', String(yAxisFromZero))
+  }, [yAxisFromZero])
 
   useEffect(() => {
     if (xAxisRange) {
@@ -588,6 +596,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
               zerolinecolor: plotColors.gridcolor,
               side: 'left',
               tickformat: '.3~s',
+              ...(yAxisFromZero && { rangemode: 'tozero' }),
             },
             ...(secondaryConfig && {
               yaxis2: {
@@ -599,6 +608,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
                 linecolor: plotColors.gridcolor,
                 zerolinecolor: 'transparent',
                 tickformat: '.3~s',
+                ...(yAxisFromZero && { rangemode: 'tozero' }),
               }
             }),
             margin: { l: 35, r: secondaryConfig ? 35 : 10, t: 0, b: 45 },
@@ -659,6 +669,8 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         secondaryMetric={secondaryMetric}
         setMetric={setMetric}
         setSecondaryMetric={setSecondaryMetric}
+        yAxisFromZero={yAxisFromZero}
+        setYAxisFromZero={setYAxisFromZero}
         xAxisRange={xAxisRange}
         setXAxisRange={setXAxisRange}
         setHasSetDefaultRange={setHasSetDefaultRange}

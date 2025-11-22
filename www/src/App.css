@@ -501,6 +501,25 @@ footer p {
   cursor: pointer;
 }
 
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: normal;
+  color: var(--text-primary);
+}
+
+.checkbox-label input[type="checkbox"] {
+  cursor: pointer;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.checkbox-label span {
+  font-size: 0.9rem;
+}
+
 .control-group select:focus {
   outline: none;
   border-color: #3498db;
