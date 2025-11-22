@@ -586,6 +586,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
               linecolor: plotColors.gridcolor,
               zerolinecolor: plotColors.gridcolor,
               side: 'left',
+              tickformat: '.3~s',
             },
             ...(secondaryConfig && {
               yaxis2: {
@@ -596,9 +597,10 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
                 tickfont: { color: plotColors.textColor },
                 linecolor: plotColors.gridcolor,
                 zerolinecolor: 'transparent',
+                tickformat: '.3~s',
               }
             }),
-            margin: { l: 30, r: secondaryConfig ? 30 : 10, t: 0, b: 45 },
+            margin: { l: 35, r: secondaryConfig ? 35 : 10, t: 0, b: 45 },
             hovermode: isMobile ? 'closest' : 'x',
             plot_bgcolor: plotColors.plotBg,
             paper_bgcolor: plotColors.plotBg,
