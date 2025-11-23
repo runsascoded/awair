@@ -3,10 +3,15 @@
  * Uses HTTP Range Requests to fetch only required row groups.
  */
 
-import { parquetRead } from 'hyparquet'
+import { asyncBufferFromUrl, parquetMetadataAsync, parquetRead } from 'hyparquet'
 import { getDataUrl } from '../awairService'
 import type { AwairRecord } from '../../types/awair'
 import type { DataSource, FetchOptions, FetchResult, FetchTiming } from '../dataSource'
+
+// Data collection assumptions
+const ROWS_PER_MINUTE = 1 // Expected data density: ~1 row per minute
+const ROWS_PER_GROUP = 10000 // Row group size configured in storage layer
+const SAFETY_MARGIN = 1.5 // Fetch extra row groups to account for gaps/variations
 
 export class HyparquetSource implements DataSource {
   readonly type = 's3-hyparquet' as const
@@ -17,30 +22,59 @@ export class HyparquetSource implements DataSource {
     const url = getDataUrl(deviceId)
 
     const startTime = performance.now()
-    let networkEndTime = startTime
     let bytesTransferred = 0
 
-    // Fetch the entire file for now
-    // TODO: Use asyncBufferFromUrl with rowStart/rowEnd once we have multiple row groups
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch data: ${response.status}`)
+    // Create async buffer for range requests
+    const file = await asyncBufferFromUrl({ url })
+
+    // Fetch metadata to determine row group structure
+    const metadata = await parquetMetadataAsync(file)
+    const totalRows = Number(metadata.num_rows)
+    const numRowGroups = metadata.row_groups.length
+
+    console.log(`📦 File has ${numRowGroups} row groups, ${totalRows} total rows`)
+
+    // Calculate expected rows needed based on time range
+    const rangeMinutes = (range.to.getTime() - range.from.getTime()) / (1000 * 60)
+    const expectedRows = Math.ceil(rangeMinutes * ROWS_PER_MINUTE * SAFETY_MARGIN)
+    const expectedRowGroups = Math.ceil(expectedRows / ROWS_PER_GROUP)
+
+    console.log(`⏱️  Time range: ${rangeMinutes.toFixed(0)} minutes → expecting ~${expectedRows} rows in ~${expectedRowGroups} row groups`)
+
+    // Calculate row range to fetch
+    // Assume data is sorted newest-to-oldest, so latest data is at the beginning
+    let rowStart = 0
+    let rowEnd = Math.min(expectedRows, totalRows)
+
+    // If expecting more than all rows, just fetch everything
+    if (expectedRowGroups >= numRowGroups) {
+      console.log('📥 Fetching all row groups')
+      rowEnd = totalRows
+    } else {
+      console.log(`📥 Fetching rows ${rowStart}-${rowEnd} (${expectedRowGroups}/${numRowGroups} row groups)`)
     }
 
-    const arrayBuffer = await response.arrayBuffer()
-    networkEndTime = performance.now()
-    bytesTransferred = arrayBuffer.byteLength
+    const networkStartTime = performance.now()
 
-    // Parse parquet
+    // Parse parquet with row range
     let rows: any[] = []
     await parquetRead({
-      file: arrayBuffer,
+      file,
+      rowStart,
+      rowEnd,
       onComplete: (data) => {
         if (Array.isArray(data)) {
           rows = data
         }
       }
     })
+
+    const networkEndTime = performance.now()
+
+    // Estimate bytes transferred (file.byteLength won't work with async buffer)
+    // Use metadata to estimate: (rows fetched / total rows) * assumed file size
+    const estimatedFileSize = totalRows * 40 // ~40 bytes per row estimate
+    bytesTransferred = Math.ceil((rows.length / totalRows) * estimatedFileSize)
 
     // Convert to typed records and filter by time range
     const fromTime = range.from.getTime()
@@ -66,9 +100,11 @@ export class HyparquetSource implements DataSource {
 
     const endTime = performance.now()
 
+    console.log(`✅ Fetched ${records.length} records matching time range (from ${rows.length} rows read)`)
+
     const timing: FetchTiming = {
       totalMs: endTime - startTime,
-      networkMs: networkEndTime - startTime,
+      networkMs: networkEndTime - networkStartTime,
       parseMs: endTime - networkEndTime,
       bytesTransferred,
       source: this.type,

@@ -1,4 +1,4 @@
-import { parquetRead } from 'hyparquet'
+import { asyncBufferFromUrl, parquetMetadataAsync, parquetRead } from 'hyparquet'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
 export interface Device {
@@ -76,6 +76,10 @@ export async function fetchDevices(): Promise<Device[]> {
 // Alias for backwards compatibility
 const getParquetUrl = getDataUrl
 
+// Data collection assumptions for row group optimization
+const ROWS_PER_MINUTE = 1
+const DEFAULT_DAYS_TO_LOAD = 7 // Default to last 7 days on initial load
+
 export async function fetchAwairData(deviceId?: number): Promise<{ records: AwairRecord[]; summary: DataSummary }> {
   // If no device ID provided, use first available device
   if (!deviceId) {
@@ -87,17 +91,34 @@ export async function fetchAwairData(deviceId?: number): Promise<{ records: Awai
   }
 
   const url = getParquetUrl(deviceId)
-  console.log(`🔄 Checking for new data from device ${deviceId}...`)
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch data: ${response.status}`)
-  }
+  console.log(`🔄 Fetching data from device ${deviceId}...`)
 
-  const arrayBuffer = await response.arrayBuffer()
+  // Use asyncBufferFromUrl to enable HTTP Range Requests
+  const file = await asyncBufferFromUrl({ url })
+
+  // Fetch metadata to determine file structure and date range
+  const metadata = await parquetMetadataAsync(file)
+  const totalRows = Number(metadata.num_rows)
+  const numRowGroups = metadata.row_groups.length
+
+  console.log(`📦 File has ${numRowGroups} row groups, ${totalRows} total rows`)
+
+  // Calculate how many rows to fetch for default view (last N days)
+  const defaultMinutes = DEFAULT_DAYS_TO_LOAD * 24 * 60
+  const expectedRows = Math.min(defaultMinutes * ROWS_PER_MINUTE * 1.5, totalRows) // 1.5x safety margin
+  const rowsToFetch = Math.ceil(expectedRows)
+
+  // Parquet files are typically sorted oldest-to-newest, so fetch from the end
+  const rowStart = Math.max(0, totalRows - rowsToFetch)
+  const rowEnd = totalRows
+
+  console.log(`📥 Fetching rows ${rowStart}-${rowEnd} (last ${rowsToFetch} rows, ~${DEFAULT_DAYS_TO_LOAD} days)`)
 
   let rows: any[] = []
   await parquetRead({
-    file: arrayBuffer,
+    file,
+    rowStart,
+    rowEnd,
     onComplete: (data) => {
       if (Array.isArray(data)) {
         rows = data
@@ -123,7 +144,7 @@ export async function fetchAwairData(deviceId?: number): Promise<{ records: Awai
   // Sort by timestamp (newest first)
   records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
-  // Calculate summary
+  // Calculate summary from fetched data
   const count = records.length
   const latest = count > 0 ? records[0].timestamp : null
   const earliest = count > 0 ? records[count - 1].timestamp : null
@@ -144,11 +165,7 @@ export async function fetchAwairData(deviceId?: number): Promise<{ records: Awai
 
   const summary: DataSummary = { count, earliest, latest, dateRange }
 
-  if (latest) {
-    console.log(`📊 New data fetched - ${count} records, latest: ${latest}`)
-  } else {
-    console.log('📊 No new data available')
-  }
+  console.log(`✅ Fetched ${count} records (${earliest} to ${latest})`)
 
   return { records, summary }
 }

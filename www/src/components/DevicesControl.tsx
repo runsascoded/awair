@@ -1,6 +1,6 @@
 import React from 'react'
-import type { Device } from '../services/awairService'
 import { MAX_SELECTED_DEVICES } from '../utils/colorUtils'
+import type { Device } from '../services/awairService'
 
 interface DevicesControlProps {
   devices: Device[]

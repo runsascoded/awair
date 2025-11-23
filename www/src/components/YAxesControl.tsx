@@ -1,6 +1,6 @@
 import React from 'react'
-import { Tooltip } from './Tooltip'
 import { metricConfig } from './ChartControls'
+import { Tooltip } from './Tooltip'
 
 interface YAxesControlProps {
   metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc'

@@ -1,10 +1,10 @@
 import React from 'react'
+import { DevicesControl } from './DevicesControl'
+import { RangeControl } from './RangeControl'
+import { RangeWidthControl } from './RangeWidthControl'
+import { YAxesControl } from './YAxesControl'
 import type { Device } from '../services/awairService'
 import type { AwairRecord, DataSummary } from '../types/awair'
-import { DevicesControl } from './DevicesControl'
-import { YAxesControl } from './YAxesControl'
-import { RangeWidthControl } from './RangeWidthControl'
-import { RangeControl } from './RangeControl'
 
 interface MetricConfig {
   label: string
