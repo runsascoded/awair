@@ -13,9 +13,9 @@ export type Metric = 'temp' | 'co2' | 'humid' | 'pm25' | 'voc'
 /**
  * Metrics configuration: primary and optional secondary
  */
-export type MetricsConfig = {
-  primary: Metric
-  secondary: Metric | 'none'
+export type Metrics = {
+  l: Metric
+  r: Metric | 'none'
 }
 
 /**
@@ -114,7 +114,7 @@ export function deviceIdsParam(devices: Device[]): Param<number[]> {
  *
  * Default: temp only
  */
-export function metricsParam(init: MetricsConfig = { primary: 'temp', secondary: 'none' }): Param<MetricsConfig> {
+export function metricsParam(init: Metrics = { l: 'temp', r: 'none' }): Param<Metrics> {
   const metricToChar: Record<Metric, string> = {
     temp: 't',
     co2: 'c',
@@ -134,16 +134,16 @@ export function metricsParam(init: MetricsConfig = { primary: 'temp', secondary:
   return {
     encode: (config) => {
       // Check if matches default
-      if (config.primary === init.primary && config.secondary === init.secondary) {
+      if (config.l === init.l && config.r === init.r) {
         return undefined
       }
 
-      const primaryChar = metricToChar[config.primary]
-      if (config.secondary === 'none') {
+      const primaryChar = metricToChar[config.l]
+      if (config.r === 'none') {
         return primaryChar
       }
 
-      const secondaryChar = metricToChar[config.secondary]
+      const secondaryChar = metricToChar[config.r]
       return `${primaryChar}${secondaryChar}`
     },
 
@@ -160,19 +160,24 @@ export function metricsParam(init: MetricsConfig = { primary: 'temp', secondary:
       }
 
       if (!secondaryChar) {
-        return { primary, secondary: 'none' }
+        return { l: primary, r: 'none' }
       }
 
       const secondary = charToMetric[secondaryChar]
       if (!secondary) {
         console.warn(`Unknown metric char: ${secondaryChar}`)
-        return { primary, secondary: 'none' }
+        return { l: primary, r: 'none' }
       }
 
-      return { primary, secondary }
+      return { l: primary, r: secondary }
     },
   }
 }
+
+/**
+ * Default metrics param instance with temp + CO2 defaults
+ */
+export const defaultMetricsParam = metricsParam({ l: 'temp', r: 'co2' })
 
 /**
  * Re-export common param builders from use-url-params

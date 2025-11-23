@@ -1,22 +1,17 @@
 import React from 'react'
 import { metricConfig } from './ChartControls'
 import { Tooltip } from './Tooltip'
+import type { MetricsState } from "../hooks/useMetrics.ts"
 
 interface YAxesControlProps {
-  metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc'
-  secondaryMetric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none'
-  setMetric: (metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc') => void
-  setSecondaryMetric: (metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none') => void
+  metrics: MetricsState
   yAxisFromZero: boolean
   setYAxisFromZero: (value: boolean) => void
   isMobile: boolean
 }
 
 export function YAxesControl({
-  metric,
-  secondaryMetric,
-  setMetric,
-  setSecondaryMetric,
+  metrics: { l, r },
   yAxisFromZero,
   setYAxisFromZero,
   isMobile
@@ -56,7 +51,7 @@ export function YAxesControl({
               <label className="unselectable metric-side-label">L:</label>
             </Tooltip>
           )}
-          <select value={metric} onChange={(e) => setMetric(e.target.value as any)}>
+          <select value={l.val} onChange={(e) => l.set(e.target.value as any)}>
             {Object.entries(metricConfig).map(([key, cfg]) => (
               <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option>
             ))}
@@ -71,10 +66,10 @@ export function YAxesControl({
               <label className="unselectable metric-side-label">R:</label>
             </Tooltip>
           )}
-          <select value={secondaryMetric} onChange={(e) => setSecondaryMetric(e.target.value as any)}>
+          <select value={r.val} onChange={(e) => r.set(e.target.value as any)}>
             <option value="none">None</option>
             {Object.entries(metricConfig).map(([key, cfg]) => (
-              key !== metric ? <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option> : null
+              key !== l.val ? <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option> : null
             ))}
           </select>
         </div>

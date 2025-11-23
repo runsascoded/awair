@@ -3,6 +3,7 @@ import { DevicesControl } from './DevicesControl'
 import { RangeControl } from './RangeControl'
 import { RangeWidthControl } from './RangeWidthControl'
 import { YAxesControl } from './YAxesControl'
+import type { MetricsState } from "../hooks/useMetrics.ts"
 import type { Device } from '../services/awairService'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
@@ -15,10 +16,7 @@ interface MetricConfig {
 }
 
 interface ChartControlsProps {
-  metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc'
-  secondaryMetric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none'
-  setMetric: (metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc') => void
-  setSecondaryMetric: (metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none') => void
+  metrics: MetricsState
   yAxisFromZero: boolean
   setYAxisFromZero: (value: boolean) => void
   xAxisRange: [string, string] | null
@@ -49,10 +47,7 @@ const metricConfig: { [key: string]: MetricConfig } = {
 }
 
 export function ChartControls({
-  metric,
-  secondaryMetric,
-  setMetric,
-  setSecondaryMetric,
+  metrics,
   yAxisFromZero,
   setYAxisFromZero,
   xAxisRange,
@@ -133,10 +128,7 @@ export function ChartControls({
       />
 
       <YAxesControl
-        metric={metric}
-        secondaryMetric={secondaryMetric}
-        setMetric={setMetric}
-        setSecondaryMetric={setSecondaryMetric}
+        metrics={metrics}
         yAxisFromZero={yAxisFromZero}
         setYAxisFromZero={setYAxisFromZero}
         isMobile={isMobile}

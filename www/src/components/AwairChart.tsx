@@ -5,6 +5,7 @@ import { DataTable } from './DataTable'
 import { Tooltip } from './Tooltip'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLatestMode } from '../hooks/useLatestMode'
+import { useMetrics } from '../hooks/useMetrics.ts'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { getDeviceColor } from '../utils/colorUtils'
 import type { DeviceDataResult } from '../hooks/useMultiDeviceData'
@@ -29,13 +30,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // Use first device's data for backwards compatibility with hooks that need a single array
   const data = allData
-  // Basic state
-  const [metric, setMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc'>(() => {
-    return (localStorage.getItem('awair-metric') as any) || 'temp'
-  })
-  const [secondaryMetric, setSecondaryMetric] = useState<'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none'>(() => {
-    return (localStorage.getItem('awair-secondary-metric') as any) || 'co2'
-  })
+
+  // Metrics state - combined primary + secondary in URL
+  const metrics = useMetrics()
   const [yAxisFromZero, setYAxisFromZero] = useState(() => {
     const stored = localStorage.getItem('awair-yaxis-from-zero')
     return stored === 'true'
@@ -105,14 +102,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     return `${dateStr} ${timeStr}`
   }, [])
 
-  // Save state to session storage
-  useEffect(() => {
-    localStorage.setItem('awair-metric', metric)
-  }, [metric])
-
-  useEffect(() => {
-    localStorage.setItem('awair-secondary-metric', secondaryMetric)
-  }, [secondaryMetric])
+  // Metrics now persisted in URL params (via useUrlParam above)
 
   useEffect(() => {
     localStorage.setItem('awair-yaxis-from-zero', String(yAxisFromZero))
@@ -263,10 +253,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
-    metric,
-    secondaryMetric,
-    setMetric,
-    setSecondaryMetric,
+    metrics,
     yAxisFromZero,
     setYAxisFromZero,
     xAxisRange,
@@ -402,8 +389,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   const { tickvals, ticktext } = generateCustomTicks()
 
   // Plot data preparation
-  const config = metricConfig[metric] || metricConfig.temp
-  const secondaryConfig = secondaryMetric !== 'none' ? metricConfig[secondaryMetric] : null
+  const { l, r } = metrics
+  const config = metricConfig[l.val] || metricConfig.temp
+  const secondaryConfig = r.val !== 'none' ? metricConfig[r.val] : null
   const totalDevices = deviceAggregations.length
 
   // Generate traces for all devices
@@ -416,17 +404,17 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       const primaryColor = getDeviceColor(config.color, deviceIndex, totalDevices)
 
       // Primary metric data
-      const avgValues = devData.map(d => d[`${metric}_avg` as keyof typeof d] as number)
-      const stddevValues = devData.map(d => d[`${metric}_stddev` as keyof typeof d] as number)
+      const avgValues = devData.map(d => d[`${l.val}_avg` as keyof typeof d] as number)
+      const stddevValues = devData.map(d => d[`${l.val}_stddev` as keyof typeof d] as number)
       const upperValues = avgValues.map((avg, i) => avg + stddevValues[i])
       const lowerValues = avgValues.map((avg, i) => avg - stddevValues[i])
 
       // Secondary metric data
-      const secondaryAvgValues = secondaryConfig && secondaryMetric !== 'none'
-        ? devData.map(d => d[`${secondaryMetric}_avg` as keyof typeof d] as number)
+      const secondaryAvgValues = secondaryConfig && r.val !== 'none'
+        ? devData.map(d => d[`${r.val}_avg` as keyof typeof d] as number)
         : []
-      const secondaryStddevValues = secondaryConfig && secondaryMetric !== 'none'
-        ? devData.map(d => d[`${secondaryMetric}_stddev` as keyof typeof d] as number)
+      const secondaryStddevValues = secondaryConfig && r.val !== 'none'
+        ? devData.map(d => d[`${r.val}_stddev` as keyof typeof d] as number)
         : []
       const secondaryUpperValues = secondaryConfig
         ? secondaryAvgValues.map((avg, i) => avg + secondaryStddevValues[i])
@@ -561,7 +549,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     })
 
     return traces
-  }, [deviceAggregations, metric, secondaryMetric, config, secondaryConfig, totalDevices, isRawData, formatForPlotly, formatFullDate])
+  }, [deviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, formatForPlotly, formatFullDate])
 
   return (
     <div className="awair-chart">
@@ -667,10 +655,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       </div>
 
       <ChartControls
-        metric={metric}
-        secondaryMetric={secondaryMetric}
-        setMetric={setMetric}
-        setSecondaryMetric={setSecondaryMetric}
+        metrics={metrics}
         yAxisFromZero={yAxisFromZero}
         setYAxisFromZero={setYAxisFromZero}
         xAxisRange={xAxisRange}

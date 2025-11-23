@@ -1,11 +1,9 @@
 import { useEffect } from 'react'
+import type { MetricsState } from "./useMetrics"
 import type { AwairRecord } from '../types/awair'
 
 interface UseKeyboardShortcutsProps {
-  metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc'
-  secondaryMetric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none'
-  setMetric: (metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc') => void
-  setSecondaryMetric: (metric: 'temp' | 'co2' | 'humid' | 'pm25' | 'voc' | 'none') => void
+  metrics: MetricsState
   yAxisFromZero: boolean
   setYAxisFromZero: (value: boolean) => void
   xAxisRange: [string, string] | null
@@ -20,10 +18,7 @@ interface UseKeyboardShortcutsProps {
 }
 
 export function useKeyboardShortcuts({
-  metric,
-  secondaryMetric,
-  setMetric,
-  setSecondaryMetric,
+  metrics,
   yAxisFromZero,
   setYAxisFromZero,
   xAxisRange,
@@ -62,32 +57,33 @@ export function useKeyboardShortcuts({
         'v': 'voc'
       }
 
+      const { l, r } = metrics
       if (key in keyToMetric) {
         const selectedMetric = keyToMetric[key]
 
         if (isShift) {
           // Capital letter = swap primary and secondary if same metric
-          if (selectedMetric === metric && secondaryMetric !== 'none') {
+          if (selectedMetric === l.val && r.val !== 'none') {
             // Swap primary and secondary
-            setMetric(secondaryMetric as 'temp' | 'co2' | 'humid' | 'pm25' | 'voc')
-            setSecondaryMetric(selectedMetric)
-          } else if (selectedMetric !== metric) {
+            l.set(r.val as 'temp' | 'co2' | 'humid' | 'pm25' | 'voc')
+            r.set(selectedMetric)
+          } else if (selectedMetric !== l.val) {
             // Different metric, set as secondary
-            setSecondaryMetric(selectedMetric)
+            r.set(selectedMetric)
           }
           // If same metric and no secondary, it's a no-op
         } else {
           // Lowercase = primary metric
-          setMetric(selectedMetric)
+          l.set(selectedMetric)
           // If secondary was the same, set it to none
-          if (secondaryMetric === selectedMetric) {
-            setSecondaryMetric('none')
+          if (r.val === selectedMetric) {
+            r.set('none')
           }
         }
         event.preventDefault()
       } else if (key === 'n' && isShift) {
         // Shift+N = None for secondary
-        setSecondaryMetric('none')
+        r.set('none')
         event.preventDefault()
       } else if (key === 'l') {
         // L = Latest button (toggle)
@@ -152,10 +148,7 @@ export function useKeyboardShortcuts({
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [
-    metric,
-    secondaryMetric,
-    setMetric,
-    setSecondaryMetric,
+    metrics,
     yAxisFromZero,
     setYAxisFromZero,
     xAxisRange,
