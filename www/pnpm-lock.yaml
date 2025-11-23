@@ -51,8 +51,8 @@ importers:
         specifier: ^19.0.1
         version: 19.0.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       use-url-params:
-        specifier: file:../../js/use-url-params
-        version: file:../../js/use-url-params(react@19.1.0)
+        specifier: github:runsascoded/use-url-params#0baae852a6aad2a480cca14b8c68d893db903da8
+        version: https://codeload.github.com/runsascoded/use-url-params/tar.gz/0baae852a6aad2a480cca14b8c68d893db903da8(react@19.1.0)
     devDependencies:
       '@eslint/js':
         specifier: ^9.30.1
@@ -3383,8 +3383,9 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  use-url-params@file:../../js/use-url-params:
-    resolution: {directory: ../../js/use-url-params, type: directory}
+  use-url-params@https://codeload.github.com/runsascoded/use-url-params/tar.gz/0baae852a6aad2a480cca14b8c68d893db903da8:
+    resolution: {tarball: https://codeload.github.com/runsascoded/use-url-params/tar.gz/0baae852a6aad2a480cca14b8c68d893db903da8}
+    version: 0.1.0
     peerDependencies:
       react: ^18.0.0
     peerDependenciesMeta:
@@ -7317,7 +7318,7 @@ snapshots:
     dependencies:
       react: 19.1.0
 
-  use-url-params@file:../../js/use-url-params(react@19.1.0):
+  use-url-params@https://codeload.github.com/runsascoded/use-url-params/tar.gz/0baae852a6aad2a480cca14b8c68d893db903da8(react@19.1.0):
     optionalDependencies:
       react: 19.1.0
 
