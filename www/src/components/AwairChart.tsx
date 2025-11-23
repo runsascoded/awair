@@ -183,7 +183,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   useEffect(() => {
     if (!hasSetDefaultRange && data.length > 0 && !xAxisRange) {
       const latestTime = new Date(data[0].timestamp)
-      const earliestTime = new Date(latestTime.getTime() - (1 * 24 * 60 * 60 * 1000))
+      const earliestTime = new Date(latestTime.getTime() - (24 * 60 * 60 * 1000))
       const defaultRange: [string, string] = [formatForPlotly(earliestTime), formatForPlotly(latestTime)]
       setXAxisRange(defaultRange)
       setHasSetDefaultRange(true)

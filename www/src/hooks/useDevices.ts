@@ -9,7 +9,7 @@ export function useDevices() {
   } = useQuery({
     queryKey: ['devices'],
     queryFn: fetchDevices,
-    staleTime: 3600000, // 1 hour
+    staleTime: 3_600_000, // 1 hour
   })
 
   return {
