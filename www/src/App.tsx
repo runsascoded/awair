@@ -1,33 +1,31 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
+import { useUrlParam } from 'use-url-params'
 import { AwairChart } from './components/AwairChart'
 import { ThemeToggle } from './components/ThemeToggle'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
 import { useMultiDeviceData } from './hooks/useMultiDeviceData'
 import { queryClient } from './lib/queryClient'
+import { deviceIdsParam } from './lib/urlParams'
 import './App.css'
 
 function AppContent() {
   const { devices } = useDevices()
-  const [selectedDeviceIds, setSelectedDeviceIds] = useState<number[]>(() => {
-    const stored = localStorage.getItem('awair-selected-devices')
-    return stored ? JSON.parse(stored) : []
-  })
 
-  // Initialize with first device when devices load (if no stored selection)
+  // Device selection persisted in URL (?d=gym+br)
+  const deviceParam = useMemo(() => deviceIdsParam(devices), [devices])
+  const [selectedDeviceIds, setSelectedDeviceIds] = useUrlParam(
+    'd',
+    deviceParam
+  )
+
+  // Initialize with first device when devices load (if no selection)
   useEffect(() => {
     if (devices.length > 0 && selectedDeviceIds.length === 0) {
       setSelectedDeviceIds([devices[0].deviceId])
     }
   }, [devices, selectedDeviceIds.length])
-
-  // Persist device selection
-  useEffect(() => {
-    if (selectedDeviceIds.length > 0) {
-      localStorage.setItem('awair-selected-devices', JSON.stringify(selectedDeviceIds))
-    }
-  }, [selectedDeviceIds])
 
   // Fetch data for all selected devices
   const deviceDataResults = useMultiDeviceData(selectedDeviceIds)

@@ -50,6 +50,9 @@ importers:
       use-session-storage-state:
         specifier: ^19.0.1
         version: 19.0.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      use-url-params:
+        specifier: file:../../js/use-url-params
+        version: file:../../js/use-url-params(react@19.1.0)
     devDependencies:
       '@eslint/js':
         specifier: ^9.30.1
@@ -3379,6 +3382,14 @@ packages:
     resolution: {integrity: sha512-Rb46I4cGGVBmjamjphe8L/UnvJD+uPPtTkNvX5mZgqdbavhI4EbgIWJiIHXJ8bc/i9EQGPRh4DwEURJ552Do0A==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  use-url-params@file:../../js/use-url-params:
+    resolution: {directory: ../../js/use-url-params, type: directory}
+    peerDependencies:
+      react: ^18.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
@@ -7304,6 +7315,10 @@ snapshots:
 
   use-sync-external-store@1.5.0(react@19.1.0):
     dependencies:
+      react: 19.1.0
+
+  use-url-params@file:../../js/use-url-params(react@19.1.0):
+    optionalDependencies:
       react: 19.1.0
 
   util-deprecate@1.0.2: {}

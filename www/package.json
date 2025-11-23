@@ -25,7 +25,8 @@
     "react-plotly.js": "^2.6.0",
     "recharts": "^3.1.0",
     "uplot": "^1.6.32",
-    "use-session-storage-state": "^19.0.1"
+    "use-session-storage-state": "^19.0.1",
+    "use-url-params": "file:../../js/use-url-params"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
