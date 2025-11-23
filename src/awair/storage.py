@@ -4,6 +4,7 @@ from datetime import datetime
 from os.path import exists, getsize
 
 import pandas as pd
+import pyarrow.parquet as pq
 
 VAL_FIELDS = ['temp', 'co2', 'pm10', 'pm25', 'humid', 'voc']
 FIELDS = ['timestamp'] + VAL_FIELDS
@@ -19,6 +20,7 @@ class ParquetStorage:
         self._batch_df = None
         self._dirty = False
         self.conflict_action = conflict_action
+        self._row_group_size = None
 
     def __enter__(self):
         """Enter context manager - load existing data into memory."""
@@ -26,9 +28,12 @@ class ParquetStorage:
             self._batch_df = pd.read_parquet(self.file_path)
             # Ensure existing timestamps are timezone-naive
             self._batch_df['timestamp'] = pd.to_datetime(self._batch_df['timestamp']).dt.tz_localize(None)
+            # Detect existing row group size
+            self._detect_row_group_size()
         except (FileNotFoundError, OSError):
             # File doesn't exist (local or S3)
             self._batch_df = pd.DataFrame(columns=FIELDS)
+            self._row_group_size = None
         self._dirty = False
         return self
 
@@ -40,10 +45,15 @@ class ParquetStorage:
                 self._batch_df['timestamp'] = pd.to_datetime(self._batch_df['timestamp']).dt.tz_localize(None)
                 # Sort by timestamp and save
                 final_df = self._batch_df.sort_values('timestamp').reset_index(drop=True)
-                final_df.to_parquet(self.file_path, index=False, engine='pyarrow')
+                # Use existing row group size if detected, otherwise let pandas decide
+                if self._row_group_size is not None:
+                    final_df.to_parquet(self.file_path, index=False, engine='pyarrow', row_group_size=self._row_group_size)
+                else:
+                    final_df.to_parquet(self.file_path, index=False, engine='pyarrow')
         finally:
             self._batch_df = None
             self._dirty = False
+            self._row_group_size = None
 
     def insert_air_data(self, data: list[dict]) -> int:
         """Insert air data into the in-memory batch, returning count of inserted records."""
@@ -187,6 +197,20 @@ class ParquetStorage:
             }
         except (FileNotFoundError, OSError):
             return {'count': 0, 'earliest': None, 'latest': None, 'file_size_mb': 0}
+
+    def _detect_row_group_size(self):
+        """Detect the row group size from the existing Parquet file."""
+        try:
+            parquet_file = pq.ParquetFile(self.file_path)
+            if parquet_file.metadata.num_row_groups > 0:
+                # Use the size of the first row group as the target size
+                first_row_group = parquet_file.metadata.row_group(0)
+                self._row_group_size = first_row_group.num_rows
+            else:
+                self._row_group_size = None
+        except Exception:
+            # If we can't read metadata, don't set a row group size
+            self._row_group_size = None
 
     def _get_file_size(self) -> float:
         """Get file size in MB for local or S3 files."""
