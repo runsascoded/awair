@@ -17,6 +17,9 @@ importers:
       '@observablehq/plot':
         specifier: ^0.6.17
         version: 0.6.17
+      '@rdub/use-url-params':
+        specifier: github:runsascoded/use-url-params#3d2c2616af96daa6fc9444f7522f9e76b37b71e0
+        version: https://codeload.github.com/runsascoded/use-url-params/tar.gz/3d2c2616af96daa6fc9444f7522f9e76b37b71e0
       '@tanstack/react-query':
         specifier: ^5.83.0
         version: 5.83.0(react@19.1.0)
@@ -659,6 +662,10 @@ packages:
     resolution: {integrity: sha512-RPLHdNqZqdqJ2N/e+s2QbbVj/JnM+49kAbqz/+J1wAGDiH77629fSDJXinPL+xmA4c0euBJ4KP2neAY6BLPiOg==}
     peerDependencies:
       eslint: ^9
+
+  '@rdub/use-url-params@https://codeload.github.com/runsascoded/use-url-params/tar.gz/3d2c2616af96daa6fc9444f7522f9e76b37b71e0':
+    resolution: {tarball: https://codeload.github.com/runsascoded/use-url-params/tar.gz/3d2c2616af96daa6fc9444f7522f9e76b37b71e0}
+    version: 0.0.0
 
   '@reduxjs/toolkit@2.8.2':
     resolution: {integrity: sha512-MYlOhQ0sLdw4ud48FoC5w0dH9VfWQjtCjreKwYTT3l+r427qYC5Y8PihNutepr8XrNaBUDQo9khWUwQxZaqt5A==}
@@ -4141,6 +4148,8 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
       - typescript
+
+  '@rdub/use-url-params@https://codeload.github.com/runsascoded/use-url-params/tar.gz/3d2c2616af96daa6fc9444f7522f9e76b37b71e0': {}
 
   '@reduxjs/toolkit@2.8.2(react-redux@9.2.0(@types/react@19.1.8)(react@19.1.0)(redux@5.0.1))(react@19.1.0)':
     dependencies:

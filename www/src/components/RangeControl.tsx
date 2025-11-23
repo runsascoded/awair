@@ -31,15 +31,15 @@ export function RangeControl({
         </Tooltip>
         {isMobile ? (
           <button
-            className={`unselectable latest-button ${latestModeIntended || getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
+            className={`unselectable latest-button ${latestModeIntended ? 'active' : ''}`}
             onClick={handleLatestButtonClick}
           >
             Latest
           </button>
         ) : (
-          <Tooltip content="Jump to latest data (Keyboard: l)">
+          <Tooltip content="Jump to latest data and auto-follow new data (Keyboard: l)">
             <button
-              className={`unselectable latest-button ${latestModeIntended || getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
+              className={`unselectable latest-button ${latestModeIntended ? 'active' : ''}`}
               onClick={handleLatestButtonClick}
             >
               Latest
