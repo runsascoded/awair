@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
+import { useUrlParam } from 'use-url-params'
 import { ChartControls, metricConfig } from './ChartControls'
 import { DataTable } from './DataTable'
 import { Tooltip } from './Tooltip'
@@ -7,6 +8,7 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics.ts'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
+import { boolParam } from '../lib/urlParams'
 import { getDeviceColor } from '../utils/colorUtils'
 import type { DeviceDataResult } from '../hooks/useMultiDeviceData'
 import type { Device } from '../services/awairService'
@@ -31,10 +33,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // Metrics state - combined primary + secondary in URL
   const metrics = useMetrics()
-  const [yAxisFromZero, setYAxisFromZero] = useState(() => {
-    const stored = localStorage.getItem('awair-yaxis-from-zero')
-    return stored === 'true'
-  })
+
+  // Y-axis mode: start from zero or auto-range
+  const [yAxisFromZero, setYAxisFromZero] = useUrlParam('z', boolParam())
   const [xAxisRange, setXAxisRange] = useState<[string, string] | null>(() => {
     const stored = localStorage.getItem('awair-time-range')
     return stored ? JSON.parse(stored) : null
@@ -100,11 +101,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     return `${dateStr} ${timeStr}`
   }, [])
 
-  // Metrics now persisted in URL params (via useUrlParam above)
-
-  useEffect(() => {
-    localStorage.setItem('awair-yaxis-from-zero', String(yAxisFromZero))
-  }, [yAxisFromZero])
+  // Metrics and Y-axis mode now persisted in URL params (via useUrlParam above)
 
   useEffect(() => {
     if (xAxisRange) {
