@@ -21,15 +21,13 @@ interface Props {
 }
 
 export function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange }: Props) {
-  // Combine data from all devices for range calculations
-  const allData = useMemo(() => {
+  // Combine data from all devices for time range calculations and bounds checking
+  // Sorted newest-first for efficient latest record access
+  const data = useMemo(() => {
     return deviceDataResults
       .flatMap(r => r.data)
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
   }, [deviceDataResults])
-
-  // Use first device's data for backwards compatibility with hooks that need a single array
-  const data = allData
 
   // Metrics state - combined primary + secondary in URL
   const metrics = useMetrics()
