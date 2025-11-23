@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
-import { useUrlParam } from 'use-url-params'
+import { useUrlParam } from '@rdub/use-url-params'
 import { ChartControls, metricConfig } from './ChartControls'
 import { DataTable } from './DataTable'
 import { Tooltip } from './Tooltip'
@@ -35,7 +35,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   const metrics = useMetrics()
 
   // Y-axis mode: start from zero or auto-range
-  const [yAxisFromZero, setYAxisFromZero] = useUrlParam('z', boolParam())
+  const [yAxisFromZero, setYAxisFromZero] = useUrlParam('z', boolParam)
   const [xAxisRange, setXAxisRange] = useState<[string, string] | null>(() => {
     const stored = localStorage.getItem('awair-time-range')
     return stored ? JSON.parse(stored) : null

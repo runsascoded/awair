@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { useUrlParam } from 'use-url-params'
+import { useUrlParam } from '@rdub/use-url-params'
 import { defaultMetricsParam, type Metric } from '../lib/urlParams'
 
 export type MetricsState = {

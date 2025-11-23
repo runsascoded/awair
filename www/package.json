@@ -26,7 +26,7 @@
     "recharts": "^3.1.0",
     "uplot": "^1.6.32",
     "use-session-storage-state": "^19.0.1",
-    "use-url-params": "github:runsascoded/use-url-params#0baae852a6aad2a480cca14b8c68d893db903da8"
+    "use-url-params": "github:runsascoded/use-url-params#f9cad2340f980ca645293cb4fbe7a37b57aa6928"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",

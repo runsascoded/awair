@@ -3,7 +3,7 @@
  */
 
 import type { Device } from '../services/awairService'
-import type { Param } from 'use-url-params'
+import type { Param } from '@rdub/use-url-params'
 
 /**
  * Metric type used in charts
@@ -182,4 +182,4 @@ export const defaultMetricsParam = metricsParam({ l: 'temp', r: 'co2' })
 /**
  * Re-export common param builders from use-url-params
  */
-export { boolParam, enumParam, intParam, stringParam } from 'use-url-params'
+export { boolParam, enumParam, intParam, stringParam } from '@rdub/use-url-params'
