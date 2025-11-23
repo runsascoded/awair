@@ -439,7 +439,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         : ''
 
       // Device name suffix for multi-device mode
-      const nameSuffix = totalDevices > 1 ? ` (${deviceName})` : ''
+      const nameSuffix = totalDevices > 1 ? `; ${deviceName}` : ''
 
       // Secondary metric stddev region (only show for first device to avoid clutter)
       if (secondaryConfig && !isRawData && deviceIndex === 0) {
@@ -476,7 +476,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           y: secondaryAvgValues,
           mode: 'lines',
           line: { color: secondaryColor, width: 2 },
-          name: `${secondaryConfig.label} (${secondaryConfig.unit})${nameSuffix}`,
+          name: `${secondaryConfig.label} (${secondaryConfig.unit}${nameSuffix})`,
           legendgroup: 'secondary',
           legend: 'legend2',
           yaxis: 'y2',
@@ -535,7 +535,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         y: avgValues,
         mode: 'lines',
         line: { color: primaryColor, width: 3 },
-        name: `${config.label} (${config.unit})${nameSuffix}`,
+        name: `${config.label} (${config.unit}${nameSuffix})`,
         legendgroup: 'primary',
         zorder: 10,
         ...(isRawData ? {

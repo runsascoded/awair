@@ -1,8 +1,10 @@
 import React from 'react'
-import { Tooltip } from './Tooltip'
-import { MAX_SELECTED_DEVICES } from '../utils/colorUtils'
 import type { Device } from '../services/awairService'
 import type { AwairRecord, DataSummary } from '../types/awair'
+import { DevicesControl } from './DevicesControl'
+import { YAxesControl } from './YAxesControl'
+import { RangeWidthControl } from './RangeWidthControl'
+import { RangeControl } from './RangeControl'
 
 interface MetricConfig {
   label: string
@@ -45,14 +47,6 @@ const metricConfig: { [key: string]: MetricConfig } = {
   pm25: { label: 'PM2.5', shortLabel: 'PM2.5', emoji: '🏭', unit: 'μg/m³', color: '#9966ff' },
   voc: { label: 'VOC', shortLabel: 'VOC', emoji: '🧪', unit: 'ppb', color: '#ff9f40' }
 }
-
-const timeRangeButtons = [
-  { label: '1d', hours: 24 },
-  { label: '3d', hours: 24 * 3 },
-  { label: '7d', hours: 24 * 7 },
-  { label: '14d', hours: 24 * 14 },
-  { label: '30d', hours: 24 * 30 }
-]
 
 export function ChartControls({
   metric,
@@ -132,165 +126,39 @@ export function ChartControls({
 
   return (
     <div className="chart-controls">
-      <div className="devices-and-range-row">
-        {devices.length > 1 && (
-          <div className="control-group devices-section">
-            <label className="unselectable">Devices:</label>
-            <div className="device-checkboxes">
-              {devices.map((device) => {
-                const isChecked = selectedDeviceIds.includes(device.deviceId)
-                const isDisabled = !isChecked && selectedDeviceIds.length >= MAX_SELECTED_DEVICES
-                return (
-                  <label
-                    key={device.deviceId}
-                    className={`device-checkbox ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      disabled={isDisabled}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          onDeviceSelectionChange([...selectedDeviceIds, device.deviceId])
-                        } else {
-                          // Don't allow unchecking the last device
-                          if (selectedDeviceIds.length > 1) {
-                            onDeviceSelectionChange(selectedDeviceIds.filter(id => id !== device.deviceId))
-                          }
-                        }
-                      }}
-                    />
-                    <span className="device-name">{device.name}</span>
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-        )}
+      <DevicesControl
+        devices={devices}
+        selectedDeviceIds={selectedDeviceIds}
+        onDeviceSelectionChange={onDeviceSelectionChange}
+      />
 
-        <div className="control-group range-group range-section">
-          <div className="range-label-row">
-            <Tooltip content={summary ? `Date Range: ${summary.dateRange}${summary.latest ? ` | Latest: ${formatCompactDate(new Date(summary.latest))}` : ''}` : 'Show all data'}>
-              <label className="unselectable">Range:</label>
-            </Tooltip>
-            {isMobile ? (
-              <button
-                className={`unselectable latest-button ${latestModeIntended || getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
-                onClick={handleLatestButtonClick}
-              >
-                Latest
-              </button>
-            ) : (
-              <Tooltip content="Jump to latest data (Keyboard: l)">
-                <button
-                  className={`unselectable latest-button ${latestModeIntended || getActiveTimeRange().startsWith('latest-') || getActiveTimeRange() === 'all' ? 'active' : ''}`}
-                  onClick={handleLatestButtonClick}
-                >
-                  Latest
-                </button>
-              </Tooltip>
-            )}
-          </div>
-          <div className="range-info">
-            {xAxisRange ? (
-              <Tooltip content={`${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`}>
-                <div className="range-display">
-                  <span className="range-start">{formatCompactDate(new Date(xAxisRange[0]))}</span>
-                  <span className="range-separator"> → </span>
-                  <span className="range-end">{formatCompactDate(new Date(xAxisRange[1]))}</span>
-                </div>
-              </Tooltip>
-            ) : (
-              <span className="range-display">All data</span>
-            )}
-          </div>
-        </div>
-      </div>
+      <YAxesControl
+        metric={metric}
+        secondaryMetric={secondaryMetric}
+        setMetric={setMetric}
+        setSecondaryMetric={setSecondaryMetric}
+        yAxisFromZero={yAxisFromZero}
+        setYAxisFromZero={setYAxisFromZero}
+        isMobile={isMobile}
+      />
 
-      <div className="control-group yaxes-group">
-        <label className="unselectable">Y-axes:</label>
-        <div className="yaxes-controls">
-          <div className="metric-select">
-            {isMobile ? (
-              <label className="unselectable metric-side-label">L:</label>
-            ) : (
-              <Tooltip content="Left Y-axis metric (Keyboard: t=Temp, c=CO₂, h=Humid, p=PM2.5, v=VOC)">
-                <label className="unselectable metric-side-label">L:</label>
-              </Tooltip>
-            )}
-            <select value={metric} onChange={(e) => setMetric(e.target.value as any)}>
-              {Object.entries(metricConfig).map(([key, cfg]) => (
-                <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option>
-              ))}
-            </select>
-          </div>
+      <RangeWidthControl
+        getActiveTimeRange={getActiveTimeRange}
+        handleTimeRangeButtonClick={handleTimeRangeButtonClick}
+        handleAllButtonClick={handleAllButtonClick}
+        isMobile={isMobile}
+      />
 
-          <div className="metric-select">
-            {isMobile ? (
-              <label className="unselectable metric-side-label">R:</label>
-            ) : (
-              <Tooltip content="Right Y-axis metric (Keyboard: Shift+T, Shift+C, Shift+H, Shift+P, Shift+V, Shift+N=None)">
-                <label className="unselectable metric-side-label">R:</label>
-              </Tooltip>
-            )}
-            <select value={secondaryMetric} onChange={(e) => setSecondaryMetric(e.target.value as any)}>
-              <option value="none">None</option>
-              {Object.entries(metricConfig).map(([key, cfg]) => (
-                key !== metric ? <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option> : null
-              ))}
-            </select>
-          </div>
-
-          {isMobile ? (
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={yAxisFromZero}
-                onChange={(e) => setYAxisFromZero(e.target.checked)}
-              />
-              <span>≥0</span>
-            </label>
-          ) : (
-            <Tooltip content="Start Y-axes from zero (Keyboard: z)">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={yAxisFromZero}
-                  onChange={(e) => setYAxisFromZero(e.target.checked)}
-                />
-                <span>≥0</span>
-              </label>
-            </Tooltip>
-          )}
-        </div>
-      </div>
-
-      <div className="control-group">
-        {isMobile ? (
-          <label className="unselectable">Range Width:</label>
-        ) : (
-          <Tooltip content="Keyboard: 1=1day, 3=3days, 7=7days, 2=14days(2wk), m=30days, a=All">
-            <label className="unselectable">Range Width:</label>
-          </Tooltip>
-        )}
-        <div className="time-range-buttons">
-          {timeRangeButtons.map(({ label, hours }) => (
-            <button
-              key={label}
-              className={`unselectable ${getActiveTimeRange() === label || getActiveTimeRange() === `latest-${label}` ? 'active' : ''}`}
-              onClick={() => handleTimeRangeButtonClick(hours)}
-            >
-              {label}
-            </button>
-          ))}
-          <button
-            className={`unselectable ${getActiveTimeRange() === 'all' ? 'active' : ''}`}
-            onClick={handleAllButtonClick}
-          >
-            All
-          </button>
-        </div>
-      </div>
+      <RangeControl
+        summary={summary}
+        formatCompactDate={formatCompactDate}
+        formatFullDate={formatFullDate}
+        latestModeIntended={latestModeIntended}
+        getActiveTimeRange={getActiveTimeRange}
+        handleLatestButtonClick={handleLatestButtonClick}
+        xAxisRange={xAxisRange}
+        isMobile={isMobile}
+      />
     </div>
   )
 }
