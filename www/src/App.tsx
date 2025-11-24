@@ -1,6 +1,6 @@
+import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useEffect, useMemo } from 'react'
-import { useUrlParam } from '@rdub/use-url-params'
 import { AwairChart } from './components/AwairChart'
 import { ThemeToggle } from './components/ThemeToggle'
 import { ThemeProvider } from './contexts/ThemeContext'

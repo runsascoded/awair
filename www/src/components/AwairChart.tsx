@@ -1,6 +1,6 @@
+import { useUrlParam } from '@rdub/use-url-params'
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
-import { useUrlParam } from '@rdub/use-url-params'
 import { ChartControls, metricConfig } from './ChartControls'
 import { DataTable } from './DataTable'
 import { Tooltip } from './Tooltip'
@@ -8,6 +8,7 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics.ts'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
+import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
 import { boolParam } from '../lib/urlParams'
 import { getDeviceColor } from '../utils/colorUtils'
 import type { DeviceDataResult } from '../hooks/useMultiDeviceData'
@@ -36,10 +37,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // Y-axis mode: start from zero or auto-range
   const [yAxisFromZero, setYAxisFromZero] = useUrlParam('z', boolParam)
-  const [xAxisRange, setXAxisRange] = useState<[string, string] | null>(() => {
-    const stored = localStorage.getItem('awair-time-range')
-    return stored ? JSON.parse(stored) : null
-  })
+
   const [hasSetDefaultRange, setHasSetDefaultRange] = useState(false)
   const [isMobile, setIsMobile] = useState(() => {
     const mobileQuery = window.matchMedia('(max-width: 767px) or (max-height: 599px)')
@@ -60,6 +58,14 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     const seconds = String(date.getSeconds()).padStart(2, '0')
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
   }, [])
+
+  // Time range management via URL param
+  const {
+    xAxisRange,
+    latestModeIntended,
+    setXAxisRange,
+    setLatestModeIntended
+  } = useTimeRangeParam(data, formatForPlotly)
 
   const formatCompactDate = useCallback((date: Date) => {
     const currentYear = new Date().getFullYear()
@@ -103,14 +109,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // Metrics and Y-axis mode now persisted in URL params (via useUrlParam above)
 
-  useEffect(() => {
-    if (xAxisRange) {
-      localStorage.setItem('awair-time-range', JSON.stringify(xAxisRange))
-    } else {
-      localStorage.removeItem('awair-time-range')
-    }
-  }, [xAxisRange])
-
   // Time range handlers
   const handleTimeRangeClick = useCallback((hours: number) => {
     if (data.length === 0) return
@@ -149,13 +147,11 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   const aggregatedData = deviceAggregations[0]?.aggregatedData || []
 
   const {
-    latestModeIntended,
-    setLatestModeIntended,
     autoUpdateRange,
     checkUserPanAway,
     jumpToLatest,
     setIgnoreNextPanCheck
-  } = useLatestMode(data, xAxisRange, formatForPlotly)
+  } = useLatestMode(data, xAxisRange, formatForPlotly, latestModeIntended, setLatestModeIntended)
 
   // Handle auto-update from Latest mode hook
   useEffect(() => {

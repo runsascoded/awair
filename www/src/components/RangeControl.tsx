@@ -18,7 +18,6 @@ export function RangeControl({
   formatCompactDate,
   formatFullDate,
   latestModeIntended,
-  getActiveTimeRange,
   handleLatestButtonClick,
   xAxisRange,
   isMobile

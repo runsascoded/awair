@@ -1,24 +1,19 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useRef, useCallback, useMemo } from 'react'
 import type { AwairRecord } from '../types/awair'
 
-export function useLatestMode(data: AwairRecord[], xAxisRange: [string, string] | null, formatForPlotly: (date: Date) => string) {
-  // Track if user explicitly wants "Latest" mode
-  const [latestModeIntended, setLatestModeIntended] = useState<boolean>(() => {
-    const stored = sessionStorage.getItem('awair-latest-mode')
-    return stored === 'true'
-  })
-
+export function useLatestMode(
+  data: AwairRecord[],
+  xAxisRange: [string, string] | null,
+  formatForPlotly: (date: Date) => string,
+  latestModeIntended: boolean,
+  setLatestModeIntended: (value: boolean) => void
+) {
   // Flag to ignore relayout events from programmatic updates
   const ignoreLatestModeCheckRef = useRef(false)
 
   // Track the latest timestamp to detect when new data arrives
   const latestTimestamp = data.length > 0 ? data[0].timestamp : null
   const prevLatestTimestamp = useRef<string | null>(null)
-
-  // Save Latest mode state to session storage
-  useEffect(() => {
-    sessionStorage.setItem('awair-latest-mode', String(latestModeIntended))
-  }, [latestModeIntended])
 
   // Calculate auto-update range when new data arrives in Latest mode
   const autoUpdateRange = useMemo(() => {
@@ -113,8 +108,6 @@ export function useLatestMode(data: AwairRecord[], xAxisRange: [string, string] 
   }, [])
 
   return {
-    latestModeIntended,
-    setLatestModeIntended,
     autoUpdateRange,
     checkUserPanAway,
     jumpToLatest,

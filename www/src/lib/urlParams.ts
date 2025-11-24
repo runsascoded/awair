@@ -2,6 +2,7 @@
  * URL parameter definitions for Awair app state
  */
 
+import { encodeTimeRange, decodeTimeRange } from './timeRangeCodec'
 import type { Device } from '../services/awairService'
 import type { Param } from '@rdub/use-url-params'
 
@@ -178,6 +179,17 @@ export function metricsParam(init: Metrics = { l: 'temp', r: 'none' }): Param<Me
  * Default metrics param instance with temp + CO2 defaults
  */
 export const defaultMetricsParam = metricsParam({ l: 'temp', r: 'co2' })
+
+/**
+ * Time range URL param - wraps codec in Param interface
+ */
+export type { TimeRange } from './timeRangeCodec'
+export { encodeTimeRange, decodeTimeRange }
+
+export const timeRangeParam: Param<import('./timeRangeCodec').TimeRange> = {
+  encode: encodeTimeRange,
+  decode: decodeTimeRange
+}
 
 /**
  * Re-export common param builders from use-url-params
