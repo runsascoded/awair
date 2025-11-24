@@ -50,15 +50,20 @@ aws logs tail /aws/lambda/awair-updater-17617 --follow
 
 ## Rate Limiting
 
-Per device:
-- **2-minute intervals** = 720 runs/day
-- **1-2 API calls per run** (depending on data volume)
-- **Total per device: ~720-750 API calls/day**
+**API Rate Limits:**
+- **Hobbyist tier** (default): Advertised 500/day, observed up to 1,280/day
+- **Enterprise tier**: 86,400/day (60 requests/minute)
+- Contact `developer@getawair.com` to request a rate limit increase
 
-Multi-device:
-- **2 devices**: ~1,440-1,500 requests/day
-- **Well under 5,000/day limit** (confirmed by Awair support)
-- **Supports up to ~7 devices** at 2-minute intervals
+**Per device (1-minute intervals, Enterprise tier):**
+- **1-minute intervals** = 1,440 runs/day
+- **1 API call per run** (limit=360, API returns up to 60 records)
+- **Total per device: ~1,440 API calls/day**
+
+**Multi-device:**
+- **2 devices**: ~2,880 requests/day
+- **Well under 86,400/day Enterprise limit**
+- **Supports 30+ devices** at 1-minute intervals with Enterprise tier
 
 ## S3 File Access
 
@@ -75,8 +80,8 @@ Your static webapp can directly read the device-specific Parquet files:
 ## Benefits vs On-Demand
 
 ✅ **No concurrency races** (single scheduled execution per device)
-✅ **Consistent data freshness** (always <2 minutes old)
-✅ **Lower costs** (720 invocations/device vs per-request)
+✅ **Consistent data freshness** (always <1 minute old with Enterprise tier)
+✅ **Lower costs** (1,440 invocations/device vs per-request)
 ✅ **Faster webapp** (just read S3, no API calls)
 ✅ **Better reliability** (webapp works even if Awair API is down)
 ✅ **Multi-device ready** (independent stacks scale easily)

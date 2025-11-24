@@ -52,6 +52,12 @@ Set your Awair API token via:
 - Local file: `echo "your-token" > .token`
 - User config: `echo "your-token" > ~/.awair/token`
 
+**API Rate Limits:**
+- **Hobbyist tier** (default): Advertised 500/day, observed up to 1,280/day
+- **Enterprise tier**: 86,400/day (60 requests/minute)
+- Contact `developer@getawair.com` to request a rate limit increase
+- Thanks to Steve at Awair for upgrading this project to Enterprise tier!
+
 ### Device Configuration
 Configure your Awair device via:
 - Environment variables: `export AWAIR_DEVICE_TYPE="awair-element" AWAIR_DEVICE_ID="12345"`
