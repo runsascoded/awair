@@ -15,7 +15,7 @@
     "@floating-ui/react": "^0.27.13",
     "@fortawesome/fontawesome-free": "^6.7.2",
     "@observablehq/plot": "^0.6.17",
-    "@rdub/use-url-params": "github:runsascoded/use-url-params#3d2c2616af96daa6fc9444f7522f9e76b37b71e0",
+    "@rdub/use-url-params": "github:runsascoded/use-url-params#9b8a2b081b4b324c4747cec9948ca327b41a8293",
     "@tanstack/react-query": "^5.83.0",
     "d3": "^7.9.0",
     "hyparquet": "^1.17.1",
