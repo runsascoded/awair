@@ -1,6 +1,6 @@
 import { useQueries } from '@tanstack/react-query'
-import type { TimeRange } from '../lib/urlParams'
 import { fetchAwairData } from '../services/awairService'
+import type { TimeRange } from '../lib/urlParams'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
 export interface DeviceDataResult {
