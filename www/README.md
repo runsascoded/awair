@@ -8,7 +8,8 @@ A real-time air quality monitoring dashboard for Awair sensors, built with React
 
 ## Features
 
-- **Multi-Device Support**: Device selector dropdown to switch between multiple sensors
+- **Multi-Device Support**: Device selector dropdown to switch between multiple sensors (defaults to gym device 17617)
+- **Device Differentiation**: Dashed line toggle to distinguish secondary device from primary (solid lines)
 - **Real-time Charts**: Interactive time-series visualization of air quality metrics
 - **Dual Y-Axis Support**: Compare two metrics simultaneously
 - **Adaptive Aggregation**: Automatic data aggregation based on zoom level

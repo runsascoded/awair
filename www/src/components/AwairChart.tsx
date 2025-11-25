@@ -9,8 +9,8 @@ import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics.ts'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
-import { boolParam } from '../lib/urlParams'
-import { getDeviceColor } from '../utils/colorUtils'
+import { boolParam, deviceRenderStrategyParam, hsvConfigParam } from '../lib/urlParams'
+import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { DeviceDataResult } from '../hooks/useMultiDeviceData'
 import type { Device } from '../services/awairService'
 import type { DataSummary } from '../types/awair'
@@ -39,6 +39,12 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // Y-axis mode: start from zero or auto-range
   const [yAxisFromZero, setYAxisFromZero] = useUrlParam('z', boolParam)
+
+  // Device render strategy: how to visually distinguish multiple devices
+  const [deviceRenderStrategy, setDeviceRenderStrategy] = useUrlParam('dr', deviceRenderStrategyParam)
+
+  // HSV config for hsv-nudge strategy
+  const [hsvConfig, setHsvConfig] = useUrlParam('hsv', hsvConfigParam)
 
   const [hasSetDefaultRange, setHasSetDefaultRange] = useState(false)
   const [isMobile, setIsMobile] = useState(() => {
@@ -398,7 +404,17 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     deviceAggregations.forEach((deviceAgg, deviceIndex) => {
       const { aggregatedData: devData, deviceName } = deviceAgg
       const timestamps = devData.map(d => formatForPlotly(new Date(d.timestamp)))
-      const primaryColor = getDeviceColor(config.color, deviceIndex, totalDevices)
+
+      // Get line props for primary metric
+      const primaryLineProps = getDeviceLineProps(
+        config.color,
+        deviceIndex,
+        totalDevices,
+        deviceRenderStrategy,
+        2,
+        hsvConfig
+      )
+      const primaryColor = primaryLineProps.color
 
       // Primary metric data
       const avgValues = devData.map(d => d[`${l.val}_avg` as keyof typeof d] as number)
@@ -419,9 +435,19 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       const secondaryLowerValues = secondaryConfig
         ? secondaryAvgValues.map((avg, i) => avg - secondaryStddevValues[i])
         : []
-      const secondaryColor = secondaryConfig
-        ? getDeviceColor(secondaryConfig.color, deviceIndex, totalDevices)
-        : ''
+
+      // Get line props for secondary metric
+      const secondaryLineProps = secondaryConfig
+        ? getDeviceLineProps(
+          secondaryConfig.color,
+          deviceIndex,
+          totalDevices,
+          deviceRenderStrategy,
+          2,
+          hsvConfig
+        )
+        : null
+      const secondaryColor = secondaryLineProps?.color || ''
 
       // For multi-device mode, use compact device names in legend
       const legendName = totalDevices > 1 ? deviceName : ''
@@ -455,12 +481,12 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       }
 
       // Secondary average line
-      if (secondaryConfig) {
+      if (secondaryConfig && secondaryLineProps) {
         traces.push({
           x: timestamps,
           y: secondaryAvgValues,
           mode: 'lines',
-          line: { color: secondaryColor, width: 2 },
+          line: secondaryLineProps,
           name: legendName || `${secondaryConfig.label} (${secondaryConfig.unit})`,
           legendgroup: 'secondary',
           legend: 'legend2',
@@ -519,7 +545,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         x: timestamps,
         y: avgValues,
         mode: 'lines',
-        line: { color: primaryColor, width: 3 },
+        line: primaryLineProps,
         name: legendName || `${config.label} (${config.unit})`,
         legendgroup: 'primary',
         zorder: 10,
@@ -546,7 +572,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     })
 
     return traces
-  }, [deviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, formatForPlotly, formatFullDate])
+  }, [deviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, formatForPlotly, formatFullDate, deviceRenderStrategy, hsvConfig])
 
   // Helper to create yaxis config
   const createYAxisConfig = (side: 'left' | 'right') => ({
@@ -659,6 +685,10 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         metrics={metrics}
         yAxisFromZero={yAxisFromZero}
         setYAxisFromZero={setYAxisFromZero}
+        deviceRenderStrategy={deviceRenderStrategy}
+        setDeviceRenderStrategy={setDeviceRenderStrategy}
+        hsvConfig={hsvConfig}
+        setHsvConfig={setHsvConfig}
         xAxisRange={xAxisRange}
         setXAxisRange={setXAxisRange}
         setHasSetDefaultRange={setHasSetDefaultRange}

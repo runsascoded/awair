@@ -1,11 +1,12 @@
 import React from 'react'
 import { DevicesControl } from './DevicesControl'
-import { RangeControl } from './RangeControl'
 import { RangeWidthControl } from './RangeWidthControl'
 import { YAxesControl } from './YAxesControl'
+import type { HsvConfig } from './DeviceRenderSettings'
 import type { MetricsState } from "../hooks/useMetrics.ts"
 import type { Device } from '../services/awairService'
 import type { AwairRecord, DataSummary } from '../types/awair'
+import type { DeviceRenderStrategy } from '../utils/deviceRenderStrategy'
 
 interface MetricConfig {
   label: string
@@ -19,6 +20,10 @@ interface ChartControlsProps {
   metrics: MetricsState
   yAxisFromZero: boolean
   setYAxisFromZero: (value: boolean) => void
+  deviceRenderStrategy: DeviceRenderStrategy
+  setDeviceRenderStrategy: (value: DeviceRenderStrategy) => void
+  hsvConfig: HsvConfig
+  setHsvConfig: (value: HsvConfig) => void
   xAxisRange: [string, string] | null
   setXAxisRange: (range: [string, string] | null) => void
   setHasSetDefaultRange: (value: boolean) => void
@@ -53,6 +58,10 @@ export function ChartControls({
   metrics,
   yAxisFromZero,
   setYAxisFromZero,
+  deviceRenderStrategy,
+  setDeviceRenderStrategy,
+  hsvConfig,
+  setHsvConfig,
   xAxisRange,
   setXAxisRange,
   setHasSetDefaultRange,
@@ -124,6 +133,10 @@ export function ChartControls({
         devices={devices}
         selectedDeviceIds={selectedDeviceIds}
         onDeviceSelectionChange={onDeviceSelectionChange}
+        deviceRenderStrategy={deviceRenderStrategy}
+        setDeviceRenderStrategy={setDeviceRenderStrategy}
+        hsvConfig={hsvConfig}
+        setHsvConfig={setHsvConfig}
       />
 
       <YAxesControl
@@ -137,19 +150,15 @@ export function ChartControls({
         getActiveTimeRange={getActiveTimeRange}
         handleTimeRangeButtonClick={handleTimeRangeButtonClick}
         handleAllButtonClick={handleAllButtonClick}
+        latestModeIntended={latestModeIntended}
+        handleLatestButtonClick={handleLatestButtonClick}
+        xAxisRange={xAxisRange}
+        formatCompactDate={formatCompactDate}
+        formatFullDate={formatFullDate}
+        summary={summary}
         isMobile={isMobile}
       />
 
-      <RangeControl
-        summary={summary}
-        formatCompactDate={formatCompactDate}
-        formatFullDate={formatFullDate}
-        latestModeIntended={latestModeIntended}
-        getActiveTimeRange={getActiveTimeRange}
-        handleLatestButtonClick={handleLatestButtonClick}
-        xAxisRange={xAxisRange}
-        isMobile={isMobile}
-      />
     </div>
   )
 }

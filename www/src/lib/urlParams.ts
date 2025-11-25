@@ -83,7 +83,10 @@ export function deviceIdsParam(devices: Device[]): Param<number[]> {
     },
 
     decode: (encoded) => {
-      if (!encoded) return []
+      if (!encoded) {
+        // Default to first device (which is gym after sorting)
+        return devices.length > 0 ? [devices[0].deviceId] : []
+      }
 
       // Decode each space-separated pattern (+ decoded to space by URLSearchParams)
       return encoded
@@ -189,6 +192,70 @@ export { encodeTimeRange, decodeTimeRange }
 export const timeRangeParam: Param<import('./timeRangeCodec').TimeRange> = {
   encode: encodeTimeRange,
   decode: decodeTimeRange
+}
+
+/**
+ * Device render strategy param - stores how multiple devices are visually distinguished
+ *
+ * Values:
+ *   - hsv-nudge (default): Adjust lightness for each device
+ *   - dash: Use dashed lines for secondary devices
+ *   - none: No visual distinction
+ *
+ * URL encoding:
+ *   ?dr=hsv  → hsv-nudge
+ *   ?dr=dash → dash
+ *   ?dr=none → none
+ */
+export const deviceRenderStrategyParam: Param<import('../utils/deviceRenderStrategy').DeviceRenderStrategy> = {
+  encode: (strategy) => {
+    if (strategy === 'hsv-nudge') return undefined // Default, omit from URL
+    if (strategy === 'dash') return 'dash'
+    if (strategy === 'none') return 'none'
+    return undefined
+  },
+  decode: (encoded) => {
+    if (!encoded) return 'hsv-nudge' // Default
+    if (encoded === 'dash') return 'dash'
+    if (encoded === 'none') return 'none'
+    console.warn(`Unknown device render strategy: ${encoded}`)
+    return 'hsv-nudge'
+  },
+}
+
+/**
+ * HSV configuration param - stores hue/saturation/lightness step values
+ *
+ * Compact encoding: "h,s,l" where each is a number 0-100
+ * Examples:
+ *   ?hsv=0,0,15  → hue=0, sat=0, lightness=15 (default)
+ *   ?hsv=10,5,20 → hue=10, sat=5, lightness=20
+ *
+ * Default (0,0,15) is omitted from URL
+ */
+export const hsvConfigParam: Param<import('../components/DeviceRenderSettings').HsvConfig> = {
+  encode: (config) => {
+    // Default values (lightness-only nudging)
+    if (config.hueStep === 0 && config.saturationStep === 0 && config.lightnessStep === 15) {
+      return undefined
+    }
+    return `${config.hueStep},${config.saturationStep},${config.lightnessStep}`
+  },
+  decode: (encoded) => {
+    if (!encoded) {
+      return { hueStep: 0, saturationStep: 0, lightnessStep: 15 }
+    }
+    const parts = encoded.split(',').map(Number)
+    if (parts.length !== 3 || parts.some(isNaN)) {
+      console.warn(`Invalid HSV config: ${encoded}`)
+      return { hueStep: 0, saturationStep: 0, lightnessStep: 15 }
+    }
+    return {
+      hueStep: parts[0],
+      saturationStep: parts[1],
+      lightnessStep: parts[2],
+    }
+  },
 }
 
 /**
