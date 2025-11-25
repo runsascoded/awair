@@ -159,9 +159,9 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                 padding: '4px 8px',
                 fontSize: '14px',
                 borderRadius: '4px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'var(--bg-color)',
-                color: 'var(--text-color)',
+                border: '1px solid var(--border-primary)',
+                backgroundColor: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
                 cursor: 'pointer'
               }}
             >
