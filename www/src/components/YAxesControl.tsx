@@ -45,33 +45,40 @@ export function YAxesControl({
       <div className="yaxes-controls">
         <div className="metric-select">
           {isMobile ? (
-            <label className="unselectable metric-side-label">L:</label>
+            <select value={l.val} onChange={(e) => l.set(e.target.value as any)}>
+              {Object.entries(metricConfig).map(([key, cfg]) => (
+                <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option>
+              ))}
+            </select>
           ) : (
             <Tooltip content="Left Y-axis metric (Keyboard: t=Temp, c=CO₂, h=Humid, p=PM2.5, v=VOC)">
-              <label className="unselectable metric-side-label">L:</label>
+              <select value={l.val} onChange={(e) => l.set(e.target.value as any)}>
+                {Object.entries(metricConfig).map(([key, cfg]) => (
+                  <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option>
+                ))}
+              </select>
             </Tooltip>
           )}
-          <select value={l.val} onChange={(e) => l.set(e.target.value as any)}>
-            {Object.entries(metricConfig).map(([key, cfg]) => (
-              <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option>
-            ))}
-          </select>
         </div>
 
         <div className="metric-select">
           {isMobile ? (
-            <label className="unselectable metric-side-label">R:</label>
+            <select value={r.val} onChange={(e) => r.set(e.target.value as any)}>
+              <option value="none">None</option>
+              {Object.entries(metricConfig).map(([key, cfg]) => (
+                key !== l.val ? <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option> : null
+              ))}
+            </select>
           ) : (
             <Tooltip content="Right Y-axis metric (Keyboard: Shift+T, Shift+C, Shift+H, Shift+P, Shift+V, Shift+N=None)">
-              <label className="unselectable metric-side-label">R:</label>
+              <select value={r.val} onChange={(e) => r.set(e.target.value as any)}>
+                <option value="none">None</option>
+                {Object.entries(metricConfig).map(([key, cfg]) => (
+                  key !== l.val ? <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option> : null
+                ))}
+              </select>
             </Tooltip>
           )}
-          <select value={r.val} onChange={(e) => r.set(e.target.value as any)}>
-            <option value="none">None</option>
-            {Object.entries(metricConfig).map(([key, cfg]) => (
-              key !== l.val ? <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option> : null
-            ))}
-          </select>
         </div>
       </div>
     </div>

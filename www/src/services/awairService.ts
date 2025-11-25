@@ -65,6 +65,9 @@ export async function fetchDevices(): Promise<Device[]> {
     // Filter to active devices only
     const activeDevices = devices.filter(d => d.active !== false)
 
+    // Sort devices by ID (ascending) - gym (17617) is lowest ID and will be first
+    activeDevices.sort((a, b) => a.deviceId - b.deviceId)
+
     console.log(`📋 Loaded ${activeDevices.length} active devices`)
     return activeDevices
   } catch (error) {

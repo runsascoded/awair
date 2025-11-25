@@ -1,6 +1,6 @@
 import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { AwairChart } from './components/AwairChart'
 import { ThemeToggle } from './components/ThemeToggle'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -15,20 +15,10 @@ function AppContent() {
 
   // Device selection persisted in URL (?d=gym+br)
   const deviceParam = useMemo(() => deviceIdsParam(devices), [devices])
-  const [selectedDeviceIds, setSelectedDeviceIds] = useUrlParam(
-    'd',
-    deviceParam
-  )
+  const [selectedDeviceIds, setSelectedDeviceIds] = useUrlParam('d', deviceParam)
 
   // Time range persisted in URL (?t=...)
   const [timeRange, setTimeRange] = useUrlParam('t', timeRangeParam)
-
-  // Initialize with first device when devices load (if no selection)
-  useEffect(() => {
-    if (devices.length > 0 && selectedDeviceIds.length === 0) {
-      setSelectedDeviceIds([devices[0].deviceId])
-    }
-  }, [devices, selectedDeviceIds.length])
 
   // Fetch data for all selected devices with time range
   const deviceDataResults = useMultiDeviceData(selectedDeviceIds, timeRange)
