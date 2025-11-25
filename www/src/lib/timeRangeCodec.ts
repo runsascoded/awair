@@ -155,7 +155,7 @@ export function encodeTimeRange(range: TimeRange): string | undefined {
   }
 
   // Latest mode with custom duration → `-{duration}`
-  if (range.timestamp === null) {
+  if (range.timestamp === null || range.timestamp === undefined) {
     return `-${encodeDuration(range.duration)}`
   }
 

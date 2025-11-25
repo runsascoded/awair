@@ -1,16 +1,19 @@
-import { useUrlParam } from '@rdub/use-url-params'
 import { useCallback, useMemo } from 'react'
-import { timeRangeParam, type TimeRange } from '../lib/urlParams'
+import { timeRangeParam } from '../lib/urlParams'
 import type { AwairRecord } from '../types/awair'
 
 /**
- * Hook for managing time range state via URL parameter
+ * Hook for managing time range state
  *
  * Converts between TimeRange (timestamp + duration) and xAxisRange ([start, end])
  * for backwards compatibility with existing chart code
  */
-export function useTimeRangeParam(data: AwairRecord[], formatForPlotly: (date: Date) => string) {
-  const [timeRange, setTimeRange] = useUrlParam('t', timeRangeParam)
+export function useTimeRangeParam(
+  data: AwairRecord[],
+  formatForPlotly: (date: Date) => string,
+  timeRange: { timestamp: Date | null; duration: number },
+  setTimeRange: (range: { timestamp: Date | null; duration: number }) => void
+) {
 
   // Convert TimeRange to xAxisRange format
   const xAxisRange = useMemo((): [string, string] | null => {
@@ -73,8 +76,10 @@ export function useTimeRangeParam(data: AwairRecord[], formatForPlotly: (date: D
 
   // Update duration (preserving Latest mode state)
   const setDuration = useCallback((duration: number) => {
-    setTimeRange({ ...timeRange, duration })
-  }, [setTimeRange, timeRange])
+    // Don't create new object from stale timeRange - let setTimeRange handle it
+    // by passing the current timestamp (which should be null for Latest mode)
+    setTimeRange({ timestamp: timeRange.timestamp, duration })
+  }, [setTimeRange, timeRange.timestamp])
 
   return {
     timeRange,

@@ -21,9 +21,11 @@ interface Props {
   devices: Device[]
   selectedDeviceIds: number[]
   onDeviceSelectionChange: (deviceIds: number[]) => void
+  timeRange: { timestamp: Date | null; duration: number }
+  setTimeRange: (range: { timestamp: Date | null; duration: number }) => void
 }
 
-export function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange }: Props) {
+export function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps }: Props) {
   // Combine data from all devices for time range calculations and bounds checking
   // Sorted newest-first for efficient latest record access
   const data = useMemo(() => {
@@ -59,13 +61,14 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
   }, [])
 
-  // Time range management via URL param
+  // Time range management - use props instead of internal hook
   const {
     xAxisRange,
     latestModeIntended,
     setXAxisRange,
-    setLatestModeIntended
-  } = useTimeRangeParam(data, formatForPlotly)
+    setLatestModeIntended,
+    setDuration
+  } = useTimeRangeParam(data, formatForPlotly, timeRangeFromProps, setTimeRangeFromProps)
 
   const formatCompactDate = useCallback((date: Date) => {
     const currentYear = new Date().getFullYear()
@@ -145,6 +148,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // For backwards compatibility with DataTable, use first device's aggregated data
   const aggregatedData = deviceAggregations[0]?.aggregatedData || []
+
+  // For status display, show the max window count across all devices
+  const maxWindowCount = Math.max(...deviceAggregations.map(d => d.aggregatedData.length), 0)
 
   const {
     autoUpdateRange,
@@ -417,8 +423,8 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         ? getDeviceColor(secondaryConfig.color, deviceIndex, totalDevices)
         : ''
 
-      // Device name suffix for multi-device mode
-      const nameSuffix = totalDevices > 1 ? `; ${deviceName}` : ''
+      // For multi-device mode, use compact device names in legend
+      const legendName = totalDevices > 1 ? deviceName : ''
 
       // Secondary metric stddev region (only show for first device to avoid clutter)
       if (secondaryConfig && !isRawData && deviceIndex === 0) {
@@ -455,7 +461,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           y: secondaryAvgValues,
           mode: 'lines',
           line: { color: secondaryColor, width: 2 },
-          name: `${secondaryConfig.label} (${secondaryConfig.unit}${nameSuffix})`,
+          name: legendName || `${secondaryConfig.label} (${secondaryConfig.unit})`,
           legendgroup: 'secondary',
           legend: 'legend2',
           yaxis: 'y2',
@@ -514,7 +520,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         y: avgValues,
         mode: 'lines',
         line: { color: primaryColor, width: 3 },
-        name: `${config.label} (${config.unit}${nameSuffix})`,
+        name: legendName || `${config.label} (${config.unit})`,
         legendgroup: 'primary',
         zorder: 10,
         ...(isRawData ? {
@@ -541,6 +547,45 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
     return traces
   }, [deviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, formatForPlotly, formatFullDate])
+
+  // Helper to create yaxis config
+  const createYAxisConfig = (side: 'left' | 'right') => ({
+    gridcolor: side === 'left' ? plotColors.gridcolor : 'transparent',
+    fixedrange: true,
+    tickfont: { color: plotColors.textColor },
+    linecolor: plotColors.gridcolor,
+    zerolinecolor: side === 'left' ? plotColors.gridcolor : 'transparent',
+    side,
+    tickformat: '.3~s',
+    ...(yAxisFromZero && { rangemode: 'tozero' as const }),
+    ...(side === 'right' && { overlaying: 'y' as const }),
+  })
+
+  // Helper to create legend config
+  const createLegendConfig = (x: number, xanchor: 'left' | 'right') => ({
+    orientation: 'h' as const,
+    x,
+    y: 1.03,
+    xanchor,
+    yanchor: 'top' as const,
+    bgcolor: 'transparent',
+    font: { color: plotColors.textColor, size: 11 },
+    traceorder: 'normal' as const,
+    tracegroupgap: 0,
+  })
+
+  // Helper to create annotation config
+  const createAnnotation = (text: string, x: number, xanchor: 'left' | 'right') => ({
+    text,
+    xref: 'paper' as const,
+    yref: 'paper' as const,
+    x,
+    y: 1.03,
+    xanchor,
+    yanchor: 'bottom' as const,
+    showarrow: false,
+    font: { color: plotColors.textColor, size: 12 }
+  })
 
   return (
     <div className="awair-chart">
@@ -569,58 +614,23 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
                 tickmode: 'array'
               })
             },
-            yaxis: {
-              gridcolor: plotColors.gridcolor,
-              fixedrange: true,
-              tickfont: { color: plotColors.textColor },
-              linecolor: plotColors.gridcolor,
-              zerolinecolor: plotColors.gridcolor,
-              side: 'left',
-              tickformat: '.3~s',
-              ...(yAxisFromZero && { rangemode: 'tozero' }),
-            },
-            ...(secondaryConfig && {
-              yaxis2: {
-                overlaying: 'y',
-                side: 'right',
-                gridcolor: 'transparent',
-                fixedrange: true,
-                tickfont: { color: plotColors.textColor },
-                linecolor: plotColors.gridcolor,
-                zerolinecolor: 'transparent',
-                tickformat: '.3~s',
-                ...(yAxisFromZero && { rangemode: 'tozero' }),
-              }
-            }),
-            margin: { l: 35, r: secondaryConfig ? 35 : 10, t: 0, b: 45 },
+            yaxis: createYAxisConfig('left'),
+            ...(secondaryConfig && { yaxis2: createYAxisConfig('right') }),
+            margin: { l: 35, r: secondaryConfig ? 35 : 10, t: totalDevices > 1 ? isMobile ? 30 : 40 : 0, b: 45 },
             hovermode: isMobile ? 'closest' : 'x',
             plot_bgcolor: plotColors.plotBg,
             paper_bgcolor: plotColors.plotBg,
-            legend: {
-              orientation: 'h',
-              x: isMobile ? -0.07 : -0.02,
-              y: 1.02,
-              xanchor: 'left',
-              yanchor: 'bottom',
-              bgcolor: 'transparent',
-              font: { color: plotColors.textColor },
-              traceorder: 'grouped',
-            },
-            ...(secondaryConfig && {
-              legend2: {
-                orientation: 'h',
-                x: isMobile ? 1.07 : 1.02,
-                y: 1.02,
-                xanchor: 'right',
-                yanchor: 'bottom',
-                bgcolor: 'transparent',
-                font: { color: plotColors.textColor },
-                traceorder: 'grouped',
-              }
-            }),
+            legend: createLegendConfig(0, 'left'),
+            ...(secondaryConfig && { legend2: createLegendConfig(1, 'right') }),
             dragmode: 'pan',
             showlegend: true,
-            selectdirection: 'h'
+            selectdirection: 'h',
+            ...(totalDevices > 1 && {
+              annotations: [
+                createAnnotation(`${config.label} (${config.unit})`, 0, 'left'),
+                ...(secondaryConfig ? [createAnnotation(`${secondaryConfig.label} (${secondaryConfig.unit})`, 1, 'right')] : [])
+              ]
+            })
           }}
           config={{
             displayModeBar: false,
@@ -659,6 +669,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         formatFullDate={formatFullDate}
         latestModeIntended={latestModeIntended}
         setLatestModeIntended={setLatestModeIntended}
+        setDuration={setDuration}
+        timeRange={timeRangeFromProps}
+        setTimeRange={setTimeRangeFromProps}
         getActiveTimeRange={getActiveTimeRange}
         handleTimeRangeClick={handleTimeRangeClick}
         setRangeByWidth={setRangeByWidth}
@@ -670,7 +683,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
       <Tooltip content={`Window size adapts automatically to zoom level. Drag to pan, wheel to zoom, double-click to show all data.${summary ? ` | Total records: ${summary.count.toLocaleString()}` : ''}`}>
         <div className="chart-status">
-          Showing {aggregatedData.length} {selectedWindow.label} windows
+          Showing {maxWindowCount} {selectedWindow.label} windows
         </div>
       </Tooltip>
 

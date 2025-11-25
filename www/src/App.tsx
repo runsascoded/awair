@@ -7,7 +7,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
 import { useMultiDeviceData } from './hooks/useMultiDeviceData'
 import { queryClient } from './lib/queryClient'
-import { deviceIdsParam } from './lib/urlParams'
+import { deviceIdsParam, timeRangeParam } from './lib/urlParams'
 import './App.css'
 
 function AppContent() {
@@ -20,6 +20,9 @@ function AppContent() {
     deviceParam
   )
 
+  // Time range persisted in URL (?t=...)
+  const [timeRange, setTimeRange] = useUrlParam('t', timeRangeParam)
+
   // Initialize with first device when devices load (if no selection)
   useEffect(() => {
     if (devices.length > 0 && selectedDeviceIds.length === 0) {
@@ -27,8 +30,8 @@ function AppContent() {
     }
   }, [devices, selectedDeviceIds.length])
 
-  // Fetch data for all selected devices
-  const deviceDataResults = useMultiDeviceData(selectedDeviceIds)
+  // Fetch data for all selected devices with time range
+  const deviceDataResults = useMultiDeviceData(selectedDeviceIds, timeRange)
 
   // Combine results
   const { combinedData, combinedSummary, loading, error } = useMemo(() => {
@@ -113,6 +116,8 @@ function AppContent() {
             devices={devices}
             selectedDeviceIds={selectedDeviceIds}
             onDeviceSelectionChange={setSelectedDeviceIds}
+            timeRange={timeRange}
+            setTimeRange={setTimeRange}
           />
         )}
       </main>

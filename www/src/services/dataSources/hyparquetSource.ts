@@ -46,9 +46,10 @@ export class HyparquetSource implements DataSource {
     let rowStart = 0
     let rowEnd = Math.min(expectedRows, totalRows)
 
-    // If expecting more than all rows, just fetch everything
-    if (expectedRowGroups >= numRowGroups) {
-      console.log('📥 Fetching all row groups')
+    // If file has only 1 row group, or expecting most/all rows, fetch everything
+    // This handles legacy files not yet partitioned into smaller row groups
+    if (numRowGroups === 1 || expectedRowGroups >= numRowGroups || expectedRows >= totalRows * 0.8) {
+      console.log('📥 Fetching all rows (file has 1 row group or large time range requested)')
       rowEnd = totalRows
     } else {
       console.log(`📥 Fetching rows ${rowStart}-${rowEnd} (${expectedRowGroups}/${numRowGroups} row groups)`)

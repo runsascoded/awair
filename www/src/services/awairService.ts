@@ -78,9 +78,12 @@ const getParquetUrl = getDataUrl
 
 // Data collection assumptions for row group optimization
 const ROWS_PER_MINUTE = 1
-const DEFAULT_DAYS_TO_LOAD = 7 // Default to last 7 days on initial load
+const SAFETY_MARGIN = 1.5
 
-export async function fetchAwairData(deviceId?: number): Promise<{ records: AwairRecord[]; summary: DataSummary }> {
+export async function fetchAwairData(
+  deviceId: number | undefined,
+  timeRange: { timestamp: Date | null; duration: number }
+): Promise<{ records: AwairRecord[]; summary: DataSummary }> {
   // If no device ID provided, use first available device
   if (!deviceId) {
     const devices = await fetchDevices()
@@ -96,29 +99,57 @@ export async function fetchAwairData(deviceId?: number): Promise<{ records: Awai
   // Use asyncBufferFromUrl to enable HTTP Range Requests
   const file = await asyncBufferFromUrl({ url })
 
-  // Fetch metadata to determine file structure and date range
+  // Fetch metadata to determine file structure
   const metadata = await parquetMetadataAsync(file)
   const totalRows = Number(metadata.num_rows)
   const numRowGroups = metadata.row_groups.length
 
   console.log(`📦 File has ${numRowGroups} row groups, ${totalRows} total rows`)
 
-  // Calculate how many rows to fetch for default view (last N days)
-  const defaultMinutes = DEFAULT_DAYS_TO_LOAD * 24 * 60
-  const expectedRows = Math.min(defaultMinutes * ROWS_PER_MINUTE * 1.5, totalRows) // 1.5x safety margin
-  const rowsToFetch = Math.ceil(expectedRows)
+  // Extract file date range from row group statistics (timestamp is column 0)
+  let fileEarliest: string | null = null
+  let fileLatest: string | null = null
 
-  // Parquet files are typically sorted oldest-to-newest, so fetch from the end
-  const rowStart = Math.max(0, totalRows - rowsToFetch)
-  const rowEnd = totalRows
+  for (const rowGroup of metadata.row_groups) {
+    const timestampColumn = rowGroup.columns[0] // timestamp is first column
+    const stats = timestampColumn.meta_data?.statistics
+    if (stats) {
+      // min_value is the earliest timestamp in this row group
+      if (stats.min_value && (!fileEarliest || stats.min_value < fileEarliest)) {
+        fileEarliest = stats.min_value as string
+      }
+      // max_value is the latest timestamp in this row group
+      if (stats.max_value && (!fileLatest || stats.max_value > fileLatest)) {
+        fileLatest = stats.max_value as string
+      }
+    }
+  }
 
-  console.log(`📥 Fetching rows ${rowStart}-${rowEnd} (last ${rowsToFetch} rows, ~${DEFAULT_DAYS_TO_LOAD} days)`)
+  console.log(`📅 File date range: ${fileEarliest} to ${fileLatest}`)
+
+  // Calculate expected rows based on requested time range
+  const rangeMinutes = timeRange.duration / (1000 * 60)
+  const expectedRows = Math.ceil(rangeMinutes * ROWS_PER_MINUTE * SAFETY_MARGIN)
+  const expectedRowGroups = Math.ceil(expectedRows / 10000) // Assuming 10k rows per group
+
+  // Determine fetch strategy
+  let rowStart = 0
+  let rowEnd = totalRows
+
+  if (numRowGroups > 1 && expectedRows < totalRows * 0.8) {
+    // Fetch only needed rows from the end (newest data)
+    rowEnd = totalRows
+    rowStart = Math.max(0, totalRows - expectedRows)
+    console.log(`📥 Fetching rows ${rowStart}-${rowEnd} (~${expectedRowGroups}/${numRowGroups} row groups for ${(rangeMinutes / 60 / 24).toFixed(0)} days)`)
+  } else {
+    // Fetch all rows
+    console.log(`📥 Fetching all rows (${numRowGroups} row groups, entire history)`)
+  }
 
   let rows: any[] = []
   await parquetRead({
     file,
-    rowStart,
-    rowEnd,
+    ...(rowStart > 0 ? { rowStart, rowEnd } : {}),
     onComplete: (data) => {
       if (Array.isArray(data)) {
         rows = data
@@ -144,13 +175,11 @@ export async function fetchAwairData(deviceId?: number): Promise<{ records: Awai
   // Sort by timestamp (newest first)
   records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
-  // Calculate summary from fetched data
+  // Calculate summary using file-level metadata (not just fetched records)
   const count = records.length
-  const latest = count > 0 ? records[0].timestamp : null
-  const earliest = count > 0 ? records[count - 1].timestamp : null
 
   let dateRange = 'No data'
-  if (earliest && latest) {
+  if (fileEarliest && fileLatest) {
     const formatCompactDate = (date: Date) => {
       const month = String(date.getMonth() + 1)
       const day = String(date.getDate())
@@ -158,14 +187,15 @@ export async function fetchAwairData(deviceId?: number): Promise<{ records: Awai
       return `${month}/${day}/${year}`
     }
 
-    const start = formatCompactDate(new Date(earliest))
-    const end = formatCompactDate(new Date(latest))
+    const start = formatCompactDate(new Date(fileEarliest))
+    const end = formatCompactDate(new Date(fileLatest))
     dateRange = start === end ? start : `${start} - ${end}`
   }
 
-  const summary: DataSummary = { count, earliest, latest, dateRange }
+  // Summary uses file-level timestamps from metadata, not fetched data
+  const summary: DataSummary = { count, earliest: fileEarliest, latest: fileLatest, dateRange }
 
-  console.log(`✅ Fetched ${count} records (${earliest} to ${latest})`)
+  console.log(`✅ Fetched ${count} records (file spans ${fileEarliest} to ${fileLatest})`)
 
   return { records, summary }
 }

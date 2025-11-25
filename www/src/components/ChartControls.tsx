@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 import { DevicesControl } from './DevicesControl'
 import { RangeControl } from './RangeControl'
 import { RangeWidthControl } from './RangeWidthControl'
@@ -29,6 +29,9 @@ interface ChartControlsProps {
   formatFullDate: (date: Date) => string
   latestModeIntended: boolean
   setLatestModeIntended: (value: boolean) => void
+  setDuration?: (duration: number) => void
+  timeRange?: { timestamp: Date | null; duration: number }
+  setTimeRange?: (range: { timestamp: Date | null; duration: number }) => void
   getActiveTimeRange: () => string
   handleTimeRangeClick: (hours: number) => void
   setRangeByWidth: (hours: number, centerTime?: Date) => void
@@ -60,6 +63,9 @@ export function ChartControls({
   formatFullDate,
   latestModeIntended,
   setLatestModeIntended,
+  setDuration,
+  timeRange,
+  setTimeRange,
   getActiveTimeRange,
   handleTimeRangeClick,
   setRangeByWidth,
@@ -105,17 +111,13 @@ export function ChartControls({
   }
 
   const handleAllButtonClick = () => {
-    if (data.length > 0) {
-      // Explicitly set range to full data bounds
-      const fullRange: [string, string] = [
-        formatForPlotly(new Date(data[data.length - 1].timestamp)),
-        formatForPlotly(new Date(data[0].timestamp))
-      ]
-      setXAxisRange(fullRange)
-      setHasSetDefaultRange(true)
-      setLatestModeIntended(true)
-    } else {
-      setXAxisRange(null)
+    if (summary?.earliest && summary?.latest) {
+      const earliest = new Date(summary.earliest)
+      const latest = new Date(summary.latest)
+      const durationMs = latest.getTime() - earliest.getTime()
+      const hours = durationMs / (1000 * 60 * 60)
+      // Use the same code path as other time range buttons
+      handleTimeRangeClick(hours)
     }
   }
 
