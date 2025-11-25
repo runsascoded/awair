@@ -45,7 +45,7 @@ export function DevicesControl({
 
   return (
     <div className="control-group devices-section">
-      <div className="devices-header">
+      <div className="header devices-header">
         <label className="unselectable">Devices:</label>
         <Tooltip content={isMultiDevice
           ? "Configure how multiple devices are visually distinguished: HSV color nudging, dashed lines, or no distinction"
@@ -117,14 +117,14 @@ export function DevicesControl({
         </Tooltip>
       </div>
 
-      <div className="device-checkboxes">
+      <div className="body device-checkboxes">
         {devices.map((device) => {
           const isChecked = selectedDeviceIds.includes(device.deviceId)
           const isDisabled = !isChecked && selectedDeviceIds.length >= MAX_SELECTED_DEVICES
           return (
             <label
               key={device.deviceId}
-              className={`device-checkbox ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}`}
+              className={`device ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}`}
             >
               <input
                 type="checkbox"
@@ -141,7 +141,7 @@ export function DevicesControl({
                   }
                 }}
               />
-              <span className="device-name">{device.name}</span>
+              <span className="name">{device.name}</span>
             </label>
           )
         })}

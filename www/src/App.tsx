@@ -8,7 +8,7 @@ import { useDevices } from './hooks/useDevices'
 import { useMultiDeviceData } from './hooks/useMultiDeviceData'
 import { queryClient } from './lib/queryClient'
 import { deviceIdsParam, timeRangeParam } from './lib/urlParams'
-import './App.css'
+import './App.scss'
 
 function AppContent() {
   const { devices } = useDevices()

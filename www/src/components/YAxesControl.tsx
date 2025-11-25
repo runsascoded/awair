@@ -18,31 +18,13 @@ export function YAxesControl({
 }: YAxesControlProps) {
   return (
     <div className="control-group yaxes-group">
-      <div className="yaxes-header">
+      {/* Row 1: Label only */}
+      <div className="header yaxes-header">
         <label className="unselectable">Y-axes:</label>
-        {isMobile ? (
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={yAxisFromZero}
-              onChange={(e) => setYAxisFromZero(e.target.checked)}
-            />
-            <span>≥0</span>
-          </label>
-        ) : (
-          <Tooltip content="Start Y-axes from zero (Keyboard: z)">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={yAxisFromZero}
-                onChange={(e) => setYAxisFromZero(e.target.checked)}
-              />
-              <span>≥0</span>
-            </label>
-          </Tooltip>
-        )}
       </div>
-      <div className="yaxes-controls">
+
+      {/* Row 2: Metric dropdowns */}
+      <div className="body yaxes-controls">
         <div className="metric-select">
           {isMobile ? (
             <select value={l.val} onChange={(e) => l.set(e.target.value as any)}>
@@ -80,6 +62,31 @@ export function YAxesControl({
             </Tooltip>
           )}
         </div>
+      </div>
+
+      {/* Row 3: From-zero checkbox */}
+      <div className="footer yaxes-footer">
+        {isMobile ? (
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={yAxisFromZero}
+              onChange={(e) => setYAxisFromZero(e.target.checked)}
+            />
+            <span>≥0</span>
+          </label>
+        ) : (
+          <Tooltip content="Start Y-axes from zero (Keyboard: z)">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={yAxisFromZero}
+                onChange={(e) => setYAxisFromZero(e.target.checked)}
+              />
+              <span>≥0</span>
+            </label>
+          </Tooltip>
+        )}
       </div>
     </div>
   )

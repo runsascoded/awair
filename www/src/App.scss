@@ -1,3 +1,42 @@
+// Debug mixin - comment/uncomment to toggle debug borders
+@mixin debug-border {
+  //border: 1px solid red;
+}
+
+@mixin control {
+  height: 1.6rem;
+  font-size: 0.85rem;
+}
+
+// Common chip/button styles used across controls
+@mixin chip {
+  padding: 0.1rem 0.4rem;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1.5;
+  @include control;
+
+  &:hover:not(.disabled) {
+    background: #e9ecef;
+    border-color: #adb5bd;
+  }
+
+  &.active {
+    background: #3498db;
+    border-color: #3498db;
+    color: white;
+    font-weight: 600;
+
+    &:hover {
+      background: #2980b9;
+      border-color: #2980b9;
+    }
+  }
+}
+
 /* Reset and base styles */
 * {
   margin: 0;
@@ -465,10 +504,31 @@ footer p {
 }
 
 .control-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  display: grid;
+  grid-template-rows: 1.5rem auto 1.5rem;
+  gap: 0.25rem;
   flex: 0 0 auto;
+  align-items: center;
+  .header {
+    display: flex;
+    align-items: center;
+    height: 1.5rem;
+    margin-bottom: 0;
+    @include debug-border;
+  }
+  .body {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    @include debug-border;
+    max-height: 2rem;
+  }
+  .footer {
+    display: flex;
+    align-items: center;
+    height: 1.5rem;
+    @include debug-border;
+  }
 }
 
 .control-group.metrics-group {
@@ -478,22 +538,18 @@ footer p {
 }
 
 .control-group.yaxes-group {
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.yaxes-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  /* Inherits grid layout from .control-group */
 }
 
 .yaxes-controls {
-  display: flex;
-  flex-direction: row;
-  gap: 0.5rem;
   flex-wrap: wrap;
-  align-items: center;
+  select {
+    padding: 0.1rem 0;
+    border-width: 1px;
+    line-height: 1.5;
+    box-sizing: border-box;
+    @include control;
+  }
 }
 
 .metric-select {
@@ -519,19 +575,13 @@ footer p {
 }
 
 .control-group select {
-  padding: 0.35rem 0.35rem;
+  //padding: 0.35rem 0.35rem;
   border: 2px solid #e9ecef;
   border-radius: 4px;
   background: white;
   font-size: 0.9rem;
   min-width: 0;
   cursor: pointer;
-}
-
-.yaxes-controls select {
-  padding: 0.3rem 0.3rem;
-  border-width: 1px;
-  font-size: 0.85rem;
 }
 
 .checkbox-label {
@@ -573,88 +623,49 @@ footer p {
 
 /* Device checkboxes */
 .device-checkboxes {
-  display: flex;
-  gap: 0.75rem;
   flex-wrap: wrap;
-}
 
-.device-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.6rem;
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: all 0.2s;
-}
+  .device {
+    @include chip;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
 
-.device-checkbox:hover:not(.disabled) {
-  background: #e9ecef;
-  border-color: #adb5bd;
-}
+    &.checked {
+      background: var(--accent-tertiary);
+      border-color: var(--accent-primary);
+    }
 
-.device-checkbox.checked {
-  background: var(--accent-tertiary);
-  border-color: var(--accent-primary);
-}
+    &.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
 
-.device-checkbox.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+    input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      cursor: inherit;
+    }
 
-.device-checkbox input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
-  cursor: inherit;
-}
-
-.device-checkbox .device-name {
-  color: var(--text-primary);
-  font-weight: 500;
+    .name {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+  }
 }
 
 .time-range-buttons {
-  display: flex;
-  gap: 0.25rem;
-}
+  button {
+    @include chip;
+    font-weight: 500;
+    color: #495057;
 
-.time-range-buttons button {
-  padding: 0.2rem 0.4rem;
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: #495057;
-  transition: all 0.2s;
-}
-
-.time-range-buttons button:hover {
-  background: #e9ecef;
-  border-color: #adb5bd;
-}
-
-.time-range-buttons button:active {
-  background: #3498db;
-  border-color: #3498db;
-  color: white;
-}
-
-.time-range-buttons button.active {
-  background: #3498db;
-  border-color: #3498db;
-  color: white;
-  font-weight: 600;
-}
-
-.time-range-buttons button.active:hover {
-  background: #2980b9;
-  border-color: #2980b9;
+    &:active {
+      background: #3498db;
+      border-color: #3498db;
+      color: white;
+    }
+  }
 }
 
 .chart-status {
@@ -667,69 +678,27 @@ footer p {
 }
 
 
-.control-group.range-group {
-  flex-direction: column;
+.range-header-row {
   gap: 0.5rem;
-}
+  justify-content: space-between;
 
-.range-label-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  .latest {
+    @include chip;
+    font-weight: 500;
+    color: #495057;
+  }
 }
 
 .range-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
+  .display {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    cursor: help;
+  }
 
-.range-header-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  justify-content: space-between;
-  margin-bottom: 0.25rem;
-}
-
-.latest-button {
-  padding: 0.2rem 0.4rem;
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: #495057;
-  transition: all 0.2s;
-}
-
-.latest-button:hover {
-  background: #e9ecef;
-  border-color: #adb5bd;
-}
-
-.latest-button.active {
-  background: #3498db;
-  border-color: #3498db;
-  color: white;
-  font-weight: 600;
-}
-
-.latest-button.active:hover {
-  background: #2980b9;
-  border-color: #2980b9;
-}
-
-.range-display {
-  font-size: 0.9rem;
-  color: var(--text-primary);
-  cursor: help;
-}
-
-.range-separator {
-  color: var(--text-secondary);
-  margin: 0 0;
+  .separator {
+    color: var(--text-secondary);
+  }
 }
 
 /* Mobile touch optimization */
@@ -881,10 +850,7 @@ footer p {
 }
 
 .devices-header {
-  display: flex;
-  align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.25rem;
 }
 
 .render-settings-details {
