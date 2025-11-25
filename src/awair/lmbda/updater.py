@@ -75,6 +75,12 @@ def update_s3_data():
                 # Fetch new data (10 minutes into future to ensure we get latest)
                 to_dt = datetime.now(timezone.utc) + timedelta(minutes=10)
 
+                # Check for test mode (limit API requests)
+                max_requests = None
+                if os.getenv('AWAIR_TEST_MODE'):
+                    max_requests = int(os.getenv('AWAIR_TEST_MAX_REQUESTS', '1'))
+                    print(f'Test mode: limiting to {max_requests} API request(s)')
+
                 # Use fetch_date_range for automatic pagination/backfill
                 inserted = fetch_date_range(
                     from_str=from_dt.isoformat(),
@@ -83,6 +89,7 @@ def update_s3_data():
                     sleep_s=0.0,  # No sleep needed in Lambda
                     storage=storage,
                     log=print,  # Use print for CloudWatch logs
+                    max_requests=max_requests,
                 )
 
                 return inserted

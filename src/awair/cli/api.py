@@ -122,11 +122,15 @@ def fetch_date_range(
     sleep_s: float,
     storage: ParquetStorage | None,
     log=None,
+    max_requests: int | None = None,
 ) -> int:
     """Fetch data across a date range using adaptive chunking based on actual data returned.
 
     When storage has conflict_action='replace', the entire time range is deleted first
     to ensure a clean replacement of data.
+
+    Args:
+        max_requests: Maximum number of API requests to make (None = unlimited)
 
     Returns total number of inserted records.
     """
@@ -150,6 +154,10 @@ def fetch_date_range(
             log(f'Deleted {deleted} existing records in range (replace mode)')
 
     while current_end > start_date:
+        # Check if we've hit the max requests limit
+        if max_requests is not None and total_requests >= max_requests:
+            log(f'Reached maximum request limit ({max_requests} requests)')
+            break
         from_str = start_date.isoformat()
         to_str = current_end.isoformat()
 

@@ -59,6 +59,12 @@ def test_updater():
             print('No AWAIR_TOKEN environment variable or .token file found')
             return
 
+    # Enable test mode to limit API requests (default: 1 request)
+    if not os.environ.get('AWAIR_TEST_MODE'):
+        os.environ['AWAIR_TEST_MODE'] = '1'
+        if not os.environ.get('AWAIR_TEST_MAX_REQUESTS'):
+            os.environ['AWAIR_TEST_MAX_REQUESTS'] = '1'
+
     # Import and test the updater
     from .updater import lambda_handler
 
