@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React from 'react'
 import { DevicesControl } from './DevicesControl'
 import { RangeControl } from './RangeControl'
 import { RangeWidthControl } from './RangeWidthControl'
@@ -63,9 +63,6 @@ export function ChartControls({
   formatFullDate,
   latestModeIntended,
   setLatestModeIntended,
-  setDuration,
-  timeRange,
-  setTimeRange,
   getActiveTimeRange,
   handleTimeRangeClick,
   setRangeByWidth,

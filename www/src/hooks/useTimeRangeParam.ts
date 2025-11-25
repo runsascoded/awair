@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from 'react'
-import { timeRangeParam } from '../lib/urlParams'
 import type { AwairRecord } from '../types/awair'
 
 /**

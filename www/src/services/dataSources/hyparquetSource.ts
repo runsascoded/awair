@@ -43,7 +43,7 @@ export class HyparquetSource implements DataSource {
 
     // Calculate row range to fetch
     // Assume data is sorted newest-to-oldest, so latest data is at the beginning
-    let rowStart = 0
+    const rowStart = 0
     let rowEnd = Math.min(expectedRows, totalRows)
 
     // If file has only 1 row group, or expecting most/all rows, fetch everything
