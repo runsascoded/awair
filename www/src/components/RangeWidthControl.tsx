@@ -1,10 +1,17 @@
 import React from 'react'
 import { Tooltip } from './Tooltip'
+import type { DataSummary } from '../types/awair'
 
 interface RangeWidthControlProps {
   getActiveTimeRange: () => string
   handleTimeRangeButtonClick: (hours: number) => void
   handleAllButtonClick: () => void
+  latestModeIntended: boolean
+  handleLatestButtonClick: () => void
+  xAxisRange: [string, string] | null
+  formatCompactDate: (date: Date) => string
+  formatFullDate: (date: Date) => string
+  summary: DataSummary | null
   isMobile: boolean
 }
 
@@ -20,17 +27,45 @@ export function RangeWidthControl({
   getActiveTimeRange,
   handleTimeRangeButtonClick,
   handleAllButtonClick,
+  latestModeIntended,
+  handleLatestButtonClick,
+  xAxisRange,
+  formatCompactDate,
+  formatFullDate,
+  summary: _summary,
   isMobile
 }: RangeWidthControlProps) {
   return (
     <div className="control-group range-width-section">
-      {isMobile ? (
-        <label className="unselectable">Range Width:</label>
-      ) : (
-        <Tooltip content="Keyboard: 1=1day, 3=3days, 7=7days, 2=14days(2wk), m=30days, a=All">
-          <label className="unselectable">Range Width:</label>
-        </Tooltip>
-      )}
+      {/* Row 1: Label and Latest button */}
+      <div className="range-header-row">
+        {isMobile ? (
+          <label className="unselectable">Range:</label>
+        ) : (
+          <Tooltip content="Keyboard: 1=1day, 3=3days, 7=7days, 2=14days(2wk), m=30days, a=All">
+            <label className="unselectable">Range:</label>
+          </Tooltip>
+        )}
+        {isMobile ? (
+          <button
+            className={`unselectable latest-button ${latestModeIntended ? 'active' : ''}`}
+            onClick={handleLatestButtonClick}
+          >
+            Latest
+          </button>
+        ) : (
+          <Tooltip content="Jump to latest data and auto-follow new data (Keyboard: l)">
+            <button
+              className={`unselectable latest-button ${latestModeIntended ? 'active' : ''}`}
+              onClick={handleLatestButtonClick}
+            >
+              Latest
+            </button>
+          </Tooltip>
+        )}
+      </div>
+
+      {/* Row 2: Duration buttons */}
       <div className="time-range-buttons">
         {timeRangeButtons.map(({ label, hours }) => (
           <button
@@ -47,6 +82,21 @@ export function RangeWidthControl({
         >
           All
         </button>
+      </div>
+
+      {/* Row 3: Current range display */}
+      <div className="range-info">
+        {xAxisRange ? (
+          <Tooltip content={`${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`}>
+            <div className="range-display">
+              <span className="range-start">{formatCompactDate(new Date(xAxisRange[0]))}</span>
+              <span className="range-separator"> → </span>
+              <span className="range-end">{formatCompactDate(new Date(xAxisRange[1]))}</span>
+            </div>
+          </Tooltip>
+        ) : (
+          <span className="range-display">All data</span>
+        )}
       </div>
     </div>
   )
