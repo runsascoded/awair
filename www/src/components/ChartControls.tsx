@@ -128,7 +128,7 @@ export function ChartControls({
   }
 
   return (
-    <div className="chart-controls">
+    <div className="controls">
       <DevicesControl
         devices={devices}
         selectedDeviceIds={selectedDeviceIds}

@@ -96,7 +96,7 @@ function AppContent() {
         {/* Show loading overlay when switching devices (data exists but new data loading) */}
         {loading && combinedData.length > 0 && (
           <div className="loading-overlay">
-            <div className="loading-spinner" />
+            <div className="spinner" />
           </div>
         )}
         {combinedData.length > 0 && (

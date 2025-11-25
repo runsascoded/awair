@@ -62,10 +62,11 @@ export function DevicesControl({
                   <select
                     value={deviceRenderStrategy}
                     onChange={(e) => setDeviceRenderStrategy(e.target.value as DeviceRenderStrategy)}
+                    title="How to visually distinguish different devices"
                   >
-                    <option value="hsv-nudge">HSV Nudge</option>
-                    <option value="dash">Dashed</option>
-                    <option value="none">None</option>
+                    <option value="hsv-nudge" title="Shift hue/saturation/lightness for each device">HSV Nudge</option>
+                    <option value="dash" title="Use dashed lines for secondary devices">Dashed</option>
+                    <option value="none" title="No visual distinction between devices">None</option>
                   </select>
                 </div>
 

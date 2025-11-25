@@ -142,7 +142,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
 
   return (
     <div className="data-table">
-      <div className="table-header">
+      <div className="header">
         <h3>{isRawData ? 'Raw Data' : 'Aggregated Data'}</h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -194,7 +194,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               globalEndIdx >= totalDataCount
               }
               title="Oldest data"
-              className="pagination-btn"
+              className="btn"
             >
               <i className="fas fa-angles-left"></i>
             </button>
@@ -202,7 +202,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               onClick={() => handlePageChange(Math.min(totalPages - 1, page + 1))}
               disabled={page >= totalPages - 1 || globalEndIdx >= totalDataCount}
               title="Older data"
-              className="pagination-btn"
+              className="btn"
             >
               <i className="fas fa-angle-left"></i>
             </button>
@@ -222,7 +222,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               }}
               disabled={page === 0 && globalStartIdx <= 20}
               title="Newer data"
-              className="pagination-btn"
+              className="btn"
             >
               <i className="fas fa-angle-right"></i>
             </button>
@@ -239,7 +239,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               }}
               disabled={page === 0 && globalStartIdx <= 20}
               title="Jump to Latest"
-              className="pagination-btn"
+              className="btn"
             >
               <i className="fas fa-angles-right"></i>
             </button>
@@ -247,7 +247,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
         </div>
       </div>
 
-      <div className="table-container">
+      <div className="container">
         <table>
           <thead>
             <tr>

@@ -712,7 +712,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       />
 
       <Tooltip content={`Window size adapts automatically to zoom level. Drag to pan, wheel to zoom, double-click to show all data.${summary ? ` | Total records: ${summary.count.toLocaleString()}` : ''}`}>
-        <div className="chart-status">
+        <div className="status">
           Showing {maxWindowCount} {selectedWindow.label} windows
         </div>
       </Tooltip>
