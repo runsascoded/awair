@@ -11,17 +11,17 @@
 // Common chip/button styles used across controls
 @mixin chip {
   padding: 0.1rem 0.4rem;
-  background: var(--bg-tertiary);
+  background: var(--bg-control);
   border: 1px solid var(--border-secondary);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
   line-height: 1.5;
-  color: var(--text-primary);
+  color: var(--text-control);
   @include control;
 
   &:hover:not(.disabled) {
-    background: var(--border-tertiary);
+    filter: brightness(0.95);
     border-color: var(--text-secondary);
   }
 
@@ -50,9 +50,11 @@
   --bg-primary: #f5f7fa;
   --bg-secondary: #ffffff;
   --bg-tertiary: #f8f9fa;
+  --bg-control: #f8f9fa;
   --text-primary: #333333;
   --text-secondary: #7f8c8d;
   --text-tertiary: #2c3e50;
+  --text-control: #495057;
   --border-primary: #ecf0f1;
   --border-secondary: #dee2e6;
   --border-tertiary: #e9ecef;
@@ -71,9 +73,11 @@
   --bg-primary: #1a1a1a;
   --bg-secondary: #2d2d2d;
   --bg-tertiary: #3a3a3a;
+  --bg-control: #e8e8e8;
   --text-primary: #e0e0e0;
   --text-secondary: #b0b0b0;
   --text-tertiary: #ffffff;
+  --text-control: #333333;
   --border-primary: #404040;
   --border-secondary: #505050;
   --border-tertiary: #606060;
@@ -409,9 +413,10 @@ footer {
   }
 
   select {
-    border: 2px solid var(--border-tertiary);
+    border: 1px solid var(--border-secondary);
     border-radius: 4px;
-    background: var(--bg-secondary);
+    background: var(--bg-control);
+    color: var(--text-control);
     font-size: 0.9rem;
     min-width: 0;
     cursor: pointer;
