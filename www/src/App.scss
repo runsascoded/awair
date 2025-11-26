@@ -11,28 +11,29 @@
 // Common chip/button styles used across controls
 @mixin chip {
   padding: 0.1rem 0.4rem;
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
   line-height: 1.5;
+  color: var(--text-primary);
   @include control;
 
   &:hover:not(.disabled) {
-    background: #e9ecef;
-    border-color: #adb5bd;
+    background: var(--border-tertiary);
+    border-color: var(--text-secondary);
   }
 
   &.active {
-    background: #3498db;
-    border-color: #3498db;
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
     color: white;
     font-weight: 600;
 
     &:hover {
-      background: #2980b9;
-      border-color: #2980b9;
+      background: var(--accent-secondary);
+      border-color: var(--accent-secondary);
     }
   }
 }
