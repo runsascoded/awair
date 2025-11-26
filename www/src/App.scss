@@ -235,7 +235,7 @@ main {
   overflow: hidden;
   transition: background-color 0.3s ease;
 
-  .header {
+  > .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -248,7 +248,7 @@ main {
     }
   }
 
-  .container {
+  > .container {
     overflow-x: auto;
   }
 }
@@ -346,11 +346,11 @@ footer {
   overflow: hidden;
   transition: background-color 0.3s ease;
 
-  .plot-container {
+  > .plot-container {
     min-height: 300px;
   }
 
-  .header {
+  > .header {
     padding: 2rem;
     border-bottom: 1px solid var(--border-primary);
 
@@ -366,7 +366,7 @@ footer {
     }
   }
 
-  .controls {
+  > .controls {
     display: flex;
     gap: 1.5rem;
     align-items: flex-start;
