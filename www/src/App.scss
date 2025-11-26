@@ -373,6 +373,26 @@ footer {
     flex-wrap: wrap;
     padding: 0 1rem;
   }
+
+  > .container {
+    padding: 0.5rem 0.5rem 1rem;
+    display: flex;
+    justify-content: center;
+    // Mobile touch optimization
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+  }
+
+  > .status {
+    padding: 0.5rem 2rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-align: center;
+    cursor: help;
+  }
 }
 
 .control-group {
@@ -381,6 +401,10 @@ footer {
   gap: 0.25rem;
   flex: 0 0 auto;
   align-items: center;
+
+  &.no-footer {
+    grid-template-rows: 1.5rem auto;
+  }
 
   .header {
     display: flex;
@@ -473,26 +497,6 @@ footer {
       align-items: center;
     }
   }
-}
-
-.awair-chart .container {
-  padding: 0.5rem 0.5rem 1rem;
-  display: flex;
-  justify-content: center;
-  // Mobile touch optimization
-  touch-action: manipulation;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  user-select: none;
-}
-
-.awair-chart .status {
-  padding: 0.5rem 2rem;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  text-align: center;
-  cursor: help;
 }
 
 .info-text {
@@ -611,6 +615,25 @@ footer {
         background: var(--bg-secondary);
         color: var(--text-primary);
       }
+
+      .strategy-help {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.2rem;
+        height: 1.2rem;
+        border-radius: 50%;
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: help;
+
+        &:hover {
+          background: var(--accent-primary);
+          color: white;
+        }
+      }
     }
 
     .setting-value {
@@ -681,7 +704,7 @@ footer {
     }
   }
 
-  .data-table .header {
+  .data-table > .header {
     flex-direction: column;
     gap: 1rem;
     align-items: stretch;
@@ -712,7 +735,7 @@ footer {
     justify-content: center;
 
     button {
-      min-width: 40px;
+      min-width: 30px;
     }
   }
 }
