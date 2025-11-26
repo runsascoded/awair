@@ -631,7 +631,6 @@ footer {
     .latest {
       @include chip;
       font-weight: 500;
-      color: var(--text-primary);
     }
   }
 
@@ -639,7 +638,6 @@ footer {
     button {
       @include chip;
       font-weight: 500;
-      color: var(--text-primary);
 
       &:active {
         background: var(--accent-primary);
