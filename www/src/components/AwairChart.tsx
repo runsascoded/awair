@@ -320,20 +320,26 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   }, [])
 
   // Theme-aware plot colors
-  const [plotColors, setPlotColors] = useState(() => ({
-    gridcolor: getComputedStyle(document.documentElement).getPropertyValue('--plot-grid').trim() || '#ddd',
-    plotBg: getComputedStyle(document.documentElement).getPropertyValue('--plot-bg').trim() || 'white',
-    legendBg: getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || 'white',
-    textColor: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333'
-  }))
+  const [plotColors, setPlotColors] = useState(() => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+    return {
+      gridcolor: getComputedStyle(document.documentElement).getPropertyValue('--plot-grid').trim() || '#ddd',
+      plotBg: getComputedStyle(document.documentElement).getPropertyValue('--plot-bg').trim() || 'white',
+      legendBg: getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || 'white',
+      textColor: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333',
+      spikeColor: isDark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)',
+    }
+  })
 
   useEffect(() => {
     const updatePlotColors = () => {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
       setPlotColors({
         gridcolor: getComputedStyle(document.documentElement).getPropertyValue('--plot-grid').trim() || '#ddd',
         plotBg: getComputedStyle(document.documentElement).getPropertyValue('--plot-bg').trim() || 'white',
         legendBg: getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || 'white',
-        textColor: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333'
+        textColor: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333',
+        spikeColor: isDark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)',
       })
     }
 
@@ -682,6 +688,12 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
               linecolor: plotColors.gridcolor,
               zerolinecolor: plotColors.gridcolor,
               hoverformat: '',
+              // Spike line (vertical line at hover position)
+              showspikes: true,
+              spikemode: 'across',
+              spikethickness: 0.5,
+              spikecolor: plotColors.spikeColor,
+              spikedash: 'solid',
               // Use custom format for unified hover title - this overrides tick labels in hover
               // Cast needed because unifiedhovertitle isn't in @types/plotly.js yet
               ...({ unifiedhovertitle: { text: '%{x|%b %-d, %-I:%M%p}' } } as object),
