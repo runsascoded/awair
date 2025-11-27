@@ -540,7 +540,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     }
 
     // PRIMARY METRIC traces for all devices (grouped together in hover)
-    deviceData.forEach(d => {
+    deviceData.forEach((d, idx) => {
+      // First device gets metric header in hover
+      const metricHeader = idx === 0 ? `<b>${config.label} (${config.unit})</b><br>` : ''
       traces.push({
         x: d.timestamps,
         y: d.avgValues,
@@ -550,21 +552,23 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         legendgroup: 'primary',
         zorder: 10,
         ...(isRawData ? {
-          hovertemplate: `%{y:.1f} ${config.unit}<extra>${d.deviceName} ${config.label}</extra>`
+          hovertemplate: `${metricHeader}${d.deviceName}: %{y:.1f}<extra></extra>`
         } : {
           customdata: d.devData.map((rec, i) => ([
             d.stddevValues[i],
             rec.count
           ])),
-          hovertemplate: `%{y:.1f} ±%{customdata[0]:.1f} ${config.unit} (n=%{customdata[1]})<extra>${d.deviceName} ${config.label}</extra>`
+          hovertemplate: `${metricHeader}${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
         })
       })
     })
 
     // SECONDARY METRIC traces for all devices (grouped together in hover)
     if (secondaryConfig) {
-      deviceData.forEach(d => {
+      deviceData.forEach((d, idx) => {
         if (d.secondaryLineProps) {
+          // First device gets metric header in hover
+          const metricHeader = idx === 0 ? `<b>${secondaryConfig.label} (${secondaryConfig.unit})</b><br>` : ''
           traces.push({
             x: d.timestamps,
             y: d.secondaryAvgValues,
@@ -576,13 +580,13 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             yaxis: 'y2',
             zorder: 1,
             ...(isRawData ? {
-              hovertemplate: `%{y:.1f} ${secondaryConfig.unit}<extra>${d.deviceName} ${secondaryConfig.label}</extra>`
+              hovertemplate: `${metricHeader}${d.deviceName}: %{y:.1f}<extra></extra>`
             } : {
               customdata: d.devData.map((rec, i) => ([
                 d.secondaryStddevValues[i],
                 rec.count
               ])),
-              hovertemplate: `%{y:.1f} ±%{customdata[0]:.1f} ${secondaryConfig.unit} (n=%{customdata[1]})<extra>${d.deviceName} ${secondaryConfig.label}</extra>`
+              hovertemplate: `${metricHeader}${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
             })
           })
         }
