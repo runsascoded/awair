@@ -484,10 +484,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       const d = deviceData[0]
       traces.push({
         x: d.timestamps,
-        y: d.avgValues.map(() => null),  // No visible data
+        y: d.avgValues,  // Use real y-values so hover triggers
         mode: 'lines',
-        line: { color: 'transparent', width: 0 },
-        name: `${config.label} header`,
+        line: { color: 'rgba(0,0,0,0)', width: 0 },
         showlegend: false,
         hovertemplate: `<b>${config.label} (${config.unit})</b><extra></extra>`
       })
@@ -520,10 +519,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       const d = deviceData[0]
       traces.push({
         x: d.timestamps,
-        y: d.secondaryAvgValues.map(() => null),  // No visible data
+        y: d.secondaryAvgValues,  // Use real y-values so hover triggers
         mode: 'lines',
-        line: { color: 'transparent', width: 0 },
-        name: `${secondaryConfig.label} header`,
+        line: { color: 'rgba(0,0,0,0)', width: 0 },
         showlegend: false,
         yaxis: 'y2',
         hovertemplate: `<b>${secondaryConfig.label} (${secondaryConfig.unit})</b><extra></extra>`
