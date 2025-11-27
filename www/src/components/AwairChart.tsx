@@ -479,10 +479,22 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       }
     })
 
+    // Header trace for primary metric (invisible, just for hover alignment)
+    if (deviceData.length > 0) {
+      const d = deviceData[0]
+      traces.push({
+        x: d.timestamps,
+        y: d.avgValues.map(() => null),  // No visible data
+        mode: 'lines',
+        line: { color: 'transparent', width: 0 },
+        name: `${config.label} header`,
+        showlegend: false,
+        hovertemplate: `<b>${config.label} (${config.unit})</b><extra></extra>`
+      })
+    }
+
     // PRIMARY METRIC traces for all devices (grouped together in hover)
-    deviceData.forEach((d, idx) => {
-      // First device gets metric header in hover
-      const metricHeader = idx === 0 ? `<b>${config.label} (${config.unit})</b><br>` : ''
+    deviceData.forEach((d) => {
       traces.push({
         x: d.timestamps,
         y: d.avgValues,
@@ -492,23 +504,36 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         legendgroup: 'primary',
         zorder: 10,
         ...(isRawData ? {
-          hovertemplate: `${metricHeader}${d.deviceName}: %{y:.1f}<extra></extra>`
+          hovertemplate: `${d.deviceName}: %{y:.1f}<extra></extra>`
         } : {
           customdata: d.devData.map((rec, i) => ([
             d.stddevValues[i],
             rec.count
           ])),
-          hovertemplate: `${metricHeader}${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
+          hovertemplate: `${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
         })
       })
     })
 
+    // Header trace for secondary metric (invisible, just for hover alignment)
+    if (secondaryConfig && deviceData.length > 0) {
+      const d = deviceData[0]
+      traces.push({
+        x: d.timestamps,
+        y: d.secondaryAvgValues.map(() => null),  // No visible data
+        mode: 'lines',
+        line: { color: 'transparent', width: 0 },
+        name: `${secondaryConfig.label} header`,
+        showlegend: false,
+        yaxis: 'y2',
+        hovertemplate: `<b>${secondaryConfig.label} (${secondaryConfig.unit})</b><extra></extra>`
+      })
+    }
+
     // SECONDARY METRIC traces for all devices (grouped together in hover)
     if (secondaryConfig) {
-      deviceData.forEach((d, idx) => {
+      deviceData.forEach((d) => {
         if (d.secondaryLineProps) {
-          // First device gets metric header in hover
-          const metricHeader = idx === 0 ? `<b>${secondaryConfig.label} (${secondaryConfig.unit})</b><br>` : ''
           traces.push({
             x: d.timestamps,
             y: d.secondaryAvgValues,
@@ -520,13 +545,13 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             yaxis: 'y2',
             zorder: 1,
             ...(isRawData ? {
-              hovertemplate: `${metricHeader}${d.deviceName}: %{y:.1f}<extra></extra>`
+              hovertemplate: `${d.deviceName}: %{y:.1f}<extra></extra>`
             } : {
               customdata: d.devData.map((rec, i) => ([
                 d.secondaryStddevValues[i],
                 rec.count
               ])),
-              hovertemplate: `${metricHeader}${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
+              hovertemplate: `${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
             })
           })
         }

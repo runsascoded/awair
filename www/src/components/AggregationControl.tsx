@@ -60,7 +60,7 @@ export function AggregationControl({
         </select>
       </div>
       <div className="footer">
-        <Tooltip content={`Auto mode selects the smallest window that keeps data points around ${targetPoints} (targeting ~4px per point based on chart width).`}>
+        <Tooltip content={`Auto mode selects the smallest window that keeps data points around ${targetPoints} (targeting ≈4px per point).`}>
           <label className="checkbox-label">
             <input
               type="checkbox"
