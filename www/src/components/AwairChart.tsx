@@ -483,7 +483,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       }
     })
 
-    // Header trace for primary metric (invisible, just for hover alignment)
+    // Synthetic header trace for primary metric (invisible line, provides timestamp + metric header in hover)
     if (deviceData.length > 0) {
       const d = deviceData[0]
       traces.push({
@@ -492,7 +492,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         mode: 'lines',
         line: { color: 'rgba(0,0,0,0)', width: 0 },
         showlegend: false,
-        hovertemplate: `<b>${config.label} (${config.unit})</b><extra></extra>`
+        hovertemplate: `%{x|%b %d, %I:%M%p}<br><b>${config.label} (${config.unit})</b><extra></extra>`
       })
     }
 
@@ -518,7 +518,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       })
     })
 
-    // Header trace for secondary metric (invisible, just for hover alignment)
+    // Synthetic header trace for secondary metric (invisible line, provides metric header in hover)
     if (secondaryConfig && deviceData.length > 0) {
       const d = deviceData[0]
       traces.push({
@@ -560,7 +560,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       })
     }
 
-    // Add stddev regions AFTER main traces (so hover color swatches align correctly)
+    // Stddev fill regions (±σ shaded areas) - added after main traces so hover swatches align
     // Use negative zorder to render them behind the lines
     // Primary stddev region (only for first device)
     if (!isRawData && deviceData.length > 0) {
