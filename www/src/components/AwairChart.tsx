@@ -198,17 +198,12 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     }
   }, [autoUpdateRange])
 
-  // Set default Latest mode for new range
+  // Track when we've loaded data for the first time (for hasSetDefaultRange purposes)
   useEffect(() => {
-    if (!hasSetDefaultRange && data.length > 0 && !xAxisRange) {
-      const latestTime = new Date(data[0].timestamp)
-      const earliestTime = new Date(latestTime.getTime() - (24 * 60 * 60 * 1000))
-      const defaultRange: [string, string] = [formatForPlotly(earliestTime), formatForPlotly(latestTime)]
-      setXAxisRange(defaultRange)
+    if (!hasSetDefaultRange && data.length > 0 && xAxisRange) {
       setHasSetDefaultRange(true)
-      setLatestModeIntended(true) // Default view should auto-update
     }
-  }, [data, xAxisRange, hasSetDefaultRange, formatForPlotly, setLatestModeIntended])
+  }, [data, xAxisRange, hasSetDefaultRange])
 
   // Determine which time range button is active
   const getActiveTimeRange = useCallback(() => {
@@ -257,28 +252,14 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // Relayout handler
   const handleRelayout = useCallback((eventData: any) => {
-    if (ignoreNextRelayoutRef.current) {
-      ignoreNextRelayoutRef.current = false
-      return
-    }
-
     if (eventData['xaxis.range[0]'] && eventData['xaxis.range[1]']) {
-      const newStart = new Date(eventData['xaxis.range[0]'])
-      const newEnd = new Date(eventData['xaxis.range[1]'])
-
-      // Clamp to data bounds if we have data
-      if (data.length > 0) {
-        const globalStart = new Date(data[data.length - 1].timestamp)
-        const globalEnd = new Date(data[0].timestamp)
-        const clampedStart = new Date(Math.max(newStart.getTime(), globalStart.getTime()))
-        const clampedEnd = new Date(Math.min(newEnd.getTime(), globalEnd.getTime()))
-
-        const newRange: [string, string] = [formatForPlotly(clampedStart), formatForPlotly(clampedEnd)]
-        setXAxisRange(newRange)
-        checkUserPanAway(clampedEnd)
-      }
+      const newRange: [string, string] = [
+        eventData['xaxis.range[0]'],
+        eventData['xaxis.range[1]']
+      ]
+      setXAxisRange(newRange)
     }
-  }, [data, formatForPlotly, checkUserPanAway])
+  }, [setXAxisRange])
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -512,7 +493,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         line: d.primaryLineProps,
         name: d.legendName || `${config.label} (${config.unit})`,
         legendgroup: 'primary',
-        zorder: 10,
         ...(isRawData ? {
           hovertemplate: `${d.deviceName}: %{y:.1f}<extra></extra>`
         } : {
@@ -552,7 +532,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             legendgroup: 'secondary',
             legend: 'legend2',
             yaxis: 'y2',
-            zorder: 1,
             ...(isRawData ? {
               hovertemplate: `${d.deviceName}: %{y:.1f}<extra></extra>`
             } : {
@@ -568,7 +547,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     }
 
     // Stddev fill regions (±σ shaded areas) - added after main traces so hover swatches align
-    // Use negative zorder to render them behind the lines
     // Primary stddev region (only for first device)
     if (!isRawData && deviceData.length > 0) {
       const d = deviceData[0]
@@ -580,7 +558,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         name: `${config.label} Lower`,
         showlegend: false,
         hoverinfo: 'skip',
-        zorder: -10
       })
       traces.push({
         x: d.timestamps,
@@ -592,7 +569,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         name: `±σ ${config.label}`,
         showlegend: false,
         hoverinfo: 'skip',
-        zorder: -10
       })
     }
 
@@ -608,7 +584,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         showlegend: false,
         hoverinfo: 'skip',
         yaxis: 'y2',
-        zorder: -20
       })
       traces.push({
         x: d.timestamps,
@@ -621,7 +596,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         showlegend: false,
         hoverinfo: 'skip',
         yaxis: 'y2',
-        zorder: -20
       })
     }
 
@@ -675,13 +649,18 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           layout={{
             autosize: true,
             height: isMobile ? 300 : 500,
+            // uirevision keeps pan/zoom state stable during re-renders
+            // Only changes when we explicitly want to reset the view
+            uirevision: 'stable',
             xaxis: {
               type: 'date',
+              // Always set autorange: false to ensure consistent drag behavior
+              // If xAxisRange is null, Plotly will compute a default range
+              autorange: !xAxisRange,
               ...(xAxisRange && { range: xAxisRange }),
               ...(data.length > 0 && {
                 rangeslider: { visible: false },
                 constraintoward: 'center',
-                autorange: false
               }),
               gridcolor: plotColors.gridcolor,
               tickfont: { color: plotColors.textColor },

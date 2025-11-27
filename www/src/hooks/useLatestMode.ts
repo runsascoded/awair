@@ -24,14 +24,6 @@ export function useLatestMode(
 
     // Only auto-update if we have genuinely NEW data (timestamp changed)
     const hasNewData = latestTimestamp !== prevLatestTimestamp.current
-    console.log('📈 Chart auto-update check:', {
-      dataLength: data.length,
-      hasRange: !!xAxisRange,
-      latestTimestamp,
-      prevLatestTimestamp: prevLatestTimestamp.current,
-      hasNewData,
-      latestModeIntended
-    })
 
     if (!hasNewData) {
       return null // No new data, don't auto-update
@@ -40,20 +32,12 @@ export function useLatestMode(
     const currentLatestTime = new Date(latestTimestamp)
     const currentRangeEnd = new Date(xAxisRange[1])
 
-    console.log('📈 Checking for new data range update:', {
-      currentLatest: currentLatestTime.toISOString(),
-      currentRangeEnd: currentRangeEnd.toISOString(),
-      shouldUpdate: currentLatestTime > currentRangeEnd
-    })
-
     // Check if we have new data that's newer than current range end
     // Use a tolerance to avoid precision issues with formatForPlotly truncating milliseconds
     const timeDiffMs = currentLatestTime.getTime() - currentRangeEnd.getTime()
-    console.log('📈 Time diff check:', { timeDiffMs, threshold: 60000 })
 
     // Only update if there's more than 1 minute of new data to avoid constant updates
-    if (timeDiffMs > 60000) { // 1 minute threshold instead of 1 second
-      console.log('📈 Updating chart range for new data')
+    if (timeDiffMs > 60000) {
       const rangeStart = new Date(xAxisRange[0])
       const rangeWidth = currentRangeEnd.getTime() - rangeStart.getTime()
       const newStart = new Date(currentLatestTime.getTime() - rangeWidth)
@@ -75,7 +59,6 @@ export function useLatestMode(
 
       // Disable Latest mode if user panned more than 10 minutes away from latest data
       if (timeDiffMinutes > 10) {
-        console.log('📈 User panned away from latest, disabling auto-update')
         setLatestModeIntended(false)
       }
     }

@@ -85,8 +85,9 @@ export function ChartControls({
   setLatestModeIntended,
   getActiveTimeRange,
   handleTimeRangeClick,
-  setRangeByWidth,
+  setRangeByWidth: _setRangeByWidth,
   setIgnoreNextPanCheck,
+  setDuration,
   devices,
   selectedDeviceIds,
   onDeviceSelectionChange,
@@ -106,10 +107,10 @@ export function ChartControls({
     if (activeRange.startsWith('latest-') || activeRange === 'all') {
       // Stay anchored to latest
       handleTimeRangeClick(hours)
-    } else if (xAxisRange && data.length > 0) {
-      // Preserve current center
-      const currentCenter = new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2)
-      setRangeByWidth(hours, currentCenter)
+    } else if (xAxisRange && data.length > 0 && setDuration) {
+      // Keep end time fixed, set requested duration (data fetch will get enough data)
+      const durationMs = hours * 60 * 60 * 1000
+      setDuration(durationMs)
     } else {
       handleTimeRangeClick(hours)
     }

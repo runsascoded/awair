@@ -1,11 +1,30 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useState, useRef } from 'react'
 import type { AwairRecord } from '../types/awair'
+
+/**
+ * Compute xAxisRange from data and timeRange
+ */
+function computeRange(
+  data: AwairRecord[],
+  timeRange: { timestamp: Date | null; duration: number },
+  formatForPlotly: (date: Date) => string
+): [string, string] | null {
+  if (data.length === 0) return null
+
+  let endTime: Date
+  if (timeRange.timestamp === null) {
+    endTime = new Date(data[0].timestamp)
+  } else {
+    endTime = timeRange.timestamp
+  }
+  const startTime = new Date(endTime.getTime() - timeRange.duration)
+  return [formatForPlotly(startTime), formatForPlotly(endTime)]
+}
 
 /**
  * Hook for managing time range state
  *
- * Converts between TimeRange (timestamp + duration) and xAxisRange ([start, end])
- * for backwards compatibility with existing chart code
+ * Simple approach: xAxisRange is stored directly, synced to URL via timeRange
  */
 export function useTimeRangeParam(
   data: AwairRecord[],
@@ -13,72 +32,98 @@ export function useTimeRangeParam(
   timeRange: { timestamp: Date | null; duration: number },
   setTimeRange: (range: { timestamp: Date | null; duration: number }) => void
 ) {
+  // Compute initial range synchronously to avoid null -> range transition
+  const [xAxisRange, setXAxisRangeState] = useState<[string, string] | null>(
+    () => computeRange(data, timeRange, formatForPlotly)
+  )
 
-  // Convert TimeRange to xAxisRange format
-  const xAxisRange = useMemo((): [string, string] | null => {
-    if (data.length === 0) return null
+  // Track if we've initialized (to handle case where data wasn't ready on first render)
+  const initializedRef = useRef(xAxisRange !== null)
 
-    // Latest mode: use latest data timestamp as end
-    if (timeRange.timestamp === null) {
-      const latestTime = new Date(data[0].timestamp)
-      const earliestTime = new Date(latestTime.getTime() - timeRange.duration)
-      return [formatForPlotly(earliestTime), formatForPlotly(latestTime)]
+  // If we didn't have data on first render, initialize now
+  if (!initializedRef.current && data.length > 0) {
+    const range = computeRange(data, timeRange, formatForPlotly)
+    if (range) {
+      initializedRef.current = true
+      setXAxisRangeState(range)
     }
-
-    // Fixed timestamp mode: use specified timestamp as end
-    const endTime = timeRange.timestamp
-    const startTime = new Date(endTime.getTime() - timeRange.duration)
-    return [formatForPlotly(startTime), formatForPlotly(endTime)]
-  }, [timeRange, data, formatForPlotly])
+  }
 
   // Latest mode is when timestamp is null
   const latestModeIntended = timeRange.timestamp === null
 
-  // Set time range from xAxisRange (for backwards compatibility with existing handlers)
+  // Simple setXAxisRange - just update state, sync to URL
   const setXAxisRange = useCallback((range: [string, string] | null) => {
     if (range === null) {
-      // Reset to default
+      setXAxisRangeState(null)
       setTimeRange({ timestamp: null, duration: 24 * 60 * 60 * 1000 })
       return
     }
 
-    const startTime = new Date(range[0])
+    // Update displayed range
+    setXAxisRangeState(range)
+
+    // Sync to URL
     const endTime = new Date(range[1])
+    const startTime = new Date(range[0])
     const duration = endTime.getTime() - startTime.getTime()
 
-    // Determine if this should be Latest mode or fixed timestamp
-    // Check if end time is close to latest data (within 10 minutes)
+    // Check if close to latest (within 10 min) -> Latest mode
     if (data.length > 0) {
       const latestDataTime = new Date(data[0].timestamp)
       const timeDiffMinutes = Math.abs(endTime.getTime() - latestDataTime.getTime()) / (1000 * 60)
 
       if (timeDiffMinutes < 10) {
-        // Close to latest, use Latest mode
         setTimeRange({ timestamp: null, duration })
       } else {
-        // Not at latest, use fixed timestamp
         setTimeRange({ timestamp: endTime, duration })
       }
-    } else {
-      // No data, default to Latest mode
-      setTimeRange({ timestamp: null, duration })
     }
   }, [data, setTimeRange])
 
-  // Enable/disable Latest mode (preserving duration)
+  // Toggle Latest mode
   const setLatestModeIntended = useCallback((enabled: boolean) => {
-    setTimeRange({
-      timestamp: enabled ? null : (data.length > 0 ? new Date(data[0].timestamp) : new Date()),
-      duration: timeRange.duration
-    })
-  }, [data, setTimeRange, timeRange.duration])
+    if (data.length === 0) return
 
-  // Update duration (preserving Latest mode state)
+    const currentDuration = xAxisRange
+      ? new Date(xAxisRange[1]).getTime() - new Date(xAxisRange[0]).getTime()
+      : timeRange.duration
+
+    if (enabled) {
+      const endTime = new Date(data[0].timestamp)
+      const startTime = new Date(endTime.getTime() - currentDuration)
+      setXAxisRangeState([formatForPlotly(startTime), formatForPlotly(endTime)])
+      setTimeRange({ timestamp: null, duration: currentDuration })
+    } else if (xAxisRange) {
+      const endTime = new Date(xAxisRange[1])
+      setTimeRange({ timestamp: endTime, duration: currentDuration })
+    }
+  }, [data, xAxisRange, timeRange.duration, setTimeRange, formatForPlotly])
+
+  // Update duration - keeps end time fixed, adjusts start time
   const setDuration = useCallback((duration: number) => {
-    // Don't create new object from stale timeRange - let setTimeRange handle it
-    // by passing the current timestamp (which should be null for Latest mode)
-    setTimeRange({ timestamp: timeRange.timestamp, duration })
-  }, [setTimeRange, timeRange.timestamp])
+    if (data.length === 0) return
+
+    // Determine end time: use current xAxisRange end, or latest data if in Latest mode
+    let endTime: Date
+    let stayInLatestMode = false
+    if (xAxisRange) {
+      endTime = new Date(xAxisRange[1])
+      // Check if current end is close to latest data (within 10 min) -> stay in Latest mode
+      const latestDataTime = new Date(data[0].timestamp)
+      const timeDiffMinutes = Math.abs(endTime.getTime() - latestDataTime.getTime()) / (1000 * 60)
+      stayInLatestMode = timeDiffMinutes < 10
+    } else if (timeRange.timestamp === null) {
+      endTime = new Date(data[0].timestamp)
+      stayInLatestMode = true
+    } else {
+      endTime = timeRange.timestamp
+    }
+
+    const startTime = new Date(endTime.getTime() - duration)
+    setXAxisRangeState([formatForPlotly(startTime), formatForPlotly(endTime)])
+    setTimeRange({ timestamp: stayInLatestMode ? null : endTime, duration })
+  }, [data, xAxisRange, timeRange.timestamp, setTimeRange, formatForPlotly])
 
   return {
     timeRange,
