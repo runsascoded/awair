@@ -686,7 +686,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             yaxis: createYAxisConfig('left'),
             ...(secondaryConfig && { yaxis2: createYAxisConfig('right') }),
             margin: { l: 35, r: secondaryConfig ? 35 : 10, t: totalDevices > 1 ? isMobile ? 30 : 40 : 0, b: 45 },
-            hovermode: isMobile ? 'closest' : 'x unified',
+            hovermode: 'x unified',
             plot_bgcolor: plotColors.plotBg,
             paper_bgcolor: plotColors.plotBg,
             legend: createLegendConfig(0, 'left'),
