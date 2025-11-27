@@ -9,8 +9,9 @@ import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics.ts'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
-import { aggWindowParam, boolParam, deviceRenderStrategyParam, hsvConfigParam } from '../lib/urlParams'
+import { aggWindowParam, boolParam, deviceRenderStrategyParam, hsvConfigParam, targetPxParam } from '../lib/urlParams'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
+import type { PxOption } from './AggregationControl'
 import type { DeviceDataResult } from '../hooks/useMultiDeviceData'
 import type { Device } from '../services/awairService'
 import type { DataSummary } from '../types/awair'
@@ -46,8 +47,11 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   // HSV config for hsv-nudge strategy
   const [hsvConfig, setHsvConfig] = useUrlParam('hsv', hsvConfigParam)
 
-  // Aggregation window override (null = auto mode)
+  // Aggregation window override (null = auto mode based on targetPx)
   const [aggWindowLabel, setAggWindowLabel] = useUrlParam('agg', aggWindowParam)
+
+  // Target pixels per point for auto mode (null = fixed window mode)
+  const [targetPx, setTargetPx] = useUrlParam('px', targetPxParam)
 
   // Convert label to TimeWindow object for the hook
   const overrideWindow = useMemo(() => {
@@ -159,7 +163,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     deviceDataResults,
     devices,
     xAxisRange,
-    { containerWidth: viewportWidth, overrideWindow }
+    { containerWidth: viewportWidth, overrideWindow, targetPx }
   )
 
   // For backwards compatibility with DataTable, use first device's aggregated data
@@ -755,7 +759,8 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         selectedWindow={selectedWindow}
         validWindows={validWindows}
         onWindowChange={(window) => setAggWindowLabel(window?.label || null)}
-        isAutoMode={!aggWindowLabel}
+        targetPx={targetPx as PxOption | null}
+        onTargetPxChange={setTargetPx}
         timeRangeMinutes={timeRangeMinutes}
         containerWidth={viewportWidth}
       />

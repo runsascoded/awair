@@ -208,6 +208,7 @@ export function findOptimalWindow(
 export interface UseDataAggregationOptions {
   containerWidth?: number
   overrideWindow?: TimeWindow
+  targetPx?: number | null  // Target pixels per point (null = use overrideWindow)
 }
 
 export function useDataAggregation(
@@ -215,9 +216,13 @@ export function useDataAggregation(
   xAxisRange: [string, string] | null,
   options: UseDataAggregationOptions = {}
 ) {
-  const { containerWidth, overrideWindow } = options
+  const { containerWidth, overrideWindow, targetPx } = options
   const rangeKey = xAxisRange ? `${xAxisRange[0]}-${xAxisRange[1]}` : 'null'
-  const targetPoints = getTargetPoints(containerWidth)
+  // If targetPx is set, calculate target points from container width
+  // Otherwise fall back to the old responsive calculation
+  const targetPoints = (targetPx && containerWidth)
+    ? Math.floor(containerWidth / targetPx)
+    : getTargetPoints(containerWidth)
 
   const { dataToAggregate, selectedWindow, timeRangeMinutes, validWindows } = useMemo(() => {
     let dataToAggregate = data

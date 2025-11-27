@@ -1,12 +1,15 @@
 import { Tooltip } from './Tooltip'
-import { getTargetPoints } from '../hooks/useDataAggregation'
 import type { TimeWindow } from '../hooks/useDataAggregation'
+
+export const PX_OPTIONS = [1, 2, 4, 8] as const
+export type PxOption = typeof PX_OPTIONS[number]
 
 interface AggregationControlProps {
   selectedWindow: TimeWindow
   validWindows: TimeWindow[]
   onWindowChange: (window: TimeWindow | null) => void
-  isAutoMode: boolean
+  targetPx: PxOption | null  // null = fixed window mode
+  onTargetPxChange: (px: PxOption | null) => void
   timeRangeMinutes?: number
   containerWidth?: number
 }
@@ -31,11 +34,12 @@ export function AggregationControl({
   selectedWindow,
   validWindows,
   onWindowChange,
-  isAutoMode,
+  targetPx,
+  onTargetPxChange,
   timeRangeMinutes,
   containerWidth,
 }: AggregationControlProps) {
-  const targetPoints = getTargetPoints(containerWidth)
+  const isAutoMode = targetPx !== null
 
   return (
     <div className="control-group aggregation-section">
@@ -46,12 +50,21 @@ export function AggregationControl({
       </div>
       <div className="body">
         <select
-          value={selectedWindow.label}
+          value={isAutoMode ? '' : selectedWindow.label}
           onChange={(e) => {
             const window = validWindows.find(w => w.label === e.target.value)
-            if (window) onWindowChange(window)
+            if (window) {
+              onTargetPxChange(null)  // Disable auto mode
+              onWindowChange(window)
+            }
           }}
+          className={isAutoMode ? 'auto-controlled' : ''}
         >
+          {isAutoMode && (
+            <option value="" disabled>
+              {formatWindowOption(selectedWindow, timeRangeMinutes, containerWidth)}
+            </option>
+          )}
           {validWindows.map(w => (
             <option key={w.label} value={w.label}>
               {formatWindowOption(w, timeRangeMinutes, containerWidth)}
@@ -60,21 +73,37 @@ export function AggregationControl({
         </select>
       </div>
       <div className="footer">
-        <Tooltip content={`Auto mode selects the smallest window that keeps data points around ${targetPoints} (targeting ≈4px per point).`}>
+        <Tooltip content="Auto mode dynamically selects the time window to achieve the target pixels per data point.">
           <label className="checkbox-label">
             <input
               type="checkbox"
               checked={isAutoMode}
               onChange={(e) => {
                 if (e.target.checked) {
+                  onTargetPxChange(1)  // Default to 1px
                   onWindowChange(null)
                 } else {
+                  onTargetPxChange(null)
                   onWindowChange(selectedWindow)
                 }
               }}
             />
-            <span>Auto</span>
+            <span>Auto:</span>
           </label>
+        </Tooltip>
+        <Tooltip content="Target pixels per aggregated data point. Lower values show more detail.">
+          <select
+            value={targetPx ?? 1}
+            disabled={!isAutoMode}
+            onChange={(e) => {
+              onTargetPxChange(Number(e.target.value) as PxOption)
+            }}
+            className="px-select"
+          >
+            {PX_OPTIONS.map(px => (
+              <option key={px} value={px}>{px}px</option>
+            ))}
+          </select>
         </Tooltip>
       </div>
     </div>

@@ -275,6 +275,35 @@ export const aggWindowParam: Param<string | null> = {
 }
 
 /**
+ * Target pixels per point param - controls auto aggregation mode
+ *
+ * When set, auto mode dynamically selects the time window to achieve
+ * approximately this many pixels per data point.
+ *
+ * Examples:
+ *   ?px=1  → 1px per point (maximum detail)
+ *   ?px=4  → 4px per point (default balance)
+ *   (omit) → 1px default
+ *
+ * Valid values: 1, 2, 4, 8
+ * null means fixed window mode (use aggWindowParam instead)
+ */
+export const targetPxParam: Param<number | null> = {
+  encode: (px) => {
+    if (px === null) return 'off'
+    if (px === 1) return undefined  // Default, omit from URL
+    return String(px)
+  },
+  decode: (encoded) => {
+    if (encoded === 'off') return null
+    if (!encoded) return 1  // Default to 1px
+    const num = parseInt(encoded, 10)
+    if ([1, 2, 4, 8].includes(num)) return num
+    return 1
+  },
+}
+
+/**
  * Re-export common param builders from use-url-params
  */
 export { boolParam, enumParam, intParam, stringParam } from '@rdub/use-url-params'

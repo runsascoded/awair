@@ -3,6 +3,7 @@ import { AggregationControl } from './AggregationControl'
 import { DevicesControl } from './DevicesControl'
 import { RangeWidthControl } from './RangeWidthControl'
 import { YAxesControl } from './YAxesControl'
+import type { PxOption } from './AggregationControl'
 import type { HsvConfig } from './DeviceRenderSettings'
 import type { TimeWindow } from '../hooks/useDataAggregation'
 import type { MetricsState } from "../hooks/useMetrics.ts"
@@ -50,7 +51,8 @@ interface ChartControlsProps {
   selectedWindow: TimeWindow
   validWindows: TimeWindow[]
   onWindowChange: (window: TimeWindow | null) => void
-  isAutoMode: boolean
+  targetPx: PxOption | null
+  onTargetPxChange: (px: PxOption | null) => void
   timeRangeMinutes?: number
   containerWidth?: number
 }
@@ -91,7 +93,8 @@ export function ChartControls({
   selectedWindow,
   validWindows,
   onWindowChange,
-  isAutoMode,
+  targetPx,
+  onTargetPxChange,
   timeRangeMinutes,
   containerWidth,
 }: ChartControlsProps) {
@@ -178,7 +181,8 @@ export function ChartControls({
         selectedWindow={selectedWindow}
         validWindows={validWindows}
         onWindowChange={onWindowChange}
-        isAutoMode={isAutoMode}
+        targetPx={targetPx}
+        onTargetPxChange={onTargetPxChange}
         timeRangeMinutes={timeRangeMinutes}
         containerWidth={containerWidth}
       />
