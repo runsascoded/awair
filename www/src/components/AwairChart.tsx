@@ -421,11 +421,12 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   const secondaryConfig = r.val !== 'none' ? metricConfig[r.val] : null
   const totalDevices = deviceAggregations.length
 
-  // Generate traces for all devices
+  // Generate traces for all devices, grouped by metric for better hover ordering
   const plotTraces = useMemo(() => {
     const traces: any[] = []
 
-    deviceAggregations.forEach((deviceAgg, deviceIndex) => {
+    // Pre-compute data for all devices
+    const deviceData = deviceAggregations.map((deviceAgg, deviceIndex) => {
       const { aggregatedData: devData, deviceName } = deviceAgg
       const timestamps = devData.map(d => formatForPlotly(new Date(d.timestamp)))
 
@@ -438,7 +439,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         2,
         hsvConfig
       )
-      const primaryColor = primaryLineProps.color
 
       // Primary metric data
       const avgValues = devData.map(d => d[`${l.val}_avg` as keyof typeof d] as number)
@@ -471,112 +471,126 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           hsvConfig
         )
         : null
-      const secondaryColor = secondaryLineProps?.color || ''
 
       // For multi-device mode, use compact device names in legend
       const legendName = totalDevices > 1 ? deviceName : ''
 
-      // Secondary metric stddev region (only show for first device to avoid clutter)
-      if (secondaryConfig && !isRawData && deviceIndex === 0) {
-        traces.push({
-          x: timestamps,
-          y: secondaryLowerValues,
-          mode: 'lines',
-          line: { color: 'transparent' },
-          name: `${secondaryConfig.label} Lower`,
-          showlegend: false,
-          hoverinfo: 'skip',
-          yaxis: 'y2',
-          zorder: 1
-        })
-        traces.push({
-          x: timestamps,
-          y: secondaryUpperValues,
-          fill: 'tonexty',
-          fillcolor: `${secondaryColor}20`,
-          line: { color: 'transparent' },
-          mode: 'lines',
-          name: `±σ ${secondaryConfig.label}`,
-          showlegend: false,
-          hoverinfo: 'skip',
-          yaxis: 'y2',
-          zorder: 1
-        })
+      return {
+        devData, deviceName, deviceIndex, timestamps, legendName,
+        primaryLineProps, avgValues, stddevValues, upperValues, lowerValues,
+        secondaryLineProps, secondaryAvgValues, secondaryStddevValues, secondaryUpperValues, secondaryLowerValues,
       }
+    })
 
-      // Secondary average line
-      if (secondaryConfig && secondaryLineProps) {
-        traces.push({
-          x: timestamps,
-          y: secondaryAvgValues,
-          mode: 'lines',
-          line: secondaryLineProps,
-          name: legendName || `${secondaryConfig.label} (${secondaryConfig.unit})`,
-          legendgroup: 'secondary',
-          legend: 'legend2',
-          yaxis: 'y2',
-          zorder: 1,
-          ...(isRawData ? {
-            hovertemplate: `%{y:.1f} ${secondaryConfig.unit}<extra>${deviceName} ${secondaryConfig.label}</extra>`
-          } : {
-            customdata: devData.map((d, i) => ([
-              secondaryStddevValues[i],
-              d.count
-            ])),
-            hovertemplate: `%{y:.1f} ±%{customdata[0]:.1f} ${secondaryConfig.unit} (n=%{customdata[1]})<extra>${deviceName} ${secondaryConfig.label}</extra>`
-          })
-        })
-      }
-
-      // Primary metric stddev region (only show for first device to avoid clutter)
-      if (!isRawData && deviceIndex === 0) {
-        traces.push({
-          x: timestamps,
-          y: lowerValues,
-          mode: 'lines',
-          line: { color: 'transparent' },
-          name: `${config.label} Lower`,
-          showlegend: false,
-          hoverinfo: 'skip',
-          zorder: 10
-        })
-        traces.push({
-          x: timestamps,
-          y: upperValues,
-          fill: 'tonexty',
-          fillcolor: `${primaryColor}20`,
-          line: { color: 'transparent' },
-          mode: 'lines',
-          name: `±σ ${config.label}`,
-          showlegend: false,
-          hoverinfo: 'skip',
-          zorder: 10
-        })
-      }
-
-      // Primary metric average line
+    // Add stddev regions first (behind the lines)
+    // Primary stddev region (only for first device)
+    if (!isRawData && deviceData.length > 0) {
+      const d = deviceData[0]
       traces.push({
-        x: timestamps,
-        y: avgValues,
+        x: d.timestamps,
+        y: d.lowerValues,
         mode: 'lines',
-        line: primaryLineProps,
-        name: legendName || `${config.label} (${config.unit})`,
+        line: { color: 'transparent' },
+        name: `${config.label} Lower`,
+        showlegend: false,
+        hoverinfo: 'skip',
+        zorder: 10
+      })
+      traces.push({
+        x: d.timestamps,
+        y: d.upperValues,
+        fill: 'tonexty',
+        fillcolor: `${d.primaryLineProps.color}20`,
+        line: { color: 'transparent' },
+        mode: 'lines',
+        name: `±σ ${config.label}`,
+        showlegend: false,
+        hoverinfo: 'skip',
+        zorder: 10
+      })
+    }
+
+    // Secondary stddev region (only for first device)
+    if (secondaryConfig && !isRawData && deviceData.length > 0) {
+      const d = deviceData[0]
+      traces.push({
+        x: d.timestamps,
+        y: d.secondaryLowerValues,
+        mode: 'lines',
+        line: { color: 'transparent' },
+        name: `${secondaryConfig.label} Lower`,
+        showlegend: false,
+        hoverinfo: 'skip',
+        yaxis: 'y2',
+        zorder: 1
+      })
+      traces.push({
+        x: d.timestamps,
+        y: d.secondaryUpperValues,
+        fill: 'tonexty',
+        fillcolor: `${d.secondaryLineProps?.color}20`,
+        line: { color: 'transparent' },
+        mode: 'lines',
+        name: `±σ ${secondaryConfig.label}`,
+        showlegend: false,
+        hoverinfo: 'skip',
+        yaxis: 'y2',
+        zorder: 1
+      })
+    }
+
+    // PRIMARY METRIC traces for all devices (grouped together in hover)
+    deviceData.forEach(d => {
+      traces.push({
+        x: d.timestamps,
+        y: d.avgValues,
+        mode: 'lines',
+        line: d.primaryLineProps,
+        name: d.legendName || `${config.label} (${config.unit})`,
         legendgroup: 'primary',
         zorder: 10,
         ...(isRawData ? {
-          hovertemplate: `%{y:.1f} ${config.unit}<extra>${deviceName} ${config.label}</extra>`
+          hovertemplate: `%{y:.1f} ${config.unit}<extra>${d.deviceName} ${config.label}</extra>`
         } : {
-          customdata: devData.map((d, i) => ([
-            stddevValues[i],
-            d.count
+          customdata: d.devData.map((rec, i) => ([
+            d.stddevValues[i],
+            rec.count
           ])),
-          hovertemplate: `%{y:.1f} ±%{customdata[0]:.1f} ${config.unit} (n=%{customdata[1]})<extra>${deviceName} ${config.label}</extra>`
+          hovertemplate: `%{y:.1f} ±%{customdata[0]:.1f} ${config.unit} (n=%{customdata[1]})<extra>${d.deviceName} ${config.label}</extra>`
         })
       })
     })
 
+    // SECONDARY METRIC traces for all devices (grouped together in hover)
+    if (secondaryConfig) {
+      deviceData.forEach(d => {
+        if (d.secondaryLineProps) {
+          traces.push({
+            x: d.timestamps,
+            y: d.secondaryAvgValues,
+            mode: 'lines',
+            line: d.secondaryLineProps,
+            name: d.legendName || `${secondaryConfig.label} (${secondaryConfig.unit})`,
+            legendgroup: 'secondary',
+            legend: 'legend2',
+            yaxis: 'y2',
+            zorder: 1,
+            ...(isRawData ? {
+              hovertemplate: `%{y:.1f} ${secondaryConfig.unit}<extra>${d.deviceName} ${secondaryConfig.label}</extra>`
+            } : {
+              customdata: d.devData.map((rec, i) => ([
+                d.secondaryStddevValues[i],
+                rec.count
+              ])),
+              hovertemplate: `%{y:.1f} ±%{customdata[0]:.1f} ${secondaryConfig.unit} (n=%{customdata[1]})<extra>${d.deviceName} ${secondaryConfig.label}</extra>`
+            })
+          })
+        }
+      })
+    }
+
     return traces
-  }, [deviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, formatForPlotly, formatFullDate, deviceRenderStrategy, hsvConfig])
+  }, [deviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, formatForPlotly, deviceRenderStrategy, hsvConfig])
 
   // Helper to create yaxis config
   const createYAxisConfig = (side: 'left' | 'right') => ({
