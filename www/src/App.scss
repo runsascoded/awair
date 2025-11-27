@@ -687,12 +687,12 @@ footer {
 .aggregation-section {
   .window-select {
     @include control;
-    padding: 0.1rem 0.25rem;
+    padding: 0.1rem 0.05rem;
   }
 
   .px-select {
     @include control;
-    margin-left: 0.25rem;
+    margin-left: 0.45rem;
     padding: 0.1rem 0;
   }
 }

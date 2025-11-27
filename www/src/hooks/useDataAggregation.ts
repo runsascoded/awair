@@ -164,13 +164,15 @@ export function findOptimalWindow(
   }
 
   if (timeRangeMinutes) {
-    // When zoomed: calculate window size based on visible time range
-    // Go from smallest to largest to find the smallest window that keeps us under target
+    // When zoomed: find the window that gets closest to target points
+    // Allow up to 20% over target to prefer finer granularity
+    const maxPoints = targetPoints * 1.2
+
     for (let i = 0; i < TIME_WINDOWS.length; i++) {
       const window = TIME_WINDOWS[i]
       const estimatedPoints = Math.ceil(timeRangeMinutes / window.minutes)
 
-      if (estimatedPoints <= targetPoints) {
+      if (estimatedPoints <= maxPoints) {
         return window
       }
     }
