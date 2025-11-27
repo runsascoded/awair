@@ -1,3 +1,5 @@
+import { Tooltip } from './Tooltip'
+import { getTargetPoints } from '../hooks/useDataAggregation'
 import type { TimeWindow } from '../hooks/useDataAggregation'
 
 interface AggregationControlProps {
@@ -33,26 +35,39 @@ export function AggregationControl({
   timeRangeMinutes,
   containerWidth,
 }: AggregationControlProps) {
+  const targetPoints = getTargetPoints(containerWidth)
+
   return (
     <div className="control-group aggregation-section no-footer">
       <div className="header">
-        <label className="unselectable">Aggregation:</label>
+        <Tooltip content="Data points are grouped into time windows for visualization. Smaller windows show more detail but may slow rendering.">
+          <label className="unselectable">Aggregation:</label>
+        </Tooltip>
       </div>
       <div className="body">
+        <Tooltip content={`Auto mode selects the smallest window that keeps data points around ${targetPoints} (targeting ~4px per point based on chart width).`}>
+          <label className="auto-checkbox">
+            <input
+              type="checkbox"
+              checked={isAutoMode}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  onWindowChange(null)
+                } else {
+                  onWindowChange(selectedWindow)
+                }
+              }}
+            />
+            <span>Auto</span>
+          </label>
+        </Tooltip>
         <select
-          value={isAutoMode ? 'auto' : selectedWindow.label}
+          value={selectedWindow.label}
           onChange={(e) => {
-            if (e.target.value === 'auto') {
-              onWindowChange(null)
-            } else {
-              const window = validWindows.find(w => w.label === e.target.value)
-              if (window) onWindowChange(window)
-            }
+            const window = validWindows.find(w => w.label === e.target.value)
+            if (window) onWindowChange(window)
           }}
         >
-          <option value="auto">
-            Auto: {formatWindowOption(selectedWindow, timeRangeMinutes, containerWidth)}
-          </option>
           {validWindows.map(w => (
             <option key={w.label} value={w.label}>
               {formatWindowOption(w, timeRangeMinutes, containerWidth)}
