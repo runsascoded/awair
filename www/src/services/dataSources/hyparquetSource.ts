@@ -9,7 +9,8 @@ import type { AwairRecord } from '../../types/awair'
 import type { DataSource, FetchOptions, FetchResult, FetchTiming } from '../dataSource'
 
 // Parquet row tuple type (match column order: timestamp, temp, co2, pm10, pm25, humid, voc)
-type AwairRow = [string, number, number, number, number, number, number]
+// Note: timestamp is Date object, temp/humid are float (number), others are BigInt
+type AwairRow = [Date, number, bigint, bigint, bigint, number, bigint]
 
 // Data collection assumptions
 const ROWS_PER_MINUTE = 1 // Expected data density: ~1 row per minute
@@ -84,15 +85,16 @@ export class HyparquetSource implements DataSource {
     const fromTime = range.from.getTime()
     const toTime = range.to.getTime()
 
+    // Note: co2, pm10, pm25, voc are BigInt from parquet, convert to Number
     const records: AwairRecord[] = rows
       .map((row) => ({
         timestamp: row[0],
         temp: row[1],
-        co2: row[2],
-        pm10: row[3],
-        pm25: row[4],
+        co2: Number(row[2]),
+        pm10: Number(row[3]),
+        pm25: Number(row[4]),
         humid: row[5],
-        voc: row[6],
+        voc: Number(row[6]),
       }))
       .filter(record => {
         const ts = new Date(record.timestamp).getTime()

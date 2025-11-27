@@ -11,11 +11,13 @@ export interface Device {
 }
 
 // Parquet row tuple types (match column order in files)
+// Note: hyparquet returns BigInt for integer columns, so we use bigint here
 // devices.parquet: name, deviceId, deviceType, deviceUUID, lat, lon, preference, locationName, roomType, spaceType, macAddress, timezone, lastUpdated, active, dataPath
-type DeviceRow = [string, number, string, string, number, number, string, string, string, string, string, string, string, boolean, string]
+type DeviceRow = [string, bigint, string, string, bigint, bigint, string, string, string, string, string, string, string, boolean, string]
 
 // awair-{id}.parquet: timestamp, temp, co2, pm10, pm25, humid, voc
-type AwairRow = [string, number, number, number, number, number, number]
+// Note: timestamp is Date object, temp/humid are float (number), others are BigInt
+type AwairRow = [Date, number, bigint, bigint, bigint, number, bigint]
 
 /**
  * S3 root for all data storage.
@@ -59,9 +61,10 @@ export async function fetchDevices(): Promise<Device[]> {
     }
 
     // Convert tuple rows to typed records
+    // Note: deviceId is BigInt from parquet, convert to Number for JS compatibility
     const devices: Device[] = rows.map((row) => ({
       name: row[0],
-      deviceId: row[1],
+      deviceId: Number(row[1]),
       deviceType: row[2],
       // Skip deviceUUID, lat, lon, preference, locationName, roomType, spaceType, macAddress, timezone (indices 3-11)
       lastUpdated: row[12],
@@ -172,14 +175,15 @@ export async function fetchAwairData(
   }
 
   // Convert tuple rows to typed records
+  // Note: co2, pm10, pm25, voc are BigInt from parquet, convert to Number
   const records: AwairRecord[] = rows.map((row) => ({
     timestamp: row[0],
     temp: row[1],
-    co2: row[2],
-    pm10: row[3],
-    pm25: row[4],
+    co2: Number(row[2]),
+    pm10: Number(row[3]),
+    pm25: Number(row[4]),
     humid: row[5],
-    voc: row[6],
+    voc: Number(row[6]),
   }))
 
   // Sort by timestamp (newest first)
