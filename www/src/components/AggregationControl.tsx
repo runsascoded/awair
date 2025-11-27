@@ -38,15 +38,30 @@ export function AggregationControl({
   const targetPoints = getTargetPoints(containerWidth)
 
   return (
-    <div className="control-group aggregation-section no-footer">
+    <div className="control-group aggregation-section">
       <div className="header">
         <Tooltip content="Raw data arrives ≈1/min. Points are grouped into time windows for visualization. Smaller windows show more detail but may slow rendering.">
           <label className="unselectable">Aggregation:</label>
         </Tooltip>
       </div>
       <div className="body">
+        <select
+          value={selectedWindow.label}
+          onChange={(e) => {
+            const window = validWindows.find(w => w.label === e.target.value)
+            if (window) onWindowChange(window)
+          }}
+        >
+          {validWindows.map(w => (
+            <option key={w.label} value={w.label}>
+              {formatWindowOption(w, timeRangeMinutes, containerWidth)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="footer">
         <Tooltip content={`Auto mode selects the smallest window that keeps data points around ${targetPoints} (targeting ~4px per point based on chart width).`}>
-          <label className="auto-checkbox">
+          <label className="checkbox-label">
             <input
               type="checkbox"
               checked={isAutoMode}
@@ -61,19 +76,6 @@ export function AggregationControl({
             <span>Auto</span>
           </label>
         </Tooltip>
-        <select
-          value={selectedWindow.label}
-          onChange={(e) => {
-            const window = validWindows.find(w => w.label === e.target.value)
-            if (window) onWindowChange(window)
-          }}
-        >
-          {validWindows.map(w => (
-            <option key={w.label} value={w.label}>
-              {formatWindowOption(w, timeRangeMinutes, containerWidth)}
-            </option>
-          ))}
-        </select>
       </div>
     </div>
   )
