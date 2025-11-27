@@ -164,21 +164,22 @@ export function findOptimalWindow(
   }
 
   if (timeRangeMinutes) {
-    // When zoomed: find the window that gets closest to target points
-    // Allow up to 20% over target to prefer finer granularity
-    const maxPoints = targetPoints * 1.2
+    // Find the window whose px/point is closest to target in log space
+    let bestWindow = TIME_WINDOWS[0]
+    let bestLogDiff = Infinity
 
-    for (let i = 0; i < TIME_WINDOWS.length; i++) {
-      const window = TIME_WINDOWS[i]
+    for (const window of TIME_WINDOWS) {
       const estimatedPoints = Math.ceil(timeRangeMinutes / window.minutes)
+      // Log difference between actual and target points
+      const logDiff = Math.abs(Math.log(estimatedPoints) - Math.log(targetPoints))
 
-      if (estimatedPoints <= maxPoints) {
-        return window
+      if (logDiff < bestLogDiff) {
+        bestLogDiff = logDiff
+        bestWindow = window
       }
     }
 
-    // If even the largest window gives too many points, use it anyway
-    return TIME_WINDOWS[TIME_WINDOWS.length - 1]
+    return bestWindow
   } else if (data && data.length > 1) {
     // Full dataset: calculate window based on total time span
     const firstTime = new Date(data[data.length - 1].timestamp).getTime()
