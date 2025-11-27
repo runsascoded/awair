@@ -165,9 +165,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   // For backwards compatibility with DataTable, use first device's aggregated data
   const aggregatedData = deviceAggregations[0]?.aggregatedData || []
 
-  // For status display, show the max window count across all devices
-  const maxWindowCount = Math.max(...deviceAggregations.map(d => d.aggregatedData.length), 0)
-
   // Calculate time range in minutes for aggregation control
   const timeRangeMinutes = useMemo(() => {
     if (xAxisRange) {
@@ -733,7 +730,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         onDeviceSelectionChange={onDeviceSelectionChange}
         selectedWindow={selectedWindow}
         validWindows={validWindows}
-        windowCount={maxWindowCount}
         onWindowChange={(window) => setAggWindowLabel(window?.label || null)}
         isAutoMode={!aggWindowLabel}
         timeRangeMinutes={timeRangeMinutes}

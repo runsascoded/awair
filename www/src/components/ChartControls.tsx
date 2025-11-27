@@ -49,7 +49,6 @@ interface ChartControlsProps {
   // Aggregation control
   selectedWindow: TimeWindow
   validWindows: TimeWindow[]
-  windowCount: number
   onWindowChange: (window: TimeWindow | null) => void
   isAutoMode: boolean
   timeRangeMinutes?: number
@@ -91,7 +90,6 @@ export function ChartControls({
   onDeviceSelectionChange,
   selectedWindow,
   validWindows,
-  windowCount,
   onWindowChange,
   isAutoMode,
   timeRangeMinutes,
@@ -179,7 +177,6 @@ export function ChartControls({
       <AggregationControl
         selectedWindow={selectedWindow}
         validWindows={validWindows}
-        windowCount={windowCount}
         onWindowChange={onWindowChange}
         isAutoMode={isAutoMode}
         timeRangeMinutes={timeRangeMinutes}
