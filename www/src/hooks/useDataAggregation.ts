@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { AwairRecord } from '../types/awair'
 
-interface TimeWindow {
+export interface TimeWindow {
   label: string
   minutes: number
 }
@@ -21,18 +21,21 @@ interface AggregatedData {
   count: number
 }
 
-const TIME_WINDOWS: TimeWindow[] = [
+export const TIME_WINDOWS: TimeWindow[] = [
   { label: '1m', minutes: 1 },
   { label: '2m', minutes: 2 },
+  { label: '3m', minutes: 3 },
   { label: '5m', minutes: 5 },
   { label: '10m', minutes: 10 },
   { label: '15m', minutes: 15 },
   { label: '30m', minutes: 30 },
   { label: '1h', minutes: 60 },
   { label: '2h', minutes: 120 },
+  { label: '4h', minutes: 240 },
   { label: '6h', minutes: 360 },
   { label: '12h', minutes: 720 },
   { label: '1d', minutes: 1440 },
+  { label: '2d', minutes: 2880 },
 ]
 
 // Aggregate data into time windows for performance and visual clarity
@@ -108,10 +111,57 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 }
 
-// Find the optimal aggregation window size to keep around 300 data points
-// This ensures good performance while maintaining visual detail
-function findOptimalWindow(_dataLength: number, timeRangeMinutes?: number, data?: AwairRecord[]): TimeWindow {
-  const targetPoints = 300
+/**
+ * Calculate responsive target points based on container width.
+ * Mobile gets fewer points, desktop gets more.
+ */
+export function getTargetPoints(containerWidth?: number): number {
+  if (!containerWidth) return 300
+  // Scale from ~100 points at 375px to ~400 points at 1600px
+  return Math.max(100, Math.min(400, Math.floor(containerWidth / 4)))
+}
+
+/**
+ * Get min/max point constraints based on container width.
+ * Ensures windows aren't too sparse or dense for the display.
+ */
+function getPointConstraints(containerWidth?: number): { minPoints: number; maxPoints: number } {
+  const target = getTargetPoints(containerWidth)
+  return {
+    minPoints: Math.floor(target * 0.1),   // 10% of target (e.g., 30 for 300)
+    maxPoints: Math.floor(target * 5),      // 5x target (e.g., 1500 for 300)
+  }
+}
+
+/**
+ * Get valid window options for a given time range.
+ * Filters to windows that produce reasonable point counts for the container.
+ */
+export function getValidWindows(timeRangeMinutes: number, containerWidth?: number): TimeWindow[] {
+  const { minPoints, maxPoints } = getPointConstraints(containerWidth)
+  return TIME_WINDOWS.filter(window => {
+    const estimatedPoints = Math.ceil(timeRangeMinutes / window.minutes)
+    return estimatedPoints >= minPoints && estimatedPoints <= maxPoints
+  })
+}
+
+/**
+ * Find the optimal aggregation window size.
+ * @param timeRangeMinutes - The visible time range in minutes
+ * @param data - Full dataset (used when timeRangeMinutes not provided)
+ * @param targetPoints - Target number of points (responsive to width)
+ * @param overrideWindow - User-selected window override
+ */
+export function findOptimalWindow(
+  timeRangeMinutes?: number,
+  data?: AwairRecord[],
+  targetPoints: number = 300,
+  overrideWindow?: TimeWindow
+): TimeWindow {
+  // If user has selected a specific window, use it (if valid)
+  if (overrideWindow) {
+    return overrideWindow
+  }
 
   if (timeRangeMinutes) {
     // When zoomed: calculate window size based on visible time range
@@ -155,10 +205,21 @@ function findOptimalWindow(_dataLength: number, timeRangeMinutes?: number, data?
   }
 }
 
-export function useDataAggregation(data: AwairRecord[], xAxisRange: [string, string] | null) {
-  const rangeKey = xAxisRange ? `${xAxisRange[0]}-${xAxisRange[1]}` : 'null'
+export interface UseDataAggregationOptions {
+  containerWidth?: number
+  overrideWindow?: TimeWindow
+}
 
-  const { dataToAggregate, selectedWindow } = useMemo(() => {
+export function useDataAggregation(
+  data: AwairRecord[],
+  xAxisRange: [string, string] | null,
+  options: UseDataAggregationOptions = {}
+) {
+  const { containerWidth, overrideWindow } = options
+  const rangeKey = xAxisRange ? `${xAxisRange[0]}-${xAxisRange[1]}` : 'null'
+  const targetPoints = getTargetPoints(containerWidth)
+
+  const { dataToAggregate, selectedWindow, timeRangeMinutes, validWindows } = useMemo(() => {
     let dataToAggregate = data
     let timeRangeMinutes: number | undefined
 
@@ -171,15 +232,23 @@ export function useDataAggregation(data: AwairRecord[], xAxisRange: [string, str
         const timestamp = new Date(d.timestamp).getTime()
         return timestamp >= startTime && timestamp <= endTime
       })
+    } else if (data.length > 1) {
+      // Calculate time range from full data
+      const firstTime = new Date(data[data.length - 1].timestamp).getTime()
+      const lastTime = new Date(data[0].timestamp).getTime()
+      timeRangeMinutes = (lastTime - firstTime) / (1000 * 60)
     }
 
-    const selectedWindow = findOptimalWindow(dataToAggregate.length, timeRangeMinutes, data)
+    const selectedWindow = findOptimalWindow(timeRangeMinutes, data, targetPoints, overrideWindow)
+    const validWindows = timeRangeMinutes ? getValidWindows(timeRangeMinutes, containerWidth) : TIME_WINDOWS
 
     return {
       dataToAggregate,
-      selectedWindow
+      selectedWindow,
+      timeRangeMinutes,
+      validWindows,
     }
-  }, [data, rangeKey])
+  }, [data, rangeKey, targetPoints, overrideWindow])
 
   const aggregatedData = useMemo(() => {
     return aggregateData(dataToAggregate, selectedWindow.minutes)
@@ -188,8 +257,9 @@ export function useDataAggregation(data: AwairRecord[], xAxisRange: [string, str
   return {
     aggregatedData,
     selectedWindow,
-    isRawData: selectedWindow.minutes === 1
+    validWindows,
+    isRawData: selectedWindow.minutes === 1,
   }
 }
 
-export type { AggregatedData, TimeWindow }
+export type { AggregatedData }

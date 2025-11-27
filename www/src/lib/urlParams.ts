@@ -259,6 +259,22 @@ export const hsvConfigParam: Param<import('../components/DeviceRenderSettings').
 }
 
 /**
+ * Aggregation window param - stores user-selected aggregation window override
+ *
+ * Uses label format: 1m, 5m, 1h, etc.
+ * null/undefined = auto mode (algorithm selects optimal window)
+ *
+ * Examples:
+ *   ?agg=5m  → 5-minute windows
+ *   ?agg=1h  → 1-hour windows
+ *   (omit)   → auto mode
+ */
+export const aggWindowParam: Param<string | null> = {
+  encode: (label) => label || undefined,
+  decode: (encoded) => encoded || null,
+}
+
+/**
  * Re-export common param builders from use-url-params
  */
 export { boolParam, enumParam, intParam, stringParam } from '@rdub/use-url-params'

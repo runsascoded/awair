@@ -1,15 +1,16 @@
 import { useUrlParam } from '@rdub/use-url-params'
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
+import { AggregationControl } from './AggregationControl'
 import { ChartControls, metricConfig } from './ChartControls'
 import { DataTable } from './DataTable'
-import { Tooltip } from './Tooltip'
+import { TIME_WINDOWS } from '../hooks/useDataAggregation'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics.ts'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
-import { boolParam, deviceRenderStrategyParam, hsvConfigParam } from '../lib/urlParams'
+import { aggWindowParam, boolParam, deviceRenderStrategyParam, hsvConfigParam } from '../lib/urlParams'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { DeviceDataResult } from '../hooks/useMultiDeviceData'
 import type { Device } from '../services/awairService'
@@ -45,6 +46,15 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // HSV config for hsv-nudge strategy
   const [hsvConfig, setHsvConfig] = useUrlParam('hsv', hsvConfigParam)
+
+  // Aggregation window override (null = auto mode)
+  const [aggWindowLabel, setAggWindowLabel] = useUrlParam('agg', aggWindowParam)
+
+  // Convert label to TimeWindow object for the hook
+  const overrideWindow = useMemo(() => {
+    if (!aggWindowLabel) return undefined
+    return TIME_WINDOWS.find(w => w.label === aggWindowLabel)
+  }, [aggWindowLabel])
 
   const [hasSetDefaultRange, setHasSetDefaultRange] = useState(false)
   const [isMobile, setIsMobile] = useState(() => {
@@ -146,10 +156,11 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   }, [xAxisRange, data, formatForPlotly])
 
   // Extract custom hooks - use multi-device aggregation
-  const { deviceAggregations, selectedWindow, isRawData } = useMultiDeviceAggregation(
+  const { deviceAggregations, selectedWindow, validWindows, isRawData } = useMultiDeviceAggregation(
     deviceDataResults,
     devices,
-    xAxisRange
+    xAxisRange,
+    { containerWidth: viewportWidth, overrideWindow }
   )
 
   // For backwards compatibility with DataTable, use first device's aggregated data
@@ -711,11 +722,13 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         onDeviceSelectionChange={onDeviceSelectionChange}
       />
 
-      <Tooltip content={`Window size adapts automatically to zoom level. Drag to pan, wheel to zoom, double-click to show all data.${summary ? ` | Total records: ${summary.count.toLocaleString()}` : ''}`}>
-        <div className="status">
-          Showing {maxWindowCount} {selectedWindow.label} windows
-        </div>
-      </Tooltip>
+      <AggregationControl
+        selectedWindow={selectedWindow}
+        validWindows={validWindows}
+        windowCount={maxWindowCount}
+        onWindowChange={(window) => setAggWindowLabel(window?.label || null)}
+        isAutoMode={!aggWindowLabel}
+      />
 
       <DataTable
         data={aggregatedData}

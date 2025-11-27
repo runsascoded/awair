@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useDataAggregation } from './useDataAggregation'
-import type { AggregatedData, TimeWindow } from './useDataAggregation'
+import type { AggregatedData, TimeWindow, UseDataAggregationOptions } from './useDataAggregation'
 import type { DeviceDataResult } from './useMultiDeviceData'
 import type { AwairRecord } from '../types/awair'
 
@@ -14,6 +14,7 @@ export interface DeviceAggregatedData {
 interface MultiDeviceAggregationResult {
   deviceAggregations: DeviceAggregatedData[]
   selectedWindow: TimeWindow
+  validWindows: TimeWindow[]
   isRawData: boolean
 }
 
@@ -24,7 +25,8 @@ interface MultiDeviceAggregationResult {
 export function useMultiDeviceAggregation(
   deviceDataResults: DeviceDataResult[],
   devices: { deviceId: number; name: string }[],
-  xAxisRange: [string, string] | null
+  xAxisRange: [string, string] | null,
+  options: UseDataAggregationOptions = {}
 ): MultiDeviceAggregationResult {
   // Combine all data to determine optimal window
   const allData = useMemo(() => {
@@ -34,7 +36,7 @@ export function useMultiDeviceAggregation(
   }, [deviceDataResults])
 
   // Use combined data for window selection
-  const { selectedWindow, isRawData } = useDataAggregation(allData, xAxisRange)
+  const { selectedWindow, validWindows, isRawData } = useDataAggregation(allData, xAxisRange, options)
 
   // Now aggregate each device's data using the same window
   const deviceAggregations = useMemo(() => {
@@ -68,6 +70,7 @@ export function useMultiDeviceAggregation(
   return {
     deviceAggregations,
     selectedWindow,
+    validWindows,
     isRawData,
   }
 }

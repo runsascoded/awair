@@ -683,6 +683,14 @@ footer {
   }
 }
 
+// Aggregation control
+.aggregation-section {
+  select {
+    @include control;
+    padding: 0.1rem 0.25rem;
+  }
+}
+
 @media (max-width: 768px) {
   header {
     padding: 1.5rem 1rem;
