@@ -72,9 +72,17 @@ export function deviceIdsParam(devices: Device[]): Param<number[]> {
     }
   }
 
+  // Default is first device only
+  const defaultDeviceId = devices.length > 0 ? devices[0].deviceId : null
+
   return {
     encode: (deviceIds) => {
       if (deviceIds.length === 0) return undefined
+
+      // Omit param when selection matches default (first device only)
+      if (deviceIds.length === 1 && deviceIds[0] === defaultDeviceId) {
+        return undefined
+      }
 
       // Encode each ID as short name (if available) or numeric ID
       return deviceIds
@@ -84,8 +92,8 @@ export function deviceIdsParam(devices: Device[]): Param<number[]> {
 
     decode: (encoded) => {
       if (!encoded) {
-        // Default to first device (which is gym after sorting)
-        return devices.length > 0 ? [devices[0].deviceId] : []
+        // Default to first device
+        return defaultDeviceId !== null ? [defaultDeviceId] : []
       }
 
       // Decode each space-separated pattern (+ decoded to space by URLSearchParams)
