@@ -20,7 +20,7 @@ export function YAxesControl({
     <div className="control-group yaxes-group">
       {/* Row 1: Label only */}
       <div className="header yaxes-header">
-        <label className="unselectable">Y-axes:</label>
+        <label className="unselectable">Y axes:</label>
       </div>
 
       {/* Row 2: Metric dropdowns */}

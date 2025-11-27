@@ -9,7 +9,7 @@ import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics.ts'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
-import { aggWindowParam, boolParam, deviceRenderStrategyParam, hsvConfigParam, targetPxParam } from '../lib/urlParams'
+import { deviceRenderStrategyParam, hsvConfigParam, xGroupingParam } from '../lib/urlParams'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { PxOption } from './AggregationControl'
 import type { DeviceDataResult } from '../hooks/useMultiDeviceData'
@@ -35,11 +35,12 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
   }, [deviceDataResults])
 
-  // Metrics state - combined primary + secondary in URL
+  // Y-axes state - combined primary + secondary + fromZero in URL (?y=tc, ?y=tcZ)
   const metrics = useMetrics()
 
-  // Y-axis mode: start from zero or auto-range
-  const [yAxisFromZero, setYAxisFromZero] = useUrlParam('z', boolParam)
+  // Derive yAxisFromZero from metrics state
+  const yAxisFromZero = metrics.fromZero.val
+  const setYAxisFromZero = metrics.fromZero.set
 
   // Device render strategy: how to visually distinguish multiple devices
   const [deviceRenderStrategy, setDeviceRenderStrategy] = useUrlParam('dr', deviceRenderStrategyParam)
@@ -47,17 +48,17 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   // HSV config for hsv-nudge strategy
   const [hsvConfig, setHsvConfig] = useUrlParam('hsv', hsvConfigParam)
 
-  // Aggregation window override (null = auto mode based on targetPx)
-  const [aggWindowLabel, setAggWindowLabel] = useUrlParam('agg', aggWindowParam)
+  // X-axis grouping: auto mode (px values) or fixed window mode (time labels)
+  const [xGrouping, setXGrouping] = useUrlParam('x', xGroupingParam)
 
-  // Target pixels per point for auto mode (null = fixed window mode)
-  const [targetPx, setTargetPx] = useUrlParam('px', targetPxParam)
-
-  // Convert label to TimeWindow object for the hook
+  // Derive targetPx and overrideWindow from unified xGrouping state
+  const targetPx = xGrouping.mode === 'auto' ? xGrouping.targetPx : null
   const overrideWindow = useMemo(() => {
-    if (!aggWindowLabel) return undefined
-    return TIME_WINDOWS.find(w => w.label === aggWindowLabel)
-  }, [aggWindowLabel])
+    if (xGrouping.mode === 'fixed') {
+      return TIME_WINDOWS.find(w => w.label === xGrouping.windowLabel)
+    }
+    return undefined
+  }, [xGrouping])
 
   const [hasSetDefaultRange, setHasSetDefaultRange] = useState(false)
   const [isMobile, setIsMobile] = useState(() => {
@@ -483,7 +484,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       }
     })
 
-    // Synthetic header trace for primary metric (invisible line, provides timestamp + metric header in hover)
+    // Synthetic header trace for primary metric (invisible line, provides metric header in hover)
     if (deviceData.length > 0) {
       const d = deviceData[0]
       traces.push({
@@ -492,7 +493,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         mode: 'lines',
         line: { color: 'rgba(0,0,0,0)', width: 0 },
         showlegend: false,
-        hovertemplate: `%{x|%b %d, %I:%M%p}<br><b>${config.label} (${config.unit})</b><extra></extra>`
+        hovertemplate: `<b>${config.label} (${config.unit})</b><extra></extra>`
       })
     }
 
@@ -680,7 +681,10 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
               tickfont: { color: plotColors.textColor },
               linecolor: plotColors.gridcolor,
               zerolinecolor: plotColors.gridcolor,
-              hoverformat: ' ',
+              hoverformat: '',
+              // Use custom format for unified hover title - this overrides tick labels in hover
+              // Cast needed because unifiedhovertitle isn't in @types/plotly.js yet
+              ...({ unifiedhovertitle: { text: '%{x|%b %-d, %-I:%M%p}' } } as object),
               ...(tickvals.length > 0 && {
                 tickvals: tickvals,
                 ticktext: ticktext,
@@ -758,9 +762,20 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         onDeviceSelectionChange={onDeviceSelectionChange}
         selectedWindow={selectedWindow}
         validWindows={validWindows}
-        onWindowChange={(window) => setAggWindowLabel(window?.label || null)}
+        onWindowChange={(window) => {
+          if (window) {
+            setXGrouping({ mode: 'fixed', windowLabel: window.label })
+          }
+        }}
         targetPx={targetPx as PxOption | null}
-        onTargetPxChange={setTargetPx}
+        onTargetPxChange={(px) => {
+          if (px === null) {
+            // Switch to fixed mode, keep current window
+            setXGrouping({ mode: 'fixed', windowLabel: selectedWindow.label })
+          } else {
+            setXGrouping({ mode: 'auto', targetPx: px })
+          }
+        }}
         timeRangeMinutes={timeRangeMinutes}
         containerWidth={viewportWidth}
       />

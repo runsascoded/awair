@@ -40,10 +40,10 @@ export function RangeWidthControl({
       {/* Row 1: Label and Latest button */}
       <div className="header range-header-row">
         {isMobile ? (
-          <label className="unselectable">Range:</label>
+          <label className="unselectable">X Range:</label>
         ) : (
           <Tooltip content="Keyboard: 1=1day, 3=3days, 7=7days, 2=14days(2wk), m=30days, a=All">
-            <label className="unselectable">Range:</label>
+            <label className="unselectable">X Range:</label>
           </Tooltip>
         )}
         {isMobile ? (

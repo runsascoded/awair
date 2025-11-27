@@ -98,10 +98,7 @@ export function deviceIdsParam(devices: Device[]): Param<number[]> {
 }
 
 /**
- * Metrics param - combines primary and secondary metric into compact encoding
- *
- * Single char = primary only (no secondary)
- * Two chars = primary + secondary
+ * Y-axes param - combines primary metric, secondary metric, and fromZero flag
  *
  * Metric codes:
  *   t = temp
@@ -110,52 +107,74 @@ export function deviceIdsParam(devices: Device[]): Param<number[]> {
  *   p = PM2.5
  *   v = VOC
  *
- * Examples:
- *   ?m=t   → temp only
- *   ?m=tc  → temp (L) + CO2 (R)
- *   ?m=th  → temp (L) + humidity (R)
- *   ?m=p   → PM2.5 only
+ * Format: [primary][secondary?][Z?]
+ *   - Single char = primary only (no secondary)
+ *   - Two chars = primary + secondary
+ *   - Trailing 'Z' = disable fromZero (default is fromZero enabled)
  *
- * Default: temp only
+ * Examples:
+ *   ?y=t    → temp only, fromZero=true
+ *   ?y=tc   → temp (L) + CO2 (R), fromZero=true (default, omitted)
+ *   ?y=tcZ  → temp (L) + CO2 (R), fromZero=false
+ *   ?y=th   → temp (L) + humidity (R), fromZero=true
+ *   ?y=pZ   → PM2.5 only, fromZero=false
+ *
+ * Default: temp + CO2, fromZero=true (omitted from URL)
  */
-export function metricsParam(init: Metrics = { l: 'temp', r: 'none' }): Param<Metrics> {
-  const metricToChar: Record<Metric, string> = {
-    temp: 't',
-    co2: 'c',
-    humid: 'h',
-    pm25: 'p',
-    voc: 'v',
-  }
+export type YAxesConfig = {
+  l: Metric
+  r: Metric | 'none'
+  fromZero: boolean
+}
 
-  const charToMetric: Record<string, Metric> = {
-    t: 'temp',
-    c: 'co2',
-    h: 'humid',
-    p: 'pm25',
-    v: 'voc',
-  }
+const metricToChar: Record<Metric, string> = {
+  temp: 't',
+  co2: 'c',
+  humid: 'h',
+  pm25: 'p',
+  voc: 'v',
+}
 
+const charToMetric: Record<string, Metric> = {
+  t: 'temp',
+  c: 'co2',
+  h: 'humid',
+  p: 'pm25',
+  v: 'voc',
+}
+
+export function yAxesParam(init: YAxesConfig = { l: 'temp', r: 'co2', fromZero: true }): Param<YAxesConfig> {
   return {
     encode: (config) => {
       // Check if matches default
-      if (config.l === init.l && config.r === init.r) {
+      if (config.l === init.l && config.r === init.r && config.fromZero === init.fromZero) {
         return undefined
       }
 
       const primaryChar = metricToChar[config.l]
-      if (config.r === 'none') {
-        return primaryChar
+      let result = primaryChar
+
+      if (config.r !== 'none') {
+        result += metricToChar[config.r]
       }
 
-      const secondaryChar = metricToChar[config.r]
-      return `${primaryChar}${secondaryChar}`
+      // Append Z if fromZero is disabled (default is enabled)
+      if (!config.fromZero) {
+        result += 'Z'
+      }
+
+      return result
     },
 
     decode: (encoded) => {
       if (!encoded) return init
 
-      const primaryChar = encoded[0]
-      const secondaryChar = encoded[1]
+      // Check for trailing Z (fromZero disabled)
+      const hasZ = encoded.endsWith('Z')
+      const metricsStr = hasZ ? encoded.slice(0, -1) : encoded
+
+      const primaryChar = metricsStr[0]
+      const secondaryChar = metricsStr[1]
 
       const primary = charToMetric[primaryChar]
       if (!primary) {
@@ -164,24 +183,24 @@ export function metricsParam(init: Metrics = { l: 'temp', r: 'none' }): Param<Me
       }
 
       if (!secondaryChar) {
-        return { l: primary, r: 'none' }
+        return { l: primary, r: 'none', fromZero: !hasZ }
       }
 
       const secondary = charToMetric[secondaryChar]
       if (!secondary) {
         console.warn(`Unknown metric char: ${secondaryChar}`)
-        return { l: primary, r: 'none' }
+        return { l: primary, r: 'none', fromZero: !hasZ }
       }
 
-      return { l: primary, r: secondary }
+      return { l: primary, r: secondary, fromZero: !hasZ }
     },
   }
 }
 
 /**
- * Default metrics param instance with temp + CO2 defaults
+ * Default Y-axes param instance with temp + CO2, fromZero=true defaults
  */
-export const defaultMetricsParam = metricsParam({ l: 'temp', r: 'co2' })
+export const defaultYAxesParam = yAxesParam({ l: 'temp', r: 'co2', fromZero: true })
 
 /**
  * Time range URL param - wraps codec in Param interface
@@ -259,47 +278,51 @@ export const hsvConfigParam: Param<import('../components/DeviceRenderSettings').
 }
 
 /**
- * Aggregation window param - stores user-selected aggregation window override
+ * X-axis grouping param - unified param for aggregation control
  *
- * Uses label format: 1m, 5m, 1h, etc.
- * null/undefined = auto mode (algorithm selects optimal window)
+ * Encodes both auto mode (px values) and fixed window mode (time labels)
  *
- * Examples:
- *   ?agg=5m  → 5-minute windows
- *   ?agg=1h  → 1-hour windows
- *   (omit)   → auto mode
+ * Auto mode (px suffix):
+ *   ?x=1px  → auto mode, 1px per point (default, omitted)
+ *   ?x=2px  → auto mode, 2px per point
+ *   ?x=4px  → auto mode, 4px per point
+ *   ?x=8px  → auto mode, 8px per point
+ *
+ * Fixed window mode (time labels):
+ *   ?x=5m   → fixed 5-minute windows
+ *   ?x=1h   → fixed 1-hour windows
+ *   ?x=1d   → fixed 1-day windows
+ *
+ * Default: 1px (auto mode, omitted from URL)
  */
-export const aggWindowParam: Param<string | null> = {
-  encode: (label) => label || undefined,
-  decode: (encoded) => encoded || null,
-}
+export type XGrouping =
+  | { mode: 'auto'; targetPx: number }
+  | { mode: 'fixed'; windowLabel: string }
 
-/**
- * Target pixels per point param - controls auto aggregation mode
- *
- * When set, auto mode dynamically selects the time window to achieve
- * approximately this many pixels per data point.
- *
- * Examples:
- *   ?px=1  → 1px per point (maximum detail)
- *   ?px=4  → 4px per point (default balance)
- *   (omit) → 1px default
- *
- * Valid values: 1, 2, 4, 8
- * null means fixed window mode (use aggWindowParam instead)
- */
-export const targetPxParam: Param<number | null> = {
-  encode: (px) => {
-    if (px === null) return 'off'
-    if (px === 1) return undefined  // Default, omit from URL
-    return String(px)
+export const xGroupingParam: Param<XGrouping> = {
+  encode: (value) => {
+    if (value.mode === 'auto') {
+      if (value.targetPx === 1) return undefined  // Default, omit from URL
+      return `${value.targetPx}px`
+    }
+    // Fixed window mode
+    return value.windowLabel
   },
   decode: (encoded) => {
-    if (encoded === 'off') return null
-    if (!encoded) return 1  // Default to 1px
-    const num = parseInt(encoded, 10)
-    if ([1, 2, 4, 8].includes(num)) return num
-    return 1
+    if (!encoded) return { mode: 'auto', targetPx: 1 }  // Default
+
+    // Check for px suffix (auto mode)
+    const pxMatch = encoded.match(/^(\d+)px$/)
+    if (pxMatch) {
+      const px = parseInt(pxMatch[1], 10)
+      if ([1, 2, 4, 8].includes(px)) {
+        return { mode: 'auto', targetPx: px }
+      }
+      return { mode: 'auto', targetPx: 1 }  // Invalid px, use default
+    }
+
+    // Otherwise treat as window label (fixed mode)
+    return { mode: 'fixed', windowLabel: encoded }
   },
 }
 
