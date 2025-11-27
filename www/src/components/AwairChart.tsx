@@ -479,63 +479,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       }
     })
 
-    // Add stddev regions first (behind the lines)
-    // Primary stddev region (only for first device)
-    if (!isRawData && deviceData.length > 0) {
-      const d = deviceData[0]
-      traces.push({
-        x: d.timestamps,
-        y: d.lowerValues,
-        mode: 'lines',
-        line: { color: 'transparent' },
-        name: `${config.label} Lower`,
-        showlegend: false,
-        hoverinfo: 'skip',
-        zorder: 10
-      })
-      traces.push({
-        x: d.timestamps,
-        y: d.upperValues,
-        fill: 'tonexty',
-        fillcolor: `${d.primaryLineProps.color}20`,
-        line: { color: 'transparent' },
-        mode: 'lines',
-        name: `±σ ${config.label}`,
-        showlegend: false,
-        hoverinfo: 'skip',
-        zorder: 10
-      })
-    }
-
-    // Secondary stddev region (only for first device)
-    if (secondaryConfig && !isRawData && deviceData.length > 0) {
-      const d = deviceData[0]
-      traces.push({
-        x: d.timestamps,
-        y: d.secondaryLowerValues,
-        mode: 'lines',
-        line: { color: 'transparent' },
-        name: `${secondaryConfig.label} Lower`,
-        showlegend: false,
-        hoverinfo: 'skip',
-        yaxis: 'y2',
-        zorder: 1
-      })
-      traces.push({
-        x: d.timestamps,
-        y: d.secondaryUpperValues,
-        fill: 'tonexty',
-        fillcolor: `${d.secondaryLineProps?.color}20`,
-        line: { color: 'transparent' },
-        mode: 'lines',
-        name: `±σ ${secondaryConfig.label}`,
-        showlegend: false,
-        hoverinfo: 'skip',
-        yaxis: 'y2',
-        zorder: 1
-      })
-    }
-
     // PRIMARY METRIC traces for all devices (grouped together in hover)
     deviceData.forEach((d, idx) => {
       // First device gets metric header in hover
@@ -587,6 +530,64 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             })
           })
         }
+      })
+    }
+
+    // Add stddev regions AFTER main traces (so hover color swatches align correctly)
+    // Use negative zorder to render them behind the lines
+    // Primary stddev region (only for first device)
+    if (!isRawData && deviceData.length > 0) {
+      const d = deviceData[0]
+      traces.push({
+        x: d.timestamps,
+        y: d.lowerValues,
+        mode: 'lines',
+        line: { color: 'transparent' },
+        name: `${config.label} Lower`,
+        showlegend: false,
+        hoverinfo: 'skip',
+        zorder: -10
+      })
+      traces.push({
+        x: d.timestamps,
+        y: d.upperValues,
+        fill: 'tonexty',
+        fillcolor: `${d.primaryLineProps.color}20`,
+        line: { color: 'transparent' },
+        mode: 'lines',
+        name: `±σ ${config.label}`,
+        showlegend: false,
+        hoverinfo: 'skip',
+        zorder: -10
+      })
+    }
+
+    // Secondary stddev region (only for first device)
+    if (secondaryConfig && !isRawData && deviceData.length > 0) {
+      const d = deviceData[0]
+      traces.push({
+        x: d.timestamps,
+        y: d.secondaryLowerValues,
+        mode: 'lines',
+        line: { color: 'transparent' },
+        name: `${secondaryConfig.label} Lower`,
+        showlegend: false,
+        hoverinfo: 'skip',
+        yaxis: 'y2',
+        zorder: -20
+      })
+      traces.push({
+        x: d.timestamps,
+        y: d.secondaryUpperValues,
+        fill: 'tonexty',
+        fillcolor: `${d.secondaryLineProps?.color}20`,
+        line: { color: 'transparent' },
+        mode: 'lines',
+        name: `±σ ${secondaryConfig.label}`,
+        showlegend: false,
+        hoverinfo: 'skip',
+        yaxis: 'y2',
+        zorder: -20
       })
     }
 
