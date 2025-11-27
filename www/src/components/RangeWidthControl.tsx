@@ -47,20 +47,24 @@ export function RangeWidthControl({
           </Tooltip>
         )}
         {isMobile ? (
-          <button
-            className={`unselectable latest ${latestModeIntended ? 'active' : ''}`}
-            onClick={handleLatestButtonClick}
-          >
-            Latest
-          </button>
+          <label className="checkbox-label latest-checkbox">
+            <input
+              type="checkbox"
+              checked={latestModeIntended}
+              onChange={handleLatestButtonClick}
+            />
+            <span>Latest</span>
+          </label>
         ) : (
-          <Tooltip content="Jump to latest data and auto-follow new data (Keyboard: l)">
-            <button
-              className={`unselectable latest ${latestModeIntended ? 'active' : ''}`}
-              onClick={handleLatestButtonClick}
-            >
-              Latest
-            </button>
+          <Tooltip content="Auto-follow latest data (Keyboard: l)">
+            <label className="checkbox-label latest-checkbox">
+              <input
+                type="checkbox"
+                checked={latestModeIntended}
+                onChange={handleLatestButtonClick}
+              />
+              <span>Latest</span>
+            </label>
           </Tooltip>
         )}
       </div>
