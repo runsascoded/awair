@@ -84,10 +84,20 @@ export function deviceIdsParam(devices: Device[]): Param<number[]> {
         return undefined
       }
 
-      // Encode each ID as short name (if available) or numeric ID
-      return deviceIds
-        .map(id => idToName.get(id) || id.toString())
-        .join(' ')  // Space-separated, becomes + in URL
+      // Check if default device is included
+      const includesDefault = defaultDeviceId !== null && deviceIds.includes(defaultDeviceId)
+
+      if (includesDefault) {
+        // Encode as " name1 name2..." (leading space = include default)
+        // The leading space becomes + in URL, so "d=+br" means default + br
+        const otherIds = deviceIds.filter(id => id !== defaultDeviceId)
+        return ' ' + otherIds.map(id => idToName.get(id) || id.toString()).join(' ')
+      } else {
+        // Encode without leading space (just the selected devices)
+        return deviceIds
+          .map(id => idToName.get(id) || id.toString())
+          .join(' ')
+      }
     },
 
     decode: (encoded) => {
@@ -96,11 +106,22 @@ export function deviceIdsParam(devices: Device[]): Param<number[]> {
         return defaultDeviceId !== null ? [defaultDeviceId] : []
       }
 
-      // Decode each space-separated pattern (+ decoded to space by URLSearchParams)
-      return encoded
-        .split(' ')
+      // Leading space means "include default device"
+      const includeDefault = encoded.startsWith(' ')
+      const patterns = encoded.trim().split(/\s+/).filter(Boolean)
+
+      const decodedIds = patterns
         .map(pattern => findDeviceByPattern(pattern, devices))
         .filter((id): id is number => id !== null)
+
+      if (includeDefault && defaultDeviceId !== null) {
+        // Prepend default device if not already included
+        if (!decodedIds.includes(defaultDeviceId)) {
+          return [defaultDeviceId, ...decodedIds]
+        }
+      }
+
+      return decodedIds
     },
   }
 }
