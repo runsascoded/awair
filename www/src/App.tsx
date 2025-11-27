@@ -1,16 +1,24 @@
 import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { AwairChart } from './components/AwairChart'
 import { ThemeToggle } from './components/ThemeToggle'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
 import { useMultiDeviceData } from './hooks/useMultiDeviceData'
 import { queryClient } from './lib/queryClient'
-import { deviceIdsParam, timeRangeParam } from './lib/urlParams'
+import { boolParam, deviceIdsParam, timeRangeParam } from './lib/urlParams'
 import './App.scss'
 
 function AppContent() {
+  const [isOgMode] = useUrlParam('og', boolParam)
+
+  // Add og-mode class to body for CSS overrides
+  useEffect(() => {
+    document.body.classList.toggle('og-mode', isOgMode)
+    return () => document.body.classList.remove('og-mode')
+  }, [isOgMode])
+
   const { devices } = useDevices()
 
   // Device selection persisted in URL (?d=gym+br)
@@ -108,10 +116,11 @@ function AppContent() {
             onDeviceSelectionChange={setSelectedDeviceIds}
             timeRange={timeRange}
             setTimeRange={setTimeRange}
+            isOgMode={isOgMode}
           />
         )}
       </main>
-      <ThemeToggle />
+      {!isOgMode && <ThemeToggle />}
     </div>
   )
 }

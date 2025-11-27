@@ -98,6 +98,25 @@ body {
   color: var(--text-primary);
   background-color: var(--bg-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
+
+  // OG image mode: remove all margins/padding for edge-to-edge screenshot
+  &.og-mode {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+
+    .app {
+      min-height: 100vh;
+      padding: 0;
+      margin: 0;
+    }
+
+    main {
+      padding: 0;
+      margin: 0;
+      max-width: none;
+    }
+  }
 }
 
 .app {
