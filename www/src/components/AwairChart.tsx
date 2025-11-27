@@ -721,6 +721,10 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           style={{ width: '100%', height: '100%' }}
           onRelayout={handleRelayout}
           onDoubleClick={handleDoubleClick}
+          onAfterPlot={() => {
+            // Signal to og-lambda screenshot that the chart is ready
+            (window as Window & { chartReady?: boolean }).chartReady = true
+          }}
         />
       </div>
 
