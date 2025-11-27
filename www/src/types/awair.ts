@@ -1,5 +1,5 @@
 export interface AwairRecord {
-  timestamp: string;
+  timestamp: Date;
   temp: number;
   co2: number;
   pm10: number;

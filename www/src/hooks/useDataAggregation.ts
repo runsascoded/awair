@@ -7,7 +7,7 @@ export interface TimeWindow {
 }
 
 interface AggregatedData {
-  timestamp: string
+  timestamp: Date
   temp_avg: number
   temp_stddev: number
   co2_avg: number
@@ -86,7 +86,7 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
 
   // Aggregate each group and ensure chronological order
   return Object.entries(groups)
-    .map(([timestamp, records]) => {
+    .map(([timestampKey, records]) => {
       const temps = records.map(r => r.temp)
       const co2s = records.map(r => r.co2)
       const humids = records.map(r => r.humid)
@@ -94,7 +94,7 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
       const vocs = records.map(r => r.voc)
 
       return {
-        timestamp,
+        timestamp: new Date(timestampKey),
         temp_avg: temps.reduce((a, b) => a + b, 0) / temps.length,
         temp_stddev: calculateStdDev(temps),
         co2_avg: co2s.reduce((a, b) => a + b, 0) / co2s.length,
@@ -108,7 +108,7 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
         count: records.length,
       }
     })
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
 }
 
 /**

@@ -13,7 +13,7 @@ export function useLatestMode(
 
   // Track the latest timestamp to detect when new data arrives
   const latestTimestamp = data.length > 0 ? data[0].timestamp : null
-  const prevLatestTimestamp = useRef<string | null>(null)
+  const prevLatestTimestamp = useRef<Date | null>(null)
 
   // Calculate auto-update range when new data arrives in Latest mode
   const autoUpdateRange = useMemo(() => {
@@ -23,13 +23,13 @@ export function useLatestMode(
     }
 
     // Only auto-update if we have genuinely NEW data (timestamp changed)
-    const hasNewData = latestTimestamp !== prevLatestTimestamp.current
+    const hasNewData = latestTimestamp.getTime() !== prevLatestTimestamp.current?.getTime()
 
     if (!hasNewData) {
       return null // No new data, don't auto-update
     }
 
-    const currentLatestTime = new Date(latestTimestamp)
+    const currentLatestTime = latestTimestamp
     const currentRangeEnd = new Date(xAxisRange[1])
 
     // Check if we have new data that's newer than current range end

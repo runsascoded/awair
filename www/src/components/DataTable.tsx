@@ -14,7 +14,7 @@ import {
 import React, { useState, useMemo } from 'react'
 
 interface AggregatedData {
-  timestamp: string;
+  timestamp: Date;
   temp_avg: number;
   temp_stddev: number;
   co2_avg: number;
@@ -37,8 +37,8 @@ interface Props {
   windowLabel: string;
   plotStartTime?: string;
   plotEndTime?: string;
-  fullDataStartTime?: string;
-  fullDataEndTime?: string;
+  fullDataStartTime?: Date;
+  fullDataEndTime?: Date;
   windowMinutes: number;
   onPageChange?: (pageOffset: number) => void;
   onJumpToLatest?: () => void;
@@ -128,7 +128,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
     }
 
     // Calculate how many windows from the end of full dataset to end of plot
-    const fullEnd = new Date(fullDataEndTime).getTime()
+    const fullEnd = fullDataEndTime.getTime()
     const plotEnd = new Date(plotEndTime).getTime()
     const windowsAfterPlot = Math.floor((fullEnd - plotEnd) / (windowMinutes * 60 * 1000))
 
@@ -264,11 +264,11 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               <tr key={startIdx + idx}>
                 <td>
                   {isRawData ? (
-                    <ValueTooltip content={formatFullDate(new Date(record.timestamp))}>
-                      <span style={{ cursor: 'help' }}>{formatCompactDate(new Date(record.timestamp))}</span>
+                    <ValueTooltip content={formatFullDate(record.timestamp)}>
+                      <span style={{ cursor: 'help' }}>{formatCompactDate(record.timestamp)}</span>
                     </ValueTooltip>
                   ) : (
-                    formatCompactDate(new Date(record.timestamp))
+                    formatCompactDate(record.timestamp)
                   )}
                 </td>
                 <td>
