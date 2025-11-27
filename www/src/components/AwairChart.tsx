@@ -1,7 +1,6 @@
 import { useUrlParam } from '@rdub/use-url-params'
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
-import { AggregationControl } from './AggregationControl'
 import { ChartControls, metricConfig } from './ChartControls'
 import { DataTable } from './DataTable'
 import { TIME_WINDOWS } from '../hooks/useDataAggregation'
@@ -168,6 +167,20 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // For status display, show the max window count across all devices
   const maxWindowCount = Math.max(...deviceAggregations.map(d => d.aggregatedData.length), 0)
+
+  // Calculate time range in minutes for aggregation control
+  const timeRangeMinutes = useMemo(() => {
+    if (xAxisRange) {
+      const startTime = new Date(xAxisRange[0]).getTime()
+      const endTime = new Date(xAxisRange[1]).getTime()
+      return (endTime - startTime) / (1000 * 60)
+    } else if (data.length > 1) {
+      const firstTime = new Date(data[data.length - 1].timestamp).getTime()
+      const lastTime = new Date(data[0].timestamp).getTime()
+      return (lastTime - firstTime) / (1000 * 60)
+    }
+    return undefined
+  }, [xAxisRange, data])
 
   const {
     autoUpdateRange,
@@ -504,23 +517,13 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           yaxis: 'y2',
           zorder: 1,
           ...(isRawData ? {
-            customdata: devData.map(d => formatFullDate(new Date(d.timestamp))),
-            hovertemplate: `<b>%{customdata}</b><br>` +
-                         `${secondaryConfig.label}: %{y:.1f} ${secondaryConfig.unit}<extra>${deviceName}</extra>`
+            hovertemplate: `%{y:.1f} ${secondaryConfig.unit}<extra>${deviceName} ${secondaryConfig.label}</extra>`
           } : {
             customdata: devData.map((d, i) => ([
-              formatFullDate(new Date(d.timestamp)),
-              secondaryAvgValues[i],
-              secondaryUpperValues[i],
-              secondaryLowerValues[i],
               secondaryStddevValues[i],
               d.count
             ])),
-            hovertemplate: `<b>%{customdata[0]}</b><br>` +
-                         `Avg: %{y:.1f} ${secondaryConfig.unit}<br>` +
-                         `±σ: %{customdata[3]:.1f} - %{customdata[2]:.1f} ${secondaryConfig.unit}<br>` +
-                         `σ: %{customdata[4]:.1f} ${secondaryConfig.unit}<br>` +
-                         `n = %{customdata[5]}<extra>${deviceName}</extra>`
+            hovertemplate: `%{y:.1f} ±%{customdata[0]:.1f} ${secondaryConfig.unit} (n=%{customdata[1]})<extra>${deviceName} ${secondaryConfig.label}</extra>`
           })
         })
       }
@@ -561,23 +564,13 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         legendgroup: 'primary',
         zorder: 10,
         ...(isRawData ? {
-          customdata: devData.map(d => formatFullDate(new Date(d.timestamp))),
-          hovertemplate: `<b>%{customdata}</b><br>` +
-                       `${config.label}: %{y:.1f} ${config.unit}<extra>${deviceName}</extra>`
+          hovertemplate: `%{y:.1f} ${config.unit}<extra>${deviceName} ${config.label}</extra>`
         } : {
           customdata: devData.map((d, i) => ([
-            formatFullDate(new Date(d.timestamp)),
-            avgValues[i],
-            upperValues[i],
-            lowerValues[i],
             stddevValues[i],
             d.count
           ])),
-          hovertemplate: `<b>%{customdata[0]}</b><br>` +
-                       `Avg: %{y:.1f} ${config.unit}<br>` +
-                       `±σ: %{customdata[3]:.1f} - %{customdata[2]:.1f} ${config.unit}<br>` +
-                       `σ: %{customdata[4]:.1f} ${config.unit}<br>` +
-                       `n = %{customdata[5]}<extra>${deviceName}</extra>`
+          hovertemplate: `%{y:.1f} ±%{customdata[0]:.1f} ${config.unit} (n=%{customdata[1]})<extra>${deviceName} ${config.label}</extra>`
         })
       })
     })
@@ -654,7 +647,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             yaxis: createYAxisConfig('left'),
             ...(secondaryConfig && { yaxis2: createYAxisConfig('right') }),
             margin: { l: 35, r: secondaryConfig ? 35 : 10, t: totalDevices > 1 ? isMobile ? 30 : 40 : 0, b: 45 },
-            hovermode: isMobile ? 'closest' : 'x',
+            hovermode: isMobile ? 'closest' : 'x unified',
             plot_bgcolor: plotColors.plotBg,
             paper_bgcolor: plotColors.plotBg,
             legend: createLegendConfig(0, 'left'),
@@ -720,14 +713,13 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         devices={devices}
         selectedDeviceIds={selectedDeviceIds}
         onDeviceSelectionChange={onDeviceSelectionChange}
-      />
-
-      <AggregationControl
         selectedWindow={selectedWindow}
         validWindows={validWindows}
         windowCount={maxWindowCount}
         onWindowChange={(window) => setAggWindowLabel(window?.label || null)}
         isAutoMode={!aggWindowLabel}
+        timeRangeMinutes={timeRangeMinutes}
+        containerWidth={viewportWidth}
       />
 
       <DataTable

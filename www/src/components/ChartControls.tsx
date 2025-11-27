@@ -1,8 +1,10 @@
 import React from 'react'
+import { AggregationControl } from './AggregationControl'
 import { DevicesControl } from './DevicesControl'
 import { RangeWidthControl } from './RangeWidthControl'
 import { YAxesControl } from './YAxesControl'
 import type { HsvConfig } from './DeviceRenderSettings'
+import type { TimeWindow } from '../hooks/useDataAggregation'
 import type { MetricsState } from "../hooks/useMetrics.ts"
 import type { Device } from '../services/awairService'
 import type { AwairRecord, DataSummary } from '../types/awair'
@@ -44,6 +46,14 @@ interface ChartControlsProps {
   devices: Device[]
   selectedDeviceIds: number[]
   onDeviceSelectionChange: (deviceIds: number[]) => void
+  // Aggregation control
+  selectedWindow: TimeWindow
+  validWindows: TimeWindow[]
+  windowCount: number
+  onWindowChange: (window: TimeWindow | null) => void
+  isAutoMode: boolean
+  timeRangeMinutes?: number
+  containerWidth?: number
 }
 
 const metricConfig: { [key: string]: MetricConfig } = {
@@ -78,7 +88,14 @@ export function ChartControls({
   setIgnoreNextPanCheck,
   devices,
   selectedDeviceIds,
-  onDeviceSelectionChange
+  onDeviceSelectionChange,
+  selectedWindow,
+  validWindows,
+  windowCount,
+  onWindowChange,
+  isAutoMode,
+  timeRangeMinutes,
+  containerWidth,
 }: ChartControlsProps) {
 
   const isMobile = window.innerWidth < 768 || window.innerHeight < 600
@@ -159,6 +176,15 @@ export function ChartControls({
         isMobile={isMobile}
       />
 
+      <AggregationControl
+        selectedWindow={selectedWindow}
+        validWindows={validWindows}
+        windowCount={windowCount}
+        onWindowChange={onWindowChange}
+        isAutoMode={isAutoMode}
+        timeRangeMinutes={timeRangeMinutes}
+        containerWidth={containerWidth}
+      />
     </div>
   )
 }
