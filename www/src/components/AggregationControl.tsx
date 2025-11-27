@@ -58,7 +58,7 @@ export function AggregationControl({
               onWindowChange(window)
             }
           }}
-          className={isAutoMode ? 'auto-controlled' : ''}
+          className={`window-select ${isAutoMode ? 'auto-controlled' : ''}`}
         >
           {isAutoMode && (
             <option value="" disabled>
