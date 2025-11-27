@@ -193,12 +193,21 @@ React + TypeScript + Vite application:
 - **Components**:
   - `AwairChart.tsx`: Main Plotly.js chart with dual Y-axis support
   - `ChartControls.tsx`: Time range and metric selection
+  - `AggregationControl.tsx`: X-axis grouping/aggregation settings
+  - `YAxesControl.tsx`: Y-axis metric selection dropdowns
+  - `DevicesControl.tsx`: Multi-device selection
+  - `RangeWidthControl.tsx`: Time range duration buttons
   - `DataTable.tsx`: Paginated data table
   - `ThemeToggle.tsx`: Dark/light mode switcher
+  - `Tooltip.tsx`: Reusable tooltip component
 
 - **Hooks**:
-  - `useAwairData.ts`: React Query integration for data fetching
-  - `useDataAggregation.ts`: Adaptive aggregation based on zoom level
+  - `useDevices.ts`: Fetches device list from S3
+  - `useMultiDeviceData.ts`: React Query integration for multi-device data fetching
+  - `useMultiDeviceAggregation.ts`: Aggregation across multiple devices
+  - `useDataAggregation.ts`: Adaptive aggregation based on zoom level and container width
+  - `useTimeRangeParam.ts`: URL-persisted time range state
+  - `useMetrics.ts`: URL-persisted Y-axis metric selection
   - `useLatestMode.ts`: Auto-update when new data arrives
   - `useKeyboardShortcuts.ts`: Keyboard navigation (t/c/h/p/v for metrics)
 

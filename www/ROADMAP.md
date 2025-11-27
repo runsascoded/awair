@@ -60,19 +60,6 @@ Caching Strategy:
    - Use metadata to identify RG boundaries
    - Fetch only needed RGs via Range headers
 
-**HAR Testing:**
-- Playwright has native `recordHar` support
-- Can filter to `.parquet` URLs
-- Verify 206 responses, analyze Range headers, check total bytes
-
-```javascript
-const context = await browser.newContext({
-  recordHar: { path: 'parquet.har', urlFilter: /\.parquet$/ }
-});
-```
-
-**Potential standalone library:** `parquet-cache` or similar for browser-based Parquet with smart caching.
-
 ---
 
 ## 3. Alternative Data Sources
@@ -96,52 +83,23 @@ export interface DataSource {
 }
 ```
 
-**Implementation order:**
-1. `s3-duckdb-wasm` - Compare performance with hyparquet
-2. `lambda` - Python Lambda with SnapStart, return aggregated JSON
-3. `cfw` - If Lambda latency unacceptable
-
 ---
 
-## 4. Aggregation Window Control (NEXT)
+## 4. Dynamic OG Image
 
-**Goal:** User-configurable aggregation granularity with smart defaults.
+**Goal:** Fresh screenshot of the dashboard as the og:image, updated periodically.
 
-**Current state:**
-- Fixed `targetPoints = 300`
-- Auto-selects smallest TIME_WINDOW keeping points <= 300
-- No user control
-- Mobile gets same 300 target as desktop (too dense)
+**Approach:** Scheduled Lambda (hourly) takes screenshot → uploads to S3 → site references static S3 URL.
 
-**TIME_WINDOWS available:**
-```typescript
-['1m', '2m', '3m', '5m', '10m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d', '2d']
-```
+**Why not on-demand Lambda at the og:image URL?**
+- Social media crawlers have tight timeouts (~2-5s)
+- Headless browser screenshot takes several seconds
+- Cold start + screenshot would likely exceed timeout
+- Pre-generated image is instant and reliable
 
-**Proposed changes:**
-
-1. **Responsive targetPoints:**
-   ```typescript
-   const targetPoints = Math.max(100, Math.floor(windowWidth / 4))
-   // 375px mobile → 93 points
-   // 1200px desktop → 300 points
-   ```
-
-2. **New control group UI:**
-   ```
-   Aggregation:  [▾ 5m]  ← dropdown of valid windows
-   289 windows (5m each)  ← existing info text
-   ```
-
-3. **Window filtering logic:**
-   - Min: smallest window giving >= 50 points (avoid too sparse)
-   - Max: largest window giving <= 1000 points (avoid too dense)
-   - Default: auto-selected based on responsive targetPoints
-
-4. **URL param:** `&agg=5m` to persist selection
-
-**Files to modify:**
-- `www/src/hooks/useDataAggregation.ts` - Add window width param, export valid windows
-- `www/src/components/AggregationControl.tsx` - New component
-- `www/src/components/ChartControls.tsx` - Include new control
-- `www/src/App.tsx` - Wire up state + URL param
+**Implementation:**
+- Lambda with Playwright/Puppeteer (or `@sparticuz/chromium` for Lambda layer)
+- Screenshot the live site at a good viewport (1200x630 for og:image)
+- Upload to `s3://380nwk/og-image.png` (public)
+- EventBridge schedule: hourly
+- Site's `<meta property="og:image">` points to the S3 URL
