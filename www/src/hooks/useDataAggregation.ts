@@ -227,7 +227,7 @@ export function useDataAggregation(
     ? Math.floor(containerWidth / targetPx)
     : getTargetPoints(containerWidth)
 
-  const { dataToAggregate, selectedWindow, timeRangeMinutes, validWindows } = useMemo(() => {
+  const { dataToAggregate, selectedWindow, validWindows } = useMemo(() => {
     let dataToAggregate = data
     let timeRangeMinutes: number | undefined
 
@@ -253,7 +253,6 @@ export function useDataAggregation(
     return {
       dataToAggregate,
       selectedWindow,
-      timeRangeMinutes,
       validWindows,
     }
   }, [data, rangeKey, targetPoints, overrideWindow])

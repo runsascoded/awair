@@ -137,13 +137,14 @@ describe('S3 Data Fetching', () => {
       const arrayBuffer = await response.arrayBuffer()
       console.log('Fetched parquet file, size:', arrayBuffer.byteLength, 'bytes')
 
-      // Parse the parquet file
-      const records: any[] = []
+      // Parse the parquet file - hyparquet returns rows as tuples [timestamp, temp, co2, pm10, pm25, humid, voc]
+      type AwairRow = [string, number, number, number, number, number, number]
+      const records: AwairRow[] = []
       await parquetRead({
         file: arrayBuffer,
         onComplete: (data) => {
           if (Array.isArray(data)) {
-            records.push(...data)
+            records.push(...(data as AwairRow[]))
           }
         }
       })
@@ -156,24 +157,22 @@ describe('S3 Data Fetching', () => {
 
         // Test timezone conversion on actual data
         const firstRecord = records[0]
-        if (firstRecord.timestamp) {
-          const originalTimestamp = firstRecord.timestamp.toString()
-          console.log('Actual timestamp from S3:', originalTimestamp)
+        const originalTimestamp = firstRecord[0] // timestamp is index 0
+        console.log('Actual timestamp from S3:', originalTimestamp)
 
-          // Test our conversion
-          const asLocal = new Date(originalTimestamp)
-          const asUTC = new Date(originalTimestamp + 'Z')
+        // Test our conversion
+        const asLocal = new Date(originalTimestamp)
+        const asUTC = new Date(originalTimestamp + 'Z')
 
-          console.log('Parsed as local:', asLocal.toString())
-          console.log('Parsed as UTC:', asUTC.toString())
+        console.log('Parsed as local:', asLocal.toString())
+        console.log('Parsed as UTC:', asUTC.toString())
 
-          // Test the chart's conversion logic
-          const utcTime = new Date(originalTimestamp + 'Z').getTime()
-          const localTimestamp = new Date(utcTime).toISOString().slice(0, 19)
+        // Test the chart's conversion logic
+        const utcTime = new Date(originalTimestamp + 'Z').getTime()
+        const localTimestamp = new Date(utcTime).toISOString().slice(0, 19)
 
-          console.log('Chart conversion result:', localTimestamp)
-          console.log('Chart result parsed:', new Date(localTimestamp).toString())
-        }
+        console.log('Chart conversion result:', localTimestamp)
+        console.log('Chart result parsed:', new Date(localTimestamp).toString())
       }
 
       expect(records.length).toBeGreaterThan(0)

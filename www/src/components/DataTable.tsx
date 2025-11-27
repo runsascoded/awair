@@ -74,7 +74,7 @@ function ValueTooltip({ children, content }: { children: React.ReactElement; con
 
   return (
     <>
-      {React.cloneElement(children, getReferenceProps({ ref: refs.setReference, ...(children.props as any) }))}
+      {React.cloneElement(children, getReferenceProps({ ref: refs.setReference, ...(children.props as Record<string, unknown>) }))}
       {isOpen && (
         <FloatingPortal>
           <div

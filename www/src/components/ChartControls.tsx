@@ -6,7 +6,7 @@ import { YAxesControl } from './YAxesControl'
 import type { PxOption } from './AggregationControl'
 import type { HsvConfig } from './DeviceRenderSettings'
 import type { TimeWindow } from '../hooks/useDataAggregation'
-import type { MetricsState } from "../hooks/useMetrics.ts"
+import type { MetricsState } from "../hooks/useMetrics"
 import type { Device } from '../services/awairService'
 import type { AwairRecord, DataSummary } from '../types/awair'
 import type { DeviceRenderStrategy } from '../utils/deviceRenderStrategy'
@@ -57,13 +57,15 @@ interface ChartControlsProps {
   containerWidth?: number
 }
 
-const metricConfig: { [key: string]: MetricConfig } = {
+const metricConfig = {
   temp: { label: 'Temperature', shortLabel: 'Temp', emoji: '🌡️', unit: '°F', color: '#ff6384' },
   co2: { label: 'CO₂', shortLabel: 'CO₂', emoji: '💨', unit: 'ppm', color: '#36a2eb' },
   humid: { label: 'Humidity', shortLabel: 'Hum.', emoji: '💦', unit: '%', color: '#4bc0c0' },
   pm25: { label: 'PM2.5', shortLabel: 'PM2.5', emoji: '🏭', unit: 'μg/m³', color: '#9966ff' },
-  voc: { label: 'VOC', shortLabel: 'VOC', emoji: '🧪', unit: 'ppb', color: '#ff9f40' }
-}
+  voc: { label: 'VOC', shortLabel: 'VOC', emoji: '🧪', unit: 'ppb', color: '#ff9f40' },
+} as const satisfies Record<string, MetricConfig>
+
+export type MetricKey = keyof typeof metricConfig
 
 export function ChartControls({
   metrics,

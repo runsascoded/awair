@@ -47,7 +47,7 @@ export function Tooltip({ children, content }: TooltipProps) {
 
   return (
     <>
-      {React.cloneElement(children, getReferenceProps({ ref: refs.setReference, ...(children.props as any) }))}
+      {React.cloneElement(children, getReferenceProps({ ref: refs.setReference, ...(children.props as Record<string, unknown>) }))}
       {isOpen && (
         <FloatingPortal>
           <div

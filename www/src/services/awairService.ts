@@ -10,6 +10,13 @@ export interface Device {
   lastUpdated?: string
 }
 
+// Parquet row tuple types (match column order in files)
+// devices.parquet: name, deviceId, deviceType, deviceUUID, lat, lon, preference, locationName, roomType, spaceType, macAddress, timezone, lastUpdated, active, dataPath
+type DeviceRow = [string, number, string, string, number, number, string, string, string, string, string, string, string, boolean, string]
+
+// awair-{id}.parquet: timestamp, temp, co2, pm10, pm25, humid, voc
+type AwairRow = [string, number, number, number, number, number, number]
+
 /**
  * S3 root for all data storage.
  * Structure:
@@ -37,12 +44,12 @@ export async function fetchDevices(): Promise<Device[]> {
 
     const arrayBuffer = await response.arrayBuffer()
 
-    let rows: any[] = []
+    let rows: DeviceRow[] = []
     await parquetRead({
       file: arrayBuffer,
       onComplete: (data) => {
         if (Array.isArray(data)) {
-          rows = data
+          rows = data as DeviceRow[]
         }
       }
     })
@@ -51,14 +58,14 @@ export async function fetchDevices(): Promise<Device[]> {
       throw new Error('No devices found in Parquet file')
     }
 
-    // Convert array format to typed records
-    const devices: Device[] = rows.map((row: any[]) => ({
+    // Convert tuple rows to typed records
+    const devices: Device[] = rows.map((row) => ({
       name: row[0],
-      deviceId: Number(row[1]),
+      deviceId: row[1],
       deviceType: row[2],
       // Skip deviceUUID, lat, lon, preference, locationName, roomType, spaceType, macAddress, timezone (indices 3-11)
       lastUpdated: row[12],
-      active: Boolean(row[13]),
+      active: row[13],
       dataPath: row[14],
     }))
 
@@ -149,13 +156,13 @@ export async function fetchAwairData(
     console.log(`📥 Fetching all rows (${numRowGroups} row groups, entire history)`)
   }
 
-  let rows: any[] = []
+  let rows: AwairRow[] = []
   await parquetRead({
     file,
     ...(rowStart > 0 ? { rowStart, rowEnd } : {}),
     onComplete: (data) => {
       if (Array.isArray(data)) {
-        rows = data
+        rows = data as AwairRow[]
       }
     }
   })
@@ -164,15 +171,15 @@ export async function fetchAwairData(
     throw new Error('No data found in Parquet file')
   }
 
-  // Convert array format to typed records
-  const records: AwairRecord[] = rows.map((row: any[]) => ({
+  // Convert tuple rows to typed records
+  const records: AwairRecord[] = rows.map((row) => ({
     timestamp: row[0],
-    temp: Number(row[1]),
-    co2: Number(row[2]),
-    pm10: Number(row[3]),
-    pm25: Number(row[4]),
-    humid: Number(row[5]),
-    voc: Number(row[6]),
+    temp: row[1],
+    co2: row[2],
+    pm10: row[3],
+    pm25: row[4],
+    humid: row[5],
+    voc: row[6],
   }))
 
   // Sort by timestamp (newest first)

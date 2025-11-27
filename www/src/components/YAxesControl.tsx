@@ -1,7 +1,8 @@
 import React from 'react'
 import { metricConfig } from './ChartControls'
 import { Tooltip } from './Tooltip'
-import type { MetricsState } from "../hooks/useMetrics.ts"
+import type { MetricsState } from "../hooks/useMetrics"
+import type { Metric } from "../lib/urlParams"
 
 interface YAxesControlProps {
   metrics: MetricsState
@@ -27,14 +28,14 @@ export function YAxesControl({
       <div className="body yaxes-controls">
         <div className="metric-select">
           {isMobile ? (
-            <select value={l.val} onChange={(e) => l.set(e.target.value as any)}>
+            <select value={l.val} onChange={(e) => l.set(e.target.value as Metric)}>
               {Object.entries(metricConfig).map(([key, cfg]) => (
                 <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option>
               ))}
             </select>
           ) : (
             <Tooltip content="Left Y-axis metric (Keyboard: t=Temp, c=CO₂, h=Humid, p=PM2.5, v=VOC)">
-              <select value={l.val} onChange={(e) => l.set(e.target.value as any)}>
+              <select value={l.val} onChange={(e) => l.set(e.target.value as Metric)}>
                 {Object.entries(metricConfig).map(([key, cfg]) => (
                   <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option>
                 ))}
@@ -45,7 +46,7 @@ export function YAxesControl({
 
         <div className="metric-select">
           {isMobile ? (
-            <select value={r.val} onChange={(e) => r.set(e.target.value as any)}>
+            <select value={r.val} onChange={(e) => r.set(e.target.value as Metric | 'none')}>
               <option value="none">None</option>
               {Object.entries(metricConfig).map(([key, cfg]) => (
                 key !== l.val ? <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option> : null
@@ -53,7 +54,7 @@ export function YAxesControl({
             </select>
           ) : (
             <Tooltip content="Right Y-axis metric (Keyboard: Shift+T, Shift+C, Shift+H, Shift+P, Shift+V, Shift+N=None)">
-              <select value={r.val} onChange={(e) => r.set(e.target.value as any)}>
+              <select value={r.val} onChange={(e) => r.set(e.target.value as Metric | 'none')}>
                 <option value="none">None</option>
                 {Object.entries(metricConfig).map(([key, cfg]) => (
                   key !== l.val ? <option key={key} value={key}>{cfg.emoji} {cfg.shortLabel}</option> : null

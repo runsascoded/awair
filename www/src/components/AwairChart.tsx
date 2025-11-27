@@ -6,7 +6,7 @@ import { DataTable } from './DataTable'
 import { TIME_WINDOWS } from '../hooks/useDataAggregation'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLatestMode } from '../hooks/useLatestMode'
-import { useMetrics } from '../hooks/useMetrics.ts'
+import { useMetrics } from '../hooks/useMetrics'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
 import { deviceRenderStrategyParam, hsvConfigParam, xGroupingParam } from '../lib/urlParams'
@@ -15,6 +15,7 @@ import type { PxOption } from './AggregationControl'
 import type { DeviceDataResult } from '../hooks/useMultiDeviceData'
 import type { Device } from '../services/awairService'
 import type { DataSummary } from '../types/awair'
+import type { Data, PlotRelayoutEvent } from 'plotly.js'
 
 interface Props {
   deviceDataResults: DeviceDataResult[]
@@ -186,7 +187,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   const {
     autoUpdateRange,
-    checkUserPanAway,
+    checkUserPanAway: _checkUserPanAway,
     jumpToLatest,
     setIgnoreNextPanCheck
   } = useLatestMode(data, xAxisRange, formatForPlotly, latestModeIntended, setLatestModeIntended)
@@ -251,12 +252,12 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   }, [data, formatForPlotly])
 
   // Relayout handler
-  const handleRelayout = useCallback((eventData: any) => {
-    if (eventData['xaxis.range[0]'] && eventData['xaxis.range[1]']) {
-      const newRange: [string, string] = [
-        eventData['xaxis.range[0]'],
-        eventData['xaxis.range[1]']
-      ]
+  const handleRelayout = useCallback((eventData: PlotRelayoutEvent) => {
+    const x0 = eventData['xaxis.range[0]']
+    const x1 = eventData['xaxis.range[1]']
+    if (x0 !== undefined && x1 !== undefined) {
+      // PlotRelayoutEvent types these as number, but for date axes they're strings
+      const newRange: [string, string] = [String(x0), String(x1)]
       setXAxisRange(newRange)
     }
   }, [setXAxisRange])
@@ -412,7 +413,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // Generate traces for all devices, grouped by metric for better hover ordering
   const plotTraces = useMemo(() => {
-    const traces: any[] = []
+    const traces: Data[] = []
 
     // Pre-compute data for all devices
     const deviceData = deviceAggregations.map((deviceAgg, deviceIndex) => {
