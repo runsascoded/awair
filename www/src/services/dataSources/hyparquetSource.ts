@@ -14,23 +14,42 @@ type AwairRow = [Date, number, bigint, bigint, bigint, number, bigint]
 
 /** Global cache manager - one ParquetCache per URL */
 const cacheManager = new Map<string, ParquetCache>()
+/** Pending initialization promises - prevents concurrent init */
+const initPromises = new Map<string, Promise<ParquetCache>>()
 
 /** Get or create a ParquetCache for a URL */
 async function getCache(url: string): Promise<ParquetCache> {
-  let cache = cacheManager.get(url)
-  if (!cache) {
-    cache = new ParquetCache(url)
-    cacheManager.set(url, cache)
+  // Return existing initialized cache
+  const existing = cacheManager.get(url)
+  if (existing && existing.getMetadata()) {
+    return existing
+  }
+
+  // Wait for pending initialization
+  const pending = initPromises.get(url)
+  if (pending) {
+    return pending
+  }
+
+  // Start new initialization
+  const initPromise = (async () => {
+    const cache = new ParquetCache(url)
     await cache.initialize()
+    cacheManager.set(url, cache)
+    initPromises.delete(url)
     const stats = cache.getStats()
     console.log(`🔧 Initialized ParquetCache for ${url}: ${stats.totalRowGroups} RGs, ${(stats.cacheSize / 1024).toFixed(0)}KB cached`)
-  }
-  return cache
+    return cache
+  })()
+
+  initPromises.set(url, initPromise)
+  return initPromise
 }
 
 /** Clear all caches (for testing or memory pressure) */
 export function clearCaches(): void {
   cacheManager.clear()
+  initPromises.clear()
 }
 
 export class HyparquetSource implements DataSource {

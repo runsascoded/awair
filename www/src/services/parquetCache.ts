@@ -78,7 +78,8 @@ export class ParquetCache {
   constructor(url: string, options: ParquetCacheOptions = {}) {
     this.url = url
     this.initialFetchSize = options.initialFetchSize ?? (1 << 19) // 512KB
-    this.fetchFn = options.fetch ?? globalThis.fetch
+    // Bind fetch to globalThis to preserve context when called as this.fetchFn()
+    this.fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis)
     this.blobCache = new LRUCache(options.cacheOptions ?? {})
   }
 
