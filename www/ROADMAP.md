@@ -75,10 +75,23 @@ Footer: ~24KB (but 512KB initial fetch is hyparquet default)
   - Simple LRU with max size in bytes
   - O(1) get/set using Map iteration order
 
-**Not yet integrated:**
-- `ParquetCache` not yet used by `HyparquetSource` or `fetchAwairData`
+- `HyparquetSource` integration (`www/src/services/dataSources/hyparquetSource.ts`)
+  - Uses `ParquetCache` for row-group-level caching
+  - Selects needed RGs using timestamp stats (not row count estimation)
+  - Global cache manager maintains one cache per URL
+  - `refresh()` method for polling updates
+
+- `fetchAwairData` wiring (`www/src/services/awairService.ts`)
+  - Now uses `HyparquetSource` with caching
+  - `refreshDeviceData()` for manual cache refresh
+
+- TanStack Query polling (`www/src/hooks/useMultiDeviceData.ts`)
+  - `refetchInterval` and `refetchIntervalInBackground` options
+  - 60-second polling enabled by default (only when tab active)
+
+**Not yet done:**
 - IndexedDB persistence (currently in-memory only)
-- Automatic polling/refresh loop
+- Phase-shifted polling (poll ~5-10s after Lambda updates)
 
 ### Optimal Fetch Pattern
 
