@@ -85,21 +85,48 @@ export interface DataSource {
 
 ---
 
-## 4. Dynamic OG Image
+## 4. Network Performance Profiling
 
-**Goal:** Fresh screenshot of the dashboard as the og:image, updated periodically.
+**Goal:** Automated network performance benchmarking via headless browser.
 
-**Approach:** Scheduled Lambda (hourly) takes screenshot → uploads to S3 → site references static S3 URL.
+**Use cases:**
+- Benchmark different data source implementations (hyparquet vs DuckDB-WASM vs Lambda)
+- Track performance regressions over time
+- Compare load times across different time ranges / data sizes
 
-**Why not on-demand Lambda at the og:image URL?**
-- Social media crawlers have tight timeouts (~2-5s)
-- Headless browser screenshot takes several seconds
-- Cold start + screenshot would likely exceed timeout
-- Pre-generated image is instant and reliable
+**Approach:** Use [puppeteer-har](https://github.com/Everettss/puppeteer-har) to capture HAR, post-process to extract key metrics.
 
-**Implementation:**
-- Lambda with Playwright/Puppeteer (or `@sparticuz/chromium` for Lambda layer)
-- Screenshot the live site at a good viewport (1200x630 for og:image)
-- Upload to `s3://380nwk/og-image.png` (public)
-- EventBridge schedule: hourly
-- Site's `<meta property="og:image">` points to the S3 URL
+**Example script:**
+```javascript
+import puppeteer from 'puppeteer'
+import PuppeteerHar from 'puppeteer-har'
+
+const browser = await puppeteer.launch({ headless: true })
+const page = await browser.newPage()
+const har = new PuppeteerHar(page)
+
+await har.start({ path: 'awair.har' })
+await page.goto('https://awair.runsascoded.com/?d=+br', { waitUntil: 'networkidle0' })
+await page.waitForFunction('window.chartReady', { timeout: 30000 })
+await har.stop()
+await browser.close()
+```
+
+**Output format** (post-processed from HAR):
+```json
+{
+  "url": "https://awair.runsascoded.com/?d=+br",
+  "timestamp": "2025-11-28T05:34:00Z",
+  "chartReadyMs": 1234,
+  "requests": [
+    {"url": "awair-17617.parquet", "bytes": 524288, "ms": 195},
+    {"url": "awair-137496.parquet", "bytes": 265616, "ms": 115}
+  ],
+  "totals": {"bytes": 6302683, "requests": 9}
+}
+```
+
+**Initial results** (2025-11-28):
+- 9 requests, 6.3MB total
+- Main JS bundle: 5.2MB, 266ms
+- Parquet files: 524KB + 266KB, ~115-195ms each
