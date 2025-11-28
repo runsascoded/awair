@@ -5,17 +5,17 @@ The Awair CLI includes integrated AWS Lambda deployment for scheduled data updat
 ## Quick Start
 
 ```bash
-# Deploy for a specific device
+# Deploy for a specific device (1-minute intervals)
 export AWAIR_TOKEN=your_token_here
 AWAIR_DATA_PATH=s3://bucket/awair-17617.parquet \
-  awair lambda deploy -s awair-updater-17617 -r 2
+  awair lambda deploy -s awair-updater-17617 -r 1
 
 # Deploy multiple devices (separate stacks)
 AWAIR_DEVICE_ID=17617 AWAIR_DATA_PATH=s3://bucket/awair-17617.parquet \
-  awair lambda deploy -s awair-updater-17617 -r 2
+  awair lambda deploy -s awair-updater-17617 -r 1
 
 AWAIR_DEVICE_ID=137496 AWAIR_DATA_PATH=s3://bucket/awair-137496.parquet \
-  awair lambda deploy -s awair-updater-137496 -r 2
+  awair lambda deploy -s awair-updater-137496 -r 1
 
 # Build package only
 awair lambda deploy --dry-run
@@ -30,7 +30,7 @@ aws logs tail /aws/lambda/awair-updater-17617 --follow
 ## What It Does
 
 Creates a scheduled Lambda function per device that:
-- ✅ Runs every 2 minutes via EventBridge (configurable)
+- ✅ Runs every minute via EventBridge (configurable)
 - ✅ Updates device-specific S3 Parquet file with latest sensor data
 - ✅ Uses `utz.s3.atomic_edit` for safe concurrent updates
 - ✅ Integrates with existing CLI functions (`fetch_raw_data`, `ParquetStorage`)
@@ -42,22 +42,19 @@ Creates a scheduled Lambda function per device that:
 **Multi-Device Setup:**
 ```
 Device 17617:
-  EventBridge (2min) → Lambda (awair-updater-17617) → Awair API → s3://bucket/awair-17617.parquet
+  EventBridge (1min) → Lambda (awair-updater-17617) → Awair API → s3://bucket/awair-17617.parquet
 
 Device 137496:
-  EventBridge (2min) → Lambda (awair-updater-137496) → Awair API → s3://bucket/awair-137496.parquet
+  EventBridge (1min) → Lambda (awair-updater-137496) → Awair API → s3://bucket/awair-137496.parquet
 ```
 
 Each Lambda reuses CLI functions (`fetch_raw_data`, `ParquetStorage`) for consistency.
 
 ## Files
 
-- `src/awair/lambda/app.py` - CDK application (infrastructure as code)
-- `src/awair/lambda/deploy.py` - CDK deployment script
-- `src/awair/lambda/updater.py` - Lambda handler function
-- `src/awair/lambda/requirements.txt` - Lambda runtime dependencies
-- `src/awair/lambda/requirements-deploy.txt` - CDK deployment dependencies
-- `src/awair/lambda/test_updater.py` - Local testing
+- `src/awair/lmbda/app.py` - CDK application (infrastructure as code)
+- `src/awair/lmbda/deploy.py` - CDK deployment script
+- `src/awair/lmbda/updater.py` - Lambda handler function
 
 ## CDK Benefits
 
@@ -71,10 +68,10 @@ Each Lambda reuses CLI functions (`fetch_raw_data`, `ParquetStorage`) for consis
 ## Rate Limiting
 
 Per device:
-- **2-minute intervals** = 720 runs/day
-- **Multiple devices**: 720 × N devices per day
-- **Example (2 devices)**: 1,440 requests/day total
-- **Well within limits**: Awair confirmed 5,000 requests/day available
+- **1-minute intervals** = 1,440 runs/day
+- **Multiple devices**: 1,440 × N devices per day
+- **Example (2 devices)**: 2,880 requests/day total
+- **Well within limits**: Awair Enterprise tier provides sufficient capacity
 - **Cost**: ~$0.50/month per device (mostly free tier)
 
 ## Monitoring

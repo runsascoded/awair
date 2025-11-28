@@ -7,14 +7,14 @@
 A Python CLI tool and automated data collection system for [Awair] air quality sensors. Provides real-time data fetching using [the Awair API][API], historical analysis, automated S3 storage via AWS Lambda (per-device), and a web dashboard for visualization.
 
 <a href="https://awair.runsascoded.com" target="_blank">
-  <img src="https://raw.githubusercontent.com/runsascoded/awair/v0.0.5/www/public/awair.png" alt="Awair Dashboard" />
+  <img src="https://380nwk.s3.amazonaws.com/awair/og-image.jpg" alt="Awair Dashboard" />
 </a>
 
 ## Features
 
 - **Web Dashboard**: Real-time visualization at [awair.runsascoded.com]
 - **CLI Interface**: Raw data fetching, analysis, and export from Awair sensors
-- **Automated Collection**: AWS Lambda functions that collect data every 2 minutes per device
+- **Automated Collection**: AWS Lambda functions that collect data every minute per device
 - **Multi-Device Support**: Separate Lambda stacks and Parquet files per device
 - **S3 Storage**: Efficient Parquet format with incremental updates
 - **Data Analysis**: Built-in tools for gaps analysis, histograms, and data summaries
@@ -121,15 +121,15 @@ awair data gaps -n 5 -m 300  # Top 5 gaps over 5 minutes
 ### AWS Lambda Deployment
 
 ```bash
-# Deploy automated data collector for a device
-awair lambda deploy -s awair-updater-17617 -r 2
+# Deploy automated data collector for a device (1-minute intervals)
+awair lambda deploy -s awair-updater-17617 -r 1
 
 # Deploy for multiple devices (separate stacks)
 AWAIR_DEVICE_ID=17617 AWAIR_DATA_PATH=s3://bucket/awair-17617.parquet \
-  awair lambda deploy -s awair-updater-17617 -r 2
+  awair lambda deploy -s awair-updater-17617 -r 1
 
 AWAIR_DEVICE_ID=137496 AWAIR_DATA_PATH=s3://bucket/awair-137496.parquet \
-  awair lambda deploy -s awair-updater-137496 -r 2
+  awair lambda deploy -s awair-updater-137496 -r 1
 
 # View CloudFormation template
 awair lambda synth
@@ -168,7 +168,7 @@ Sensor data is stored in Parquet format with these fields:
 
 The system uses AWS Lambda for automated data collection:
 
-- **Schedule**: Runs every 2 minutes via EventBridge
+- **Schedule**: Runs every minute via EventBridge (configurable)
 - **Multi-Device**: Separate Lambda stack per device
 - **Storage**: Updates device-specific S3 Parquet file incrementally
 - **Efficiency**: Only fetches data since last update
@@ -221,13 +221,13 @@ Deploy AWS Lambda function for automated data collection:
 ```bash
 # Deploy latest PyPI version for a device (recommended)
 AWAIR_DATA_PATH=s3://bucket/awair-17617.parquet \
-  awair lambda deploy -s awair-updater-17617 -r 2
+  awair lambda deploy -s awair-updater-17617 -r 1
 
 # Deploy specific PyPI version
-awair lambda deploy -v 0.0.1 -s awair-updater-17617 -r 2
+awair lambda deploy -v 0.0.1 -s awair-updater-17617 -r 1
 
 # Deploy from local source (development)
-awair lambda deploy -v source -s awair-updater-17617 -r 2
+awair lambda deploy -v source -s awair-updater-17617 -r 1
 
 # Build package only (no deploy)
 awair lambda deploy --dry-run
@@ -235,7 +235,7 @@ awair lambda deploy --dry-run
 
 **Multi-Device Deployment:**
 Each device gets its own Lambda stack with independent:
-- EventBridge schedule (default: 2 minutes)
+- EventBridge schedule (default: 1 minute)
 - S3 Parquet file (`awair-{device_id}.parquet`)
 - CloudWatch logs
 - IAM permissions
@@ -255,7 +255,7 @@ Each device gets its own Lambda stack with independent:
 Each Lambda deployment creates:
 
 - **Lambda Function**: `awair-updater-{device_id}` (e.g., `awair-updater-17617`)
-- **EventBridge Rule**: Configurable schedule (default: 2 minutes)
+- **EventBridge Rule**: Configurable schedule (default: 1 minute)
 - **IAM Role**: S3 permissions for device-specific target path
 - **CloudWatch Logs**: 2-week retention
 - **Environment Variables**: `AWAIR_TOKEN`, `AWAIR_DATA_PATH`, `AWAIR_DEVICE_ID`
@@ -264,12 +264,12 @@ Each Lambda deployment creates:
 ```
 Stack: awair-updater-17617
   ├─ Lambda: awair-updater-17617
-  ├─ EventBridge: rate(2 minutes)
+  ├─ EventBridge: rate(1 minute)
   └─ S3: s3://380nwk/awair-17617.parquet
 
 Stack: awair-updater-137496
   ├─ Lambda: awair-updater-137496
-  ├─ EventBridge: rate(2 minutes)
+  ├─ EventBridge: rate(1 minute)
   └─ S3: s3://380nwk/awair-137496.parquet
 ```
 
