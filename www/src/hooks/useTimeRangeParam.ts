@@ -4,6 +4,9 @@ import type { AwairRecord } from '../types/awair'
 /**
  * Compute xAxisRange from data and timeRange
  */
+// Buffer to add after the latest data point so it's hoverable (not at edge)
+const LATEST_MODE_BUFFER_MS = 60 * 1000 // 1 minute
+
 function computeRange(
   data: AwairRecord[],
   timeRange: { timestamp: Date | null; duration: number },
@@ -13,7 +16,8 @@ function computeRange(
 
   let endTime: Date
   if (timeRange.timestamp === null) {
-    endTime = new Date(data[0].timestamp)
+    // In Latest mode, add buffer so the latest point isn't at the very edge
+    endTime = new Date(new Date(data[0].timestamp).getTime() + LATEST_MODE_BUFFER_MS)
   } else {
     endTime = timeRange.timestamp
   }
@@ -90,7 +94,8 @@ export function useTimeRangeParam(
       : timeRange.duration
 
     if (enabled) {
-      const endTime = new Date(data[0].timestamp)
+      // Add buffer so latest point isn't at edge
+      const endTime = new Date(new Date(data[0].timestamp).getTime() + LATEST_MODE_BUFFER_MS)
       const startTime = new Date(endTime.getTime() - currentDuration)
       setXAxisRangeState([formatForPlotly(startTime), formatForPlotly(endTime)])
       setTimeRange({ timestamp: null, duration: currentDuration })
@@ -114,7 +119,8 @@ export function useTimeRangeParam(
       const timeDiffMinutes = Math.abs(endTime.getTime() - latestDataTime.getTime()) / (1000 * 60)
       stayInLatestMode = timeDiffMinutes < 10
     } else if (timeRange.timestamp === null) {
-      endTime = new Date(data[0].timestamp)
+      // Add buffer so latest point isn't at edge
+      endTime = new Date(new Date(data[0].timestamp).getTime() + LATEST_MODE_BUFFER_MS)
       stayInLatestMode = true
     } else {
       endTime = timeRange.timestamp
