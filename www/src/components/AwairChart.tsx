@@ -211,35 +211,24 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     }
   }, [data, xAxisRange, hasSetDefaultRange])
 
-  // Determine which time range button is active
+  // Determine which time range button is active based on the requested duration
   const getActiveTimeRange = useCallback(() => {
-    if (!xAxisRange || data.length === 0) return 'all'
-
-    const rangeStart = new Date(xAxisRange[0])
-    const rangeEnd = new Date(xAxisRange[1])
-    const rangeHours = (rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60)
-
-    const latestTime = new Date(data[0].timestamp)
-    const timeDiffMinutes = Math.abs(rangeEnd.getTime() - latestTime.getTime()) / (1000 * 60)
-    const isLatestView = timeDiffMinutes < 10
-
-    // Check if it's the full range
-    const firstDataTime = new Date(data[data.length - 1].timestamp)
-    const lastDataTime = new Date(data[0].timestamp)
-    const fullRangeHours = (lastDataTime.getTime() - firstDataTime.getTime()) / (1000 * 60 * 60)
-    const isFullRange = Math.abs(rangeHours - fullRangeHours) < 1
-
-    if (isFullRange) return 'all'
+    // Use the requested duration from props, not the chart's x-axis range
+    const durationHours = timeRangeFromProps.duration / (1000 * 60 * 60)
+    const isLatestView = latestModeIntended
 
     // Check range width with tolerance
-    if (Math.abs(rangeHours - 24) < 2) return isLatestView ? 'latest-1d' : '1d'
-    if (Math.abs(rangeHours - (24 * 3)) < 6) return isLatestView ? 'latest-3d' : '3d'
-    if (Math.abs(rangeHours - (24 * 7)) < 12) return isLatestView ? 'latest-7d' : '7d'
-    if (Math.abs(rangeHours - (24 * 14)) < 24) return isLatestView ? 'latest-14d' : '14d'
-    if (Math.abs(rangeHours - (24 * 30)) < 48) return isLatestView ? 'latest-30d' : '30d'
+    if (Math.abs(durationHours - 24) < 2) return isLatestView ? 'latest-1d' : '1d'
+    if (Math.abs(durationHours - (24 * 3)) < 6) return isLatestView ? 'latest-3d' : '3d'
+    if (Math.abs(durationHours - (24 * 7)) < 12) return isLatestView ? 'latest-7d' : '7d'
+    if (Math.abs(durationHours - (24 * 14)) < 24) return isLatestView ? 'latest-14d' : '14d'
+    if (Math.abs(durationHours - (24 * 30)) < 48) return isLatestView ? 'latest-30d' : '30d'
+
+    // "All" is only active when duration exceeds 30 days (or summary indicates full range)
+    if (durationHours > 24 * 45) return 'all'
 
     return isLatestView ? 'latest-custom' : 'custom'
-  }, [xAxisRange, data])
+  }, [timeRangeFromProps.duration, latestModeIntended])
 
   // Double click handler
   const handleDoubleClick = useCallback(() => {
