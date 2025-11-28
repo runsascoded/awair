@@ -32,33 +32,68 @@
 
 **Goal:** Efficient incremental fetching with row-group-level caching.
 
-**Current state:**
-- Uses `hyparquet` with `asyncBufferFromUrl()` for HTTP Range Requests
-- React Query caches at query level (2min stale, 3min refetch)
-- No row-group-level caching
-- Single row group per file currently (limits optimization)
+### File Layout Analysis (2025-11-28)
 
-**Desired architecture:**
+**Current file structure** (`awair-17617.parquet`, 3.9MB, 25 row groups):
 ```
-Parquet File Structure:
-[RG0][RG1][RG2]...[RGn-1][RGn][Footer]
- ^--- immutable ---^     ^-- mutable (last RG grows)
+[RG0][RG1]...[RG24][Footer]
+ ^--- immutable ---^  ^-- last RG may grow
 
-Caching Strategy:
-- Cache RG0..RGn-1 permanently (immutable)
-- Poll only: [last RG start offset → EOF] every minute
-- Detect when new RG starts, update cursor
+Each RG: ~10k rows (~7 days), ~90-160KB, all columns contiguous
+Footer: ~24KB (but 512KB initial fetch is hyparquet default)
 ```
 
-**Implementation plan:**
-1. Configure writer to use `row_group_size=10000` (enables partial fetches)
-2. Build `ParquetCache` layer:
-   - IndexedDB for row group chunks
-   - Track byte offsets per cached RG
-   - Only fetch from last-cached-RG-end to EOF
-3. Optimize hyparquet usage:
-   - Use metadata to identify RG boundaries
-   - Fetch only needed RGs via Range headers
+**Key findings:**
+- Row groups ARE contiguous (no gaps between columns or RGs)
+- Footer is only ~24KB, but hyparquet fetches 512KB to be safe
+- 512KB initial fetch includes ~4 recent RGs (~28 days of data)
+- For views ≤28 days, **no additional fetch needed** beyond initial!
+- For 30d view: needs 5 extra Range requests for older RGs
+
+**Interval analysis:**
+- 99.93% of intervals are >1 min (slow drift), 0.07% are <1 min (fast drift)
+- Average interval: 1.005 min → ~10,028 rows per 7 days
+- Reduced `SAFETY_MARGIN` from 1.5 to 1.01
+
+**RG size tuning:**
+- Current: 10,000 rows = 6.94 days (pathological for 7d view - always needs 2 RGs)
+- Drift analysis: 99.93% slow (>1min), 0.07% fast (<1min), avg 1.005 min/row
+- Recommended: **10,200 rows = ~7.1 days** (margin for rare sub-minute drift)
+- To update: `python scripts/rewrite_parquet_row_groups.py s3://380nwk/awair-{id}.parquet 10200`
+
+### Implementation Status
+
+**Completed:**
+- `ParquetCache` class (`www/src/services/parquetCache.ts`)
+  - LRU cache with size-based eviction for RG blobs
+  - "Tail cache" for last RG + footer (the mutable part)
+  - Open-ended Range request (`bytes={lastRG}-`) for polling updates
+  - Coalesced Range requests for fetching multiple RGs at once
+  - Automatic promotion of immutable RGs to blob cache
+
+- `LRUCache` class (`www/src/services/lruCache.ts`)
+  - Simple LRU with max size in bytes
+  - O(1) get/set using Map iteration order
+
+**Not yet integrated:**
+- `ParquetCache` not yet used by `HyparquetSource` or `fetchAwairData`
+- IndexedDB persistence (currently in-memory only)
+- Automatic polling/refresh loop
+
+### Optimal Fetch Pattern
+
+```
+Initial load (512KB):
+  [HEAD] → file size
+  [GET bytes=-512KB] → footer + ~4 recent RGs
+
+Polling update (every 1 min):
+  [HEAD] → check if file grew
+  [GET bytes={lastRG.start}-] → last RG + any new RGs + footer
+
+On-demand (user selects longer range):
+  [GET bytes={firstMissing.start}-{lastMissing.end}] → one coalesced request
+```
 
 ---
 
@@ -127,6 +162,7 @@ await browser.close()
 ```
 
 **Initial results** (2025-11-28):
-- 9 requests, 6.3MB total
-- Main JS bundle: 5.2MB, 266ms
-- Parquet files: 524KB + 266KB, ~115-195ms each
+- Default view (1d, 2 devices): 2 Parquet requests only (HEAD + Range each)
+- Main JS bundle: 1.5MB (after plotly-basic.min.js optimization)
+- Parquet files: 524KB + 266KB via Range requests
+- For views ≤28 days: no additional fetches beyond initial 512KB/file

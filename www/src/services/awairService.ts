@@ -90,8 +90,9 @@ export async function fetchDevices(): Promise<Device[]> {
 const getParquetUrl = getDataUrl
 
 // Data collection assumptions for row group optimization
+// Awair devices record ~1 row per minute with minimal drift (99.9% exactly 1 min)
 const ROWS_PER_MINUTE = 1
-const SAFETY_MARGIN = 1.5
+const SAFETY_MARGIN = 1.01
 
 export async function fetchAwairData(
   deviceId: number | undefined,
@@ -116,8 +117,10 @@ export async function fetchAwairData(
   const metadata = await parquetMetadataAsync(file)
   const totalRows = Number(metadata.num_rows)
   const numRowGroups = metadata.row_groups.length
+  // Get actual row group size from first RG (all RGs should be same size except possibly last)
+  const rowsPerGroup = numRowGroups > 0 ? Number(metadata.row_groups[0].num_rows) : totalRows
 
-  console.log(`📦 File has ${numRowGroups} row groups, ${totalRows} total rows`)
+  console.log(`📦 File has ${numRowGroups} row groups, ${totalRows} total rows, ${rowsPerGroup} rows/RG`)
 
   // Extract file date range from row group statistics (timestamp is column 0)
   let fileEarliest: string | null = null
@@ -143,7 +146,7 @@ export async function fetchAwairData(
   // Calculate expected rows based on requested time range
   const rangeMinutes = timeRange.duration / (1000 * 60)
   const expectedRows = Math.ceil(rangeMinutes * ROWS_PER_MINUTE * SAFETY_MARGIN)
-  const expectedRowGroups = Math.ceil(expectedRows / 10000) // Assuming 10k rows per group
+  const expectedRowGroups = Math.ceil(expectedRows / rowsPerGroup)
 
   // Determine fetch strategy
   let rowStart = 0

@@ -13,9 +13,9 @@ import type { DataSource, FetchOptions, FetchResult, FetchTiming } from '../data
 type AwairRow = [Date, number, bigint, bigint, bigint, number, bigint]
 
 // Data collection assumptions
-const ROWS_PER_MINUTE = 1 // Expected data density: ~1 row per minute
-const ROWS_PER_GROUP = 10000 // Row group size configured in storage layer
-const SAFETY_MARGIN = 1.5 // Fetch extra row groups to account for gaps/variations
+// Awair devices record ~1 row per minute with minimal drift (99.9% >1min, 0.07% <1min)
+const ROWS_PER_MINUTE = 1
+const SAFETY_MARGIN = 1.01
 
 export class HyparquetSource implements DataSource {
   readonly type = 's3-hyparquet' as const
@@ -35,13 +35,15 @@ export class HyparquetSource implements DataSource {
     const metadata = await parquetMetadataAsync(file)
     const totalRows = Number(metadata.num_rows)
     const numRowGroups = metadata.row_groups.length
+    // Get actual row group size from first RG (all RGs should be same size except possibly last)
+    const rowsPerGroup = numRowGroups > 0 ? Number(metadata.row_groups[0].num_rows) : totalRows
 
-    console.log(`📦 File has ${numRowGroups} row groups, ${totalRows} total rows`)
+    console.log(`📦 File has ${numRowGroups} row groups, ${totalRows} total rows, ${rowsPerGroup} rows/RG`)
 
     // Calculate expected rows needed based on time range
     const rangeMinutes = (range.to.getTime() - range.from.getTime()) / (1000 * 60)
     const expectedRows = Math.ceil(rangeMinutes * ROWS_PER_MINUTE * SAFETY_MARGIN)
-    const expectedRowGroups = Math.ceil(expectedRows / ROWS_PER_GROUP)
+    const expectedRowGroups = Math.ceil(expectedRows / rowsPerGroup)
 
     console.log(`⏱️  Time range: ${rangeMinutes.toFixed(0)} minutes → expecting ~${expectedRows} rows in ~${expectedRowGroups} row groups`)
 
