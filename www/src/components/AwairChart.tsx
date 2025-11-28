@@ -670,7 +670,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           pointerEvents: 'none',
         }}>
           <span>Air Quality Dashboard</span>
-          <span style={{ fontFamily: '"Noto Color Emoji", sans-serif', marginLeft: '0.5em' }}>🌡️ 💨 💦 🏭 🧪</span>
+          <span style={{ fontFamily: '"Noto Color Emoji", sans-serif', marginLeft: '0.5em', letterSpacing: '-0.5em' }}>🌡️ 💨 💦 🏭 🧪</span>
         </div>
       )}
       <div className="plot-container" style={isOgMode ? { height: '100%' } : undefined}>
