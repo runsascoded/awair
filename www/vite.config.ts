@@ -6,9 +6,10 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      // Use fixed plotly.js from GitHub branch until PR is merged
+      // Use plotly-basic (smaller bundle) from fixed GitHub branch
       // https://github.com/plotly/plotly.js/pull/7659
-      'plotly.js-dist-min': 'plotly.js/dist/plotly.min.js',
+      'plotly.js/dist/plotly': 'plotly.js/dist/plotly-basic.min.js',
+      'plotly.js-dist-min': 'plotly.js/dist/plotly-basic.min.js',
     },
   },
   optimizeDeps: {
