@@ -1,10 +1,10 @@
 /**
  * Data source implementation using hyparquet for direct S3 reads.
- * Uses HTTP Range Requests to fetch only required row groups.
+ * Uses ParquetCache for intelligent row-group-level caching with Range Requests.
  */
 
-import { asyncBufferFromUrl, parquetMetadataAsync, parquetRead } from 'hyparquet'
 import { getDataUrl } from '../awairService'
+import { ParquetCache } from '../parquetCache'
 import type { AwairRecord } from '../../types/awair'
 import type { DataSource, FetchOptions, FetchResult, FetchTiming } from '../dataSource'
 
@@ -12,10 +12,26 @@ import type { DataSource, FetchOptions, FetchResult, FetchTiming } from '../data
 // Note: timestamp is Date object, temp/humid are float (number), others are BigInt
 type AwairRow = [Date, number, bigint, bigint, bigint, number, bigint]
 
-// Data collection assumptions
-// Awair devices record ~1 row per minute with minimal drift (99.9% >1min, 0.07% <1min)
-const ROWS_PER_MINUTE = 1
-const SAFETY_MARGIN = 1.01
+/** Global cache manager - one ParquetCache per URL */
+const cacheManager = new Map<string, ParquetCache>()
+
+/** Get or create a ParquetCache for a URL */
+async function getCache(url: string): Promise<ParquetCache> {
+  let cache = cacheManager.get(url)
+  if (!cache) {
+    cache = new ParquetCache(url)
+    cacheManager.set(url, cache)
+    await cache.initialize()
+    const stats = cache.getStats()
+    console.log(`🔧 Initialized ParquetCache for ${url}: ${stats.totalRowGroups} RGs, ${(stats.cacheSize / 1024).toFixed(0)}KB cached`)
+  }
+  return cache
+}
+
+/** Clear all caches (for testing or memory pressure) */
+export function clearCaches(): void {
+  cacheManager.clear()
+}
 
 export class HyparquetSource implements DataSource {
   readonly type = 's3-hyparquet' as const
@@ -26,62 +42,66 @@ export class HyparquetSource implements DataSource {
     const url = getDataUrl(deviceId)
 
     const startTime = performance.now()
-    let bytesTransferred = 0
 
-    // Create async buffer for range requests
-    const file = await asyncBufferFromUrl({ url })
+    // Get or initialize cache for this URL
+    const cache = await getCache(url)
+    const metadata = cache.getMetadata()!
+    const rgInfos = cache.getRowGroupInfos()
 
-    // Fetch metadata to determine row group structure
-    const metadata = await parquetMetadataAsync(file)
     const totalRows = Number(metadata.num_rows)
-    const numRowGroups = metadata.row_groups.length
-    // Get actual row group size from first RG (all RGs should be same size except possibly last)
-    const rowsPerGroup = numRowGroups > 0 ? Number(metadata.row_groups[0].num_rows) : totalRows
+    const numRowGroups = rgInfos.length
 
-    console.log(`📦 File has ${numRowGroups} row groups, ${totalRows} total rows, ${rowsPerGroup} rows/RG`)
+    console.log(`📦 File has ${numRowGroups} row groups, ${totalRows} total rows`)
 
-    // Calculate expected rows needed based on time range
-    const rangeMinutes = (range.to.getTime() - range.from.getTime()) / (1000 * 60)
-    const expectedRows = Math.ceil(rangeMinutes * ROWS_PER_MINUTE * SAFETY_MARGIN)
-    const expectedRowGroups = Math.ceil(expectedRows / rowsPerGroup)
+    // Use timestamp stats to find row groups that overlap the requested range
+    const neededRGs = cache.getRowGroupsForRange(range.from, range.to)
+    console.log(`⏱️  Time range: ${range.from.toISOString()} to ${range.to.toISOString()}`)
+    console.log(`📥 Need ${neededRGs.length}/${numRowGroups} row groups based on timestamp stats`)
 
-    console.log(`⏱️  Time range: ${rangeMinutes.toFixed(0)} minutes → expecting ~${expectedRows} rows in ~${expectedRowGroups} row groups`)
+    if (neededRGs.length === 0) {
+      // No data in range
+      const endTime = performance.now()
+      return {
+        records: [],
+        timing: {
+          totalMs: endTime - startTime,
+          networkMs: 0,
+          parseMs: endTime - startTime,
+          bytesTransferred: 0,
+          source: this.type,
+        },
+      }
+    }
 
-    // Calculate row range to fetch
-    // Assume data is sorted newest-to-oldest, so latest data is at the beginning
-    const rowStart = 0
-    let rowEnd = Math.min(expectedRows, totalRows)
+    // Calculate row range from needed RGs
+    const firstRgIndex = neededRGs[0].index
+    const lastRgIndex = neededRGs[neededRGs.length - 1].index
 
-    // If file has only 1 row group, or expecting most/all rows, fetch everything
-    // This handles legacy files not yet partitioned into smaller row groups
-    if (numRowGroups === 1 || expectedRowGroups >= numRowGroups || expectedRows >= totalRows * 0.8) {
-      console.log('📥 Fetching all rows (file has 1 row group or large time range requested)')
-      rowEnd = totalRows
-    } else {
-      console.log(`📥 Fetching rows ${rowStart}-${rowEnd} (${expectedRowGroups}/${numRowGroups} row groups)`)
+    // Sum rows before first needed RG
+    let rowStart = 0
+    for (let i = 0; i < firstRgIndex; i++) {
+      rowStart += rgInfos[i].numRows
+    }
+
+    // Sum rows through last needed RG
+    let rowEnd = rowStart
+    for (let i = firstRgIndex; i <= lastRgIndex; i++) {
+      rowEnd += rgInfos[i].numRows
     }
 
     const networkStartTime = performance.now()
 
-    // Parse parquet with row range
+    // Read rows (cache handles fetching missing RGs)
     let rows: AwairRow[] = []
-    await parquetRead({
-      file,
-      rowStart,
-      rowEnd,
-      onComplete: (data) => {
-        if (Array.isArray(data)) {
-          rows = data as AwairRow[]
-        }
-      }
+    await cache.readRows<AwairRow>(rowStart, rowEnd, (data) => {
+      rows = data
     })
 
     const networkEndTime = performance.now()
 
-    // Estimate bytes transferred (file.byteLength won't work with async buffer)
-    // Use metadata to estimate: (rows fetched / total rows) * assumed file size
-    const estimatedFileSize = totalRows * 40 // ~40 bytes per row estimate
-    bytesTransferred = Math.ceil((rows.length / totalRows) * estimatedFileSize)
+    // Estimate bytes transferred from cache stats
+    const stats = cache.getStats()
+    const bytesTransferred = stats.cacheSize
 
     // Convert to typed records and filter by time range
     const fromTime = range.from.getTime()
@@ -119,5 +139,29 @@ export class HyparquetSource implements DataSource {
     }
 
     return { records, timing }
+  }
+
+  /**
+   * Refresh cache for a device (check for new data).
+   * Returns true if new data was available.
+   */
+  async refresh(deviceId: number): Promise<boolean> {
+    const url = getDataUrl(deviceId)
+    const cache = cacheManager.get(url)
+    if (!cache) return false
+
+    const hadNewData = await cache.refresh()
+    if (hadNewData) {
+      const stats = cache.getStats()
+      console.log(`🔄 Refreshed cache: ${stats.totalRowGroups} RGs, ${(stats.cacheSize / 1024).toFixed(0)}KB cached`)
+    }
+    return hadNewData
+  }
+
+  /** Get cache stats for a device */
+  getCacheStats(deviceId: number): ReturnType<ParquetCache['getStats']> | null {
+    const url = getDataUrl(deviceId)
+    const cache = cacheManager.get(url)
+    return cache?.getStats() ?? null
   }
 }
