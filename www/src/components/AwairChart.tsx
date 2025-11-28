@@ -665,12 +665,12 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           textAlign: 'center',
           fontSize: 32,
           fontWeight: 700,
-          fontFamily: '"Noto Color Emoji", sans-serif',
           color: plotColors.textColor,
           textShadow: '0 2px 8px rgba(0,0,0,0.5)',
           pointerEvents: 'none',
         }}>
-          Air Quality Dashboard &nbsp; 🌡️ 💨 💦 🏭 🧪
+          <span>Air Quality Dashboard</span>
+          <span style={{ fontFamily: '"Noto Color Emoji", sans-serif', marginLeft: '0.5em' }}>🌡️ 💨 💦 🏭 🧪</span>
         </div>
       )}
       <div className="plot-container" style={isOgMode ? { height: '100%' } : undefined}>
