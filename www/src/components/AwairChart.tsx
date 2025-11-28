@@ -17,6 +17,9 @@ import type { Device } from '../services/awairService'
 import type { DataSummary } from '../types/awair'
 import type { Data, PlotRelayoutEvent } from 'plotly.js'
 
+// Extend Data type to include zorder (supported by plotly.js but not in @types/plotly.js)
+type DataWithZorder = Data & { zorder?: number }
+
 interface Props {
   deviceDataResults: DeviceDataResult[]
   summary: DataSummary | null
@@ -415,7 +418,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // Generate traces for all devices, grouped by metric for better hover ordering
   const plotTraces = useMemo(() => {
-    const traces: Data[] = []
+    const traces: DataWithZorder[] = []
 
     // Pre-compute data for all devices
     const deviceData = deviceAggregations.map((deviceAgg, deviceIndex) => {
