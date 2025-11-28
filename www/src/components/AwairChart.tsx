@@ -480,7 +480,8 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     }
 
     // PRIMARY METRIC traces for all devices (grouped together in hover)
-    // zorder: 2 ensures primary traces render above secondary (zorder: 1)
+    // NOTE: zorder removed due to Plotly resize bug - traces with zorder don't
+    // resize correctly when container width changes below max-width threshold
     deviceData.forEach((d) => {
       traces.push({
         x: d.timestamps,
@@ -489,7 +490,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         line: d.primaryLineProps,
         name: d.legendName || `${config.label} (${config.unit})`,
         legendgroup: 'primary',
-        zorder: 2,
         ...(isRawData ? {
           hovertemplate: `${d.deviceName}: %{y:.1f}<extra></extra>`
         } : {
@@ -517,7 +517,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     }
 
     // SECONDARY METRIC traces for all devices (grouped together in hover)
-    // zorder: 1 ensures secondary traces render below primary (zorder: 2)
+    // NOTE: zorder removed due to Plotly resize bug
     if (secondaryConfig) {
       deviceData.forEach((d) => {
         if (d.secondaryLineProps) {
@@ -530,7 +530,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             legendgroup: 'secondary',
             legend: 'legend2',
             yaxis: 'y2',
-            zorder: 1,
             ...(isRawData ? {
               hovertemplate: `${d.deviceName}: %{y:.1f}<extra></extra>`
             } : {
