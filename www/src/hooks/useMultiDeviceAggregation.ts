@@ -80,7 +80,11 @@ function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedDa
   if (data.length === 0) return []
 
   if (windowMinutes === 1) {
-    return data.map(record => ({
+    // Sort ascending (oldest first) to match aggregated data behavior
+    const sortedData = [...data].sort((a, b) =>
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    )
+    return sortedData.map(record => ({
       timestamp: record.timestamp,
       temp_avg: record.temp,
       temp_stddev: 0,
