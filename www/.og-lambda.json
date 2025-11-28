@@ -1,0 +1,9 @@
+{
+  "stackName": "awair-og",
+  "screenshotUrl": "https://awair.runsascoded.com/?d=+br&y=thZ&og&t=-3d",
+  "s3Bucket": "380nwk",
+  "s3Key": "awair/og-image.jpg",
+  "scheduleRateMinutes": 60,
+  "waitForFunction": "window.chartReady",
+  "timezone": "America/New_York"
+}

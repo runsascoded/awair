@@ -282,6 +282,41 @@ For deployment, you need permissions to create:
 - CloudWatch log groups
 - S3 bucket access (for your target bucket)
 
+## OG Image Generation
+
+The dashboard uses [@rdub/og-lambda] to generate dynamic Open Graph images for social media previews. A scheduled Lambda takes screenshots of the dashboard hourly and uploads to S3.
+
+**Setup:**
+```bash
+cd www
+pnpm add -D @rdub/og-lambda
+```
+
+**Configuration** (`.og-lambda.json`):
+```json
+{
+  "stackName": "awair-og",
+  "screenshotUrl": "https://awair.runsascoded.com/?og&t=-3d",
+  "s3Bucket": "380nwk",
+  "s3Key": "awair/og-image.jpg",
+  "scheduleRateMinutes": 60,
+  "waitForFunction": "window.chartReady",
+  "timezone": "America/New_York"
+}
+```
+
+**Commands:**
+```bash
+og-lambda status   # Check Lambda status and schedule
+og-lambda deploy   # Deploy/update the Lambda
+og-lambda invoke   # Manually trigger a screenshot
+og-lambda logs     # Tail CloudWatch logs
+```
+
+The `?og` URL parameter triggers a screenshot-optimized view (larger fonts, no controls).
+
+[@rdub/og-lambda]: https://github.com/runsascoded/og-lambda
+
 ## Date/Time Format
 
 The CLI uses a compact date format for convenience:
