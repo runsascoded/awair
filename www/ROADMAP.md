@@ -40,15 +40,15 @@
  ^--- immutable ---^  ^-- last RG may grow
 
 Each RG: ~10k rows (~7 days), ~90-160KB, all columns contiguous
-Footer: ~24KB (but 512KB initial fetch is hyparquet default)
+Footer: ~24KB (now using 128KB initial fetch instead of 512KB default)
 ```
 
 **Key findings:**
 - Row groups ARE contiguous (no gaps between columns or RGs)
-- Footer is only ~24KB, but hyparquet fetches 512KB to be safe
-- 512KB initial fetch includes ~4 recent RGs (~28 days of data)
-- For views ≤28 days, **no additional fetch needed** beyond initial!
-- For 30d view: needs 5 extra Range requests for older RGs
+- Footer is only ~24KB; hyparquet default was 512KB but is configurable
+- 128KB initial fetch includes footer + ~1 recent RG (~7 days of data)
+- For views >7 days: coalesced Range request fetches additional needed RGs
+- Immutable RGs promoted to blob cache (LRU eviction for memory management)
 
 **Interval analysis:**
 - 99.93% of intervals are >1 min (slow drift), 0.07% are <1 min (fast drift)
@@ -70,6 +70,8 @@ Footer: ~24KB (but 512KB initial fetch is hyparquet default)
   - Open-ended Range request (`bytes={lastRG}-`) for polling updates
   - Coalesced Range requests for fetching multiple RGs at once
   - Automatic promotion of immutable RGs to blob cache
+  - AsyncBuffer coalescing: assembles data from multiple cache sources
+  - Configurable `initialFetchSize` (default: 128KB, passed to hyparquet)
 
 - `LRUCache` class (`www/src/services/lruCache.ts`)
   - Simple LRU with max size in bytes
@@ -96,17 +98,25 @@ Footer: ~24KB (but 512KB initial fetch is hyparquet default)
 ### Optimal Fetch Pattern
 
 ```
-Initial load (512KB):
+Initial load (128KB per file):
   [HEAD] → file size
-  [GET bytes=-512KB] → footer + ~4 recent RGs
+  [GET bytes=-128KB] → footer + ~1 recent RG
 
 Polling update (every 1 min):
   [HEAD] → check if file grew
-  [GET bytes={lastRG.start}-] → last RG + any new RGs + footer
+  If unchanged: done (no GET)
+  If grew: [GET bytes={lastRG.start}-] → ~100KB (last RG + footer)
 
 On-demand (user selects longer range):
   [GET bytes={firstMissing.start}-{lastMissing.end}] → one coalesced request
 ```
+
+**Optimization notes (2025-11-28):**
+- Initial fetch: 128KB covers footer (~24KB) + last RG (~90-110KB) in single request
+- Refresh fetch: from `lastRG.startByte` to EOF (~100KB)
+- Uses hyparquet's `suffixStart` option to tell it exactly where cached data starts
+- Coalescing logic assembles data from multiple cache sources when needed
+- Requires local hyparquet fork with `suffixStart` support (not yet published)
 
 ---
 
@@ -175,7 +185,37 @@ await browser.close()
 ```
 
 **Initial results** (2025-11-28):
-- Default view (1d, 2 devices): 2 Parquet requests only (HEAD + Range each)
+- Default view (1d, 2 devices): HEAD + 128KB Range each (~265KB total parquet data)
 - Main JS bundle: 1.5MB (after plotly-basic.min.js optimization)
-- Parquet files: 524KB + 266KB via Range requests
-- For views ≤28 days: no additional fetches beyond initial 512KB/file
+- Polling with no change: HEAD only (no GET)
+- Polling with file growth: ~100KB Range request (last RG + footer, not full 128KB)
+- Previous (512KB default): ~800KB initial, ~800KB on refresh
+- Current (split sizes): ~265KB initial, ~100KB on refresh (~85% reduction)
+
+---
+
+## 5. UI Polish & Improvements
+
+### Data Table
+- [ ] Add device dropdown - currently only shows first device's data
+
+### Theme Toggle
+- [ ] Replace "💻" system default icon with clearer indicator (monitor with sun/moon? or standard auto icon)
+
+### Table Pagination
+- [ ] Fix disabled ">"/">>" buttons appearing blank - need visible foreground color for disabled state
+
+### Y-Axis Controls Refactor
+- [ ] Move metric dropdowns up to legend title positions (currently redundant)
+- [ ] Dropdown format: `<emoji> <abbrev> (<units>)` (e.g. "🌡️ Temp (°F)")
+- [ ] Each y-axis gets its own "auto-range" checkbox (instead of shared ">=0")
+- [ ] Change default semantics: >=0 is default, checkbox enables auto-range
+- [ ] URL param: append `a`/`A` for auto-range instead of `Z` for not-from-zero
+
+### X Range Controls
+- [ ] Convert buttons to dropdown (add 12h option, reduce width)
+- [ ] Keep hotkey support for direct selection
+
+### Mobile Accessibility
+- [ ] Tooltips on clickable controls don't work on mobile
+- [ ] Options: move tooltip content to adjacent title text, or add info icons

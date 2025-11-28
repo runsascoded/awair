@@ -37,8 +37,6 @@ async function getCache(url: string): Promise<ParquetCache> {
     await cache.initialize()
     cacheManager.set(url, cache)
     initPromises.delete(url)
-    const stats = cache.getStats()
-    console.log(`🔧 Initialized ParquetCache for ${url}: ${stats.totalRowGroups} RGs, ${(stats.cacheSize / 1024).toFixed(0)}KB cached`)
     return cache
   })()
 
@@ -64,6 +62,13 @@ export class HyparquetSource implements DataSource {
 
     // Get or initialize cache for this URL
     const cache = await getCache(url)
+
+    // Check for new data on S3 (only does HEAD + tail fetch if file grew)
+    const hadNewData = await cache.refresh()
+    if (hadNewData) {
+      console.log(`🔄 Cache refreshed with new data`)
+    }
+
     const metadata = cache.getMetadata()!
     const rgInfos = cache.getRowGroupInfos()
 

@@ -9,8 +9,8 @@
  *
  * Caching strategy:
  * - Cache complete RGs in an LRU cache with size-based eviction
- * - Initial fetch: last 512KB (gets footer + recent RGs)
- * - Refresh: fetch from last cached RG start to EOF (open-ended Range)
+ * - Initial fetch: last 128KB (gets footer + ~1 recent RG)
+ * - Refresh: fetch from last RG start to EOF (~100KB, just last RG + footer)
  *   - This picks up new RGs automatically when last RG fills up
  *   - Always gets fresh footer metadata
  * - On-demand: fetch additional RGs in single coalesced Range request
@@ -36,7 +36,7 @@ export interface RowGroupInfo {
 }
 
 export interface ParquetCacheOptions {
-  /** Initial fetch size in bytes (default: 512KB) */
+  /** Initial fetch size in bytes (default: 128KB) - for the first network request */
   initialFetchSize?: number
   /** LRU cache options for RG blobs */
   cacheOptions?: LRUCacheOptions
@@ -77,7 +77,7 @@ export class ParquetCache {
 
   constructor(url: string, options: ParquetCacheOptions = {}) {
     this.url = url
-    this.initialFetchSize = options.initialFetchSize ?? (1 << 19) // 512KB
+    this.initialFetchSize = options.initialFetchSize ?? (1 << 17) // 128KB
     // Bind fetch to globalThis to preserve context when called as this.fetchFn()
     this.fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis)
     this.blobCache = new LRUCache(options.cacheOptions ?? {})
@@ -109,7 +109,7 @@ export class ParquetCache {
 
     // Parse metadata using our cached async buffer
     const asyncBuffer = this.createAsyncBuffer()
-    this.metadata = await parquetMetadataAsync(asyncBuffer)
+    this.metadata = await parquetMetadataAsync(asyncBuffer, { initialFetchSize: this.initialFetchSize })
 
     // Index all row groups
     this.indexRowGroups()
@@ -143,7 +143,8 @@ export class ParquetCache {
       return false
     }
 
-    // Fetch from last RG start to EOF (open-ended Range)
+    // Fetch from last RG start to EOF
+    // This fetches ~90-160KB (last RG + footer), which is > metadataFetchSize (64KB)
     const lastRgInfo = this.rowGroupInfos[this.rowGroupInfos.length - 1]
     const fetchStart = lastRgInfo.startByte
 
@@ -163,8 +164,9 @@ export class ParquetCache {
     this.blobCache.delete(lastRgKey)
 
     // Re-parse metadata (footer may have changed)
+    // Use suffixStart to tell hyparquet exactly where our cached data starts
     const asyncBuffer = this.createAsyncBuffer()
-    this.metadata = await parquetMetadataAsync(asyncBuffer)
+    this.metadata = await parquetMetadataAsync(asyncBuffer, { suffixStart: fetchStart })
 
     // Re-index row groups (may have new RGs)
     this.indexRowGroups()
@@ -341,8 +343,18 @@ export class ParquetCache {
       byteLength: this.fileSize,
       slice: async (start: number, end?: number) => {
         const actualEnd = end ?? this.fileSize
+        const length = actualEnd - start
 
-        // 1. Check blob cache for complete RGs
+        // Try single-source fast paths first
+
+        // 1. Check if entire range is in tail cache
+        if (this.isInTailCache(start, actualEnd)) {
+          const offsetStart = start - this.tailCacheStart
+          const offsetEnd = actualEnd - this.tailCacheStart
+          return this.tailCache!.slice(offsetStart, offsetEnd)
+        }
+
+        // 2. Check if entire range fits in a single RG in blob cache
         for (const rg of this.rowGroupInfos) {
           if (start >= rg.startByte && actualEnd <= rg.endByte) {
             const cached = this.blobCache.get(this.rgKey(rg.index))
@@ -354,15 +366,60 @@ export class ParquetCache {
           }
         }
 
-        // 2. Check tail cache
-        if (this.isInTailCache(start, actualEnd)) {
-          const offsetStart = start - this.tailCacheStart
-          const offsetEnd = actualEnd - this.tailCacheStart
-          return this.tailCache!.slice(offsetStart, offsetEnd)
+        // 3. Try to coalesce from multiple cached sources
+        const result = new Uint8Array(length)
+        let pos = start
+        let resultOffset = 0
+        let allFromCache = true
+
+        while (pos < actualEnd) {
+          let found = false
+
+          // Check tail cache
+          if (this.tailCache && pos >= this.tailCacheStart) {
+            const tailEnd = this.tailCacheStart + this.tailCache.byteLength
+            if (pos < tailEnd) {
+              const copyEnd = Math.min(actualEnd, tailEnd)
+              const copyLen = copyEnd - pos
+              const srcOffset = pos - this.tailCacheStart
+              result.set(new Uint8Array(this.tailCache, srcOffset, copyLen), resultOffset)
+              resultOffset += copyLen
+              pos = copyEnd
+              found = true
+              continue
+            }
+          }
+
+          // Check blob cache for each RG
+          for (const rg of this.rowGroupInfos) {
+            const cached = this.blobCache.get(this.rgKey(rg.index))
+            if (!cached) continue
+
+            if (pos >= rg.startByte && pos < rg.endByte) {
+              const copyEnd = Math.min(actualEnd, rg.endByte)
+              const copyLen = copyEnd - pos
+              const srcOffset = pos - rg.startByte
+              result.set(new Uint8Array(cached, srcOffset, copyLen), resultOffset)
+              resultOffset += copyLen
+              pos = copyEnd
+              found = true
+              break
+            }
+          }
+
+          if (!found) {
+            // Gap in cache - need to fetch from network
+            allFromCache = false
+            break
+          }
         }
 
-        // 3. Fallback: fetch from network (shouldn't happen if cache is used correctly)
-        console.warn(`ParquetCache: uncached fetch for bytes ${start}-${actualEnd}`)
+        if (allFromCache && resultOffset === length) {
+          return result.buffer
+        }
+
+        // 4. Fallback: fetch entire range from network
+        console.warn(`ParquetCache: uncached fetch for bytes ${start}-${actualEnd} (had ${resultOffset}/${length} cached)`)
         const res = await this.fetchFn(this.url, {
           headers: { Range: `bytes=${start}-${actualEnd - 1}` },
         })

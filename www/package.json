@@ -44,6 +44,8 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
     "jsdom": "^26.1.0",
+    "puppeteer": "^24.31.0",
+    "puppeteer-har": "^1.1.2",
     "sass": "^1.94.2",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.35.1",

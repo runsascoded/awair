@@ -7,7 +7,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
 import { useMultiDeviceData } from './hooks/useMultiDeviceData'
 import { queryClient } from './lib/queryClient'
-import { boolParam, deviceIdsParam, timeRangeParam } from './lib/urlParams'
+import { boolParam, deviceIdsParam, timeRangeParam, refetchIntervalParam } from './lib/urlParams'
 import './App.scss'
 
 function AppContent() {
@@ -28,10 +28,14 @@ function AppContent() {
   // Time range persisted in URL (?t=...)
   const [timeRange, setTimeRange] = useUrlParam('t', timeRangeParam)
 
+  // Refetch interval for testing (?ri=5000 for 5 second polling)
+  const [refetchIntervalOverride] = useUrlParam('ri', refetchIntervalParam)
+  const refetchInterval = refetchIntervalOverride ?? 60_000 // Default 1 minute
+
   // Fetch data for all selected devices with time range
   // Poll every 60 seconds for new data (only when tab is active)
   const deviceDataResults = useMultiDeviceData(selectedDeviceIds, timeRange, {
-    refetchInterval: 60_000, // 1 minute
+    refetchInterval: refetchInterval === 0 ? undefined : refetchInterval,
     refetchIntervalInBackground: false,
   })
 

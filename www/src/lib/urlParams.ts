@@ -356,6 +356,27 @@ export const xGroupingParam: Param<XGrouping> = {
 }
 
 /**
+ * OG mode param - for screenshot generation (hides controls, fullscreen chart)
+ */
+export const ogModeParam: Param<boolean> = {
+  encode: (value) => value ? '' : undefined,
+  decode: (encoded) => encoded !== undefined,
+}
+
+/**
+ * Refetch interval param (for testing) - override default 60s polling
+ *
+ * Examples:
+ *   ?ri=5000  → 5 second polling
+ *   ?ri=1000  → 1 second polling
+ *   ?ri=0     → disable polling
+ */
+export const refetchIntervalParam: Param<number | undefined> = {
+  encode: (value) => value === 60_000 ? undefined : String(value),
+  decode: (encoded) => encoded !== undefined ? parseInt(encoded, 10) : undefined,
+}
+
+/**
  * Re-export common param builders from use-url-params
  */
 export { boolParam, enumParam, intParam, stringParam } from '@rdub/use-url-params'
