@@ -29,7 +29,11 @@ function AppContent() {
   const [timeRange, setTimeRange] = useUrlParam('t', timeRangeParam)
 
   // Fetch data for all selected devices with time range
-  const deviceDataResults = useMultiDeviceData(selectedDeviceIds, timeRange)
+  // Poll every 60 seconds for new data (only when tab is active)
+  const deviceDataResults = useMultiDeviceData(selectedDeviceIds, timeRange, {
+    refetchInterval: 60_000, // 1 minute
+    refetchIntervalInBackground: false,
+  })
 
   // Combine results
   const { combinedData, combinedSummary, loading, error } = useMemo(() => {

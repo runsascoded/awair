@@ -1,4 +1,5 @@
-import { asyncBufferFromUrl, parquetMetadataAsync, parquetRead } from 'hyparquet'
+import { parquetRead } from 'hyparquet'
+import { HyparquetSource } from './dataSources/hyparquetSource'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
 export interface Device {
@@ -15,9 +16,8 @@ export interface Device {
 // devices.parquet: name, deviceId, deviceType, deviceUUID, lat, lon, preference, locationName, roomType, spaceType, macAddress, timezone, lastUpdated, active, dataPath
 type DeviceRow = [string, bigint, string, string, bigint, bigint, string, string, string, string, string, string, string, boolean, string]
 
-// awair-{id}.parquet: timestamp, temp, co2, pm10, pm25, humid, voc
-// Note: timestamp is Date object, temp/humid are float (number), others are BigInt
-type AwairRow = [Date, number, bigint, bigint, bigint, number, bigint]
+// Singleton instance for cached data fetching
+const hyparquetSource = new HyparquetSource()
 
 /**
  * S3 root for all data storage.
@@ -86,14 +86,6 @@ export async function fetchDevices(): Promise<Device[]> {
   }
 }
 
-// Alias for backwards compatibility
-const getParquetUrl = getDataUrl
-
-// Data collection assumptions for row group optimization
-// Awair devices record ~1 row per minute with minimal drift (99.9% exactly 1 min)
-const ROWS_PER_MINUTE = 1
-const SAFETY_MARGIN = 1.01
-
 export async function fetchAwairData(
   deviceId: number | undefined,
   timeRange: { timestamp: Date | null; duration: number }
@@ -107,93 +99,29 @@ export async function fetchAwairData(
     deviceId = devices[0].deviceId
   }
 
-  const url = getParquetUrl(deviceId)
   console.log(`🔄 Fetching data from device ${deviceId}...`)
 
-  // Use asyncBufferFromUrl to enable HTTP Range Requests
-  const file = await asyncBufferFromUrl({ url })
+  // Calculate time range
+  const to = timeRange.timestamp || new Date()
+  const from = new Date(to.getTime() - timeRange.duration)
 
-  // Fetch metadata to determine file structure
-  const metadata = await parquetMetadataAsync(file)
-  const totalRows = Number(metadata.num_rows)
-  const numRowGroups = metadata.row_groups.length
-  // Get actual row group size from first RG (all RGs should be same size except possibly last)
-  const rowsPerGroup = numRowGroups > 0 ? Number(metadata.row_groups[0].num_rows) : totalRows
+  // Use HyparquetSource with caching
+  const result = await hyparquetSource.fetch({
+    deviceId,
+    range: { from, to },
+  })
 
-  console.log(`📦 File has ${numRowGroups} row groups, ${totalRows} total rows, ${rowsPerGroup} rows/RG`)
-
-  // Extract file date range from row group statistics (timestamp is column 0)
   let fileEarliest: string | null = null
   let fileLatest: string | null = null
 
-  for (const rowGroup of metadata.row_groups) {
-    const timestampColumn = rowGroup.columns[0] // timestamp is first column
-    const stats = timestampColumn.meta_data?.statistics
-    if (stats) {
-      // min_value is the earliest timestamp in this row group
-      if (stats.min_value && (!fileEarliest || stats.min_value < fileEarliest)) {
-        fileEarliest = stats.min_value as string
-      }
-      // max_value is the latest timestamp in this row group
-      if (stats.max_value && (!fileLatest || stats.max_value > fileLatest)) {
-        fileLatest = stats.max_value as string
-      }
-    }
+  // Compute date range from records
+  if (result.records.length > 0) {
+    const sorted = [...result.records].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    )
+    fileEarliest = new Date(sorted[0].timestamp).toISOString()
+    fileLatest = new Date(sorted[sorted.length - 1].timestamp).toISOString()
   }
-
-  console.log(`📅 File date range: ${fileEarliest} to ${fileLatest}`)
-
-  // Calculate expected rows based on requested time range
-  const rangeMinutes = timeRange.duration / (1000 * 60)
-  const expectedRows = Math.ceil(rangeMinutes * ROWS_PER_MINUTE * SAFETY_MARGIN)
-  const expectedRowGroups = Math.ceil(expectedRows / rowsPerGroup)
-
-  // Determine fetch strategy
-  let rowStart = 0
-  let rowEnd = totalRows
-
-  if (numRowGroups > 1 && expectedRows < totalRows * 0.8) {
-    // Fetch only needed rows from the end (newest data)
-    rowEnd = totalRows
-    rowStart = Math.max(0, totalRows - expectedRows)
-    console.log(`📥 Fetching rows ${rowStart}-${rowEnd} (~${expectedRowGroups}/${numRowGroups} row groups for ${(rangeMinutes / 60 / 24).toFixed(0)} days)`)
-  } else {
-    // Fetch all rows
-    console.log(`📥 Fetching all rows (${numRowGroups} row groups, entire history)`)
-  }
-
-  let rows: AwairRow[] = []
-  await parquetRead({
-    file,
-    ...(rowStart > 0 ? { rowStart, rowEnd } : {}),
-    onComplete: (data) => {
-      if (Array.isArray(data)) {
-        rows = data as AwairRow[]
-      }
-    }
-  })
-
-  if (rows.length === 0) {
-    throw new Error('No data found in Parquet file')
-  }
-
-  // Convert tuple rows to typed records
-  // Note: co2, pm10, pm25, voc are BigInt from parquet, convert to Number
-  const records: AwairRecord[] = rows.map((row) => ({
-    timestamp: row[0],
-    temp: row[1],
-    co2: Number(row[2]),
-    pm10: Number(row[3]),
-    pm25: Number(row[4]),
-    humid: row[5],
-    voc: Number(row[6]),
-  }))
-
-  // Sort by timestamp (newest first)
-  records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-
-  // Calculate summary using file-level metadata (not just fetched records)
-  const count = records.length
 
   let dateRange = 'No data'
   if (fileEarliest && fileLatest) {
@@ -209,10 +137,22 @@ export async function fetchAwairData(
     dateRange = start === end ? start : `${start} - ${end}`
   }
 
-  // Summary uses file-level timestamps from metadata, not fetched data
-  const summary: DataSummary = { count, earliest: fileEarliest, latest: fileLatest, dateRange }
+  const summary: DataSummary = {
+    count: result.records.length,
+    earliest: fileEarliest,
+    latest: fileLatest,
+    dateRange,
+  }
 
-  console.log(`✅ Fetched ${count} records (file spans ${fileEarliest} to ${fileLatest})`)
+  console.log(`✅ Fetched ${result.records.length} records (file spans ${fileEarliest} to ${fileLatest})`)
 
-  return { records, summary }
+  return { records: result.records, summary }
+}
+
+/**
+ * Refresh cache for a device (check for new data).
+ * Returns true if new data was available.
+ */
+export async function refreshDeviceData(deviceId: number): Promise<boolean> {
+  return hyparquetSource.refresh(deviceId)
 }

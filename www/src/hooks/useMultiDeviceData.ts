@@ -11,12 +11,32 @@ export interface DeviceDataResult {
   error: string | null
 }
 
-export function useMultiDeviceData(deviceIds: number[], timeRange: TimeRange): DeviceDataResult[] {
+export interface UseMultiDeviceDataOptions {
+  /** Poll interval in milliseconds (default: disabled) */
+  refetchInterval?: number
+  /** Whether to poll when tab is in background (default: false) */
+  refetchIntervalInBackground?: boolean
+}
+
+const DEFAULT_OPTIONS: UseMultiDeviceDataOptions = {
+  refetchInterval: undefined,
+  refetchIntervalInBackground: false,
+}
+
+export function useMultiDeviceData(
+  deviceIds: number[],
+  timeRange: TimeRange,
+  options: UseMultiDeviceDataOptions = DEFAULT_OPTIONS
+): DeviceDataResult[] {
+  const { refetchInterval, refetchIntervalInBackground } = options
+
   const queries = useQueries({
     queries: deviceIds.map(deviceId => ({
       queryKey: ['awair-data', deviceId, timeRange.duration],
       queryFn: () => fetchAwairData(deviceId, timeRange),
       enabled: deviceId !== undefined,
+      refetchInterval,
+      refetchIntervalInBackground,
     })),
   })
 
