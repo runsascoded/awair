@@ -68,7 +68,7 @@ export function DevicesControl({
                     value={deviceRenderStrategy}
                     onChange={(e) => setDeviceRenderStrategy(e.target.value as DeviceRenderStrategy)}
                   >
-                    <option value="hsv-nudge">HSV Nudge</option>
+                    <option value="hsv-nudge">HSL Nudge</option>
                     <option value="dash">Dashed</option>
                     <option value="none">None</option>
                   </select>
