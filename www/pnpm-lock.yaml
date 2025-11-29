@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  hyparquet: link:../../hyparquet
-
 importers:
 
   .:
@@ -30,8 +27,8 @@ importers:
         specifier: ^7.9.0
         version: 7.9.0
       hyparquet:
-        specifier: link:../../hyparquet
-        version: link:../../hyparquet
+        specifier: github:runsascoded/hyparquet#dist
+        version: https://codeload.github.com/runsascoded/hyparquet/tar.gz/531d1f19f6c3224271418f6d73efb3d3fdb2f613
       plotly.js:
         specifier: github:runsascoded/plotly.js#fix-zorder-pan-dist
         version: https://codeload.github.com/runsascoded/plotly.js/tar.gz/bd318fb4776eb5b8eaa3bcfd02657d90bdef75cf(mapbox-gl@1.13.3)
@@ -2612,6 +2609,10 @@ packages:
   https-proxy-agent@7.0.6:
     resolution: {integrity: sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw==}
     engines: {node: '>= 14'}
+
+  hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/531d1f19f6c3224271418f6d73efb3d3fdb2f613:
+    resolution: {tarball: https://codeload.github.com/runsascoded/hyparquet/tar.gz/531d1f19f6c3224271418f6d73efb3d3fdb2f613}
+    version: 1.22.1
 
   iconv-lite@0.4.24:
     resolution: {integrity: sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==}
@@ -7204,6 +7205,8 @@ snapshots:
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
+
+  hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/531d1f19f6c3224271418f6d73efb3d3fdb2f613: {}
 
   iconv-lite@0.4.24:
     dependencies:
