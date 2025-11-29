@@ -12,12 +12,15 @@
 
 ## 1. UI Polish & Improvements
 
-### Y-Axis Controls Refactor
-- [ ] Move metric dropdowns up to legend title positions (currently redundant)
-- [ ] Dropdown format: `<emoji> <abbrev> (<units>)` (e.g. "🌡️ Temp (°F)")
-- [ ] Each y-axis gets its own "auto-range" checkbox (instead of shared ">=0")
-- [ ] Change default semantics: >=0 is default, checkbox enables auto-range
-- [ ] URL param: append `a`/`A` for auto-range instead of `Z` for not-from-zero
+### Y-Axis Controls Refactor ✅
+- [x] Move metric dropdowns up to legend title positions (currently redundant)
+- [x] Dropdown format: `<abbrev> (<units>)` (e.g. "Temp (°F)") - emojis removed for cleaner look
+- [x] Each y-axis gets its own "auto-range" toggle button (≥0)
+- [x] Change default semantics: >=0 is default, button toggles auto-range
+- [x] URL param: append `a`/`A` for auto-range instead of `Z` for not-from-zero
+- [x] Custom legend with pixel-based positioning for consistent cross-viewport layout
+- [x] Device names with colored markers matching trace colors
+- [x] Keyboard shortcuts: `a`/`Shift+A` to toggle auto-range, metric keys for selection
 
 ### X Range Controls
 - [ ] Convert buttons to dropdown (add 12h option, reduce width)

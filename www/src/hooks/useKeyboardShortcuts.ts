@@ -4,8 +4,6 @@ import type { AwairRecord } from '../types/awair'
 
 interface UseKeyboardShortcutsProps {
   metrics: MetricsState
-  yAxisFromZero: boolean
-  setYAxisFromZero: (value: boolean) => void
   xAxisRange: [string, string] | null
   setXAxisRange: (range: [string, string] | null) => void
   data: AwairRecord[]
@@ -18,8 +16,6 @@ interface UseKeyboardShortcutsProps {
 
 export function useKeyboardShortcuts({
   metrics,
-  yAxisFromZero,
-  setYAxisFromZero,
   xAxisRange,
   setXAxisRange,
   data,
@@ -102,7 +98,18 @@ export function useKeyboardShortcuts({
         }
         event.preventDefault()
       } else if (key === 'a') {
-        // A = All data
+        if (isShift) {
+          // Shift+A = Toggle right Y-axis auto-range
+          if (r.val !== 'none') {
+            r.setAutoRange(!r.autoRange)
+          }
+        } else {
+          // a = Toggle left Y-axis auto-range
+          l.setAutoRange(!l.autoRange)
+        }
+        event.preventDefault()
+      } else if (key === 'x') {
+        // X = All data (moved from 'a' to avoid conflict with auto-range)
         if (data.length > 0) {
           const fullRange: [string, string] = [
             formatForPlotly(new Date(data[data.length - 1].timestamp)),
@@ -134,10 +141,6 @@ export function useKeyboardShortcuts({
         // M = 30 days (month)
         handleTimeRangeClick(24 * 30)
         event.preventDefault()
-      } else if (key === 'z') {
-        // Z = Toggle Y-axis from zero
-        setYAxisFromZero(!yAxisFromZero)
-        event.preventDefault()
       }
     }
 
@@ -145,8 +148,6 @@ export function useKeyboardShortcuts({
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [
     metrics,
-    yAxisFromZero,
-    setYAxisFromZero,
     xAxisRange,
     setXAxisRange,
     data,

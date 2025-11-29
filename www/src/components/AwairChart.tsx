@@ -2,6 +2,7 @@ import { useUrlParam } from '@rdub/use-url-params'
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
 import { ChartControls, metricConfig } from './ChartControls'
+import { CustomLegend } from './CustomLegend'
 import { DataTable } from './DataTable'
 import { TIME_WINDOWS } from '../hooks/useDataAggregation'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
@@ -42,12 +43,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
   }, [deviceDataResults])
 
-  // Y-axes state - combined primary + secondary + fromZero in URL (?y=tc, ?y=tcZ)
+  // Y-axes state - combined primary + secondary + per-axis auto-range in URL (?y=tc, ?y=tca, ?y=tcaA)
   const metrics = useMetrics()
-
-  // Derive yAxisFromZero from metrics state
-  const yAxisFromZero = metrics.fromZero.val
-  const setYAxisFromZero = metrics.fromZero.set
+  const { l, r } = metrics
 
   // Device render strategy: how to visually distinguish multiple devices
   const [deviceRenderStrategy, setDeviceRenderStrategy] = useUrlParam('dr', deviceRenderStrategyParam)
@@ -291,8 +289,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   // Keyboard shortcuts
   useKeyboardShortcuts({
     metrics,
-    yAxisFromZero,
-    setYAxisFromZero,
     xAxisRange,
     setXAxisRange,
     data,
@@ -424,7 +420,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   const { tickvals, ticktext } = generateCustomTicks()
 
   // Plot data preparation
-  const { l, r } = metrics
   const config = metricConfig[l.val] || metricConfig.temp
   const secondaryConfig = r.val !== 'none' ? metricConfig[r.val] : null
   const totalDevices = deviceAggregations.length
@@ -630,7 +625,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     : { tick: 11, legend: 11, annotation: 12, title: 16 }
 
   // Helper to create yaxis config
-  const createYAxisConfig = (side: 'left' | 'right') => ({
+  const createYAxisConfig = (side: 'left' | 'right', autoRange: boolean) => ({
     gridcolor: side === 'left' ? plotColors.gridcolor : 'transparent',
     fixedrange: true,
     tickfont: { color: plotColors.textColor, size: fontSizes.tick },
@@ -638,36 +633,10 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     zerolinecolor: side === 'left' ? plotColors.gridcolor : 'transparent',
     side,
     tickformat: '.3~s',
-    ...(yAxisFromZero && { rangemode: 'tozero' as const }),
+    // Default is tozero (>=0), auto-range overrides this
+    ...(!autoRange && { rangemode: 'tozero' as const }),
     ...(side === 'right' && { overlaying: 'y' as const }),
   })
-
-  // Helper to create legend config
-  const createLegendConfig = (x: number, xanchor: 'left' | 'right') => ({
-    orientation: 'h' as const,
-    x,
-    y: 1.03,
-    xanchor,
-    yanchor: 'top' as const,
-    bgcolor: 'transparent',
-    font: { color: plotColors.textColor, size: fontSizes.legend },
-    traceorder: 'normal' as const,
-    tracegroupgap: 0,
-  })
-
-  // Helper to create annotation config
-  const createAnnotation = (text: string, x: number, xanchor: 'left' | 'right') => ({
-    text,
-    xref: 'paper' as const,
-    yref: 'paper' as const,
-    x,
-    y: 1.03,
-    xanchor,
-    yanchor: 'bottom' as const,
-    showarrow: false,
-    font: { color: plotColors.textColor, size: fontSizes.annotation }
-  })
-
   // OG mode: fill viewport height (625px to leave room for bottom margin in 630px viewport)
   const chartHeight = isOgMode ? 625 : (isMobile ? 300 : 500)
 
@@ -711,7 +680,44 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           <span style={{ fontFamily: '"Noto Color Emoji", sans-serif', marginLeft: '0.5em', letterSpacing: '-0.5em' }}>🌡️ 💨 💦 🏭 🧪</span>
         </div>
       )}
-      <div className="plot-container" style={isOgMode ? { height: '100%' } : undefined}>
+      <div className="plot-container" style={isOgMode ? { height: '100%' } : { position: 'relative' }}>
+        {!isOgMode && totalDevices > 1 && (() => {
+          // Calculate device colors for legend markers (primary metric)
+          const primaryColors = deviceAggregations.map((_, deviceIndex) => {
+            const lineProps = getDeviceLineProps(
+              config.color,
+              deviceIndex,
+              totalDevices,
+              deviceRenderStrategy,
+              2,
+              hsvConfig
+            )
+            return lineProps.color
+          })
+          // Calculate device colors for secondary metric
+          const secondaryColors = secondaryConfig
+            ? deviceAggregations.map((_, deviceIndex) => {
+              const lineProps = getDeviceLineProps(
+                secondaryConfig.color,
+                deviceIndex,
+                totalDevices,
+                deviceRenderStrategy,
+                2,
+                hsvConfig
+              )
+              return lineProps.color
+            })
+            : []
+          return (
+            <CustomLegend
+              metrics={metrics}
+              isMobile={isMobile}
+              deviceNames={deviceAggregations.map(d => d.deviceName)}
+              primaryColors={primaryColors}
+              secondaryColors={secondaryColors}
+            />
+          )
+        })()}
         <Plot
           data={plotTraces}
           layout={{
@@ -750,25 +756,25 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
                 tickmode: 'array'
               })
             },
-            yaxis: createYAxisConfig('left'),
-            ...(secondaryConfig && { yaxis2: createYAxisConfig('right') }),
+            yaxis: createYAxisConfig('left', l.autoRange),
+            ...(secondaryConfig && { yaxis2: createYAxisConfig('right', r.autoRange) }),
             margin: isOgMode
               ? { l: 50, r: 50, t: 55, b: 70 }  // Just enough for axis labels, no border
-              : { l: 35, r: secondaryConfig ? 35 : 10, t: totalDevices > 1 ? (isMobile ? 30 : 40) : 0, b: 45 },
+              : { l: 35, r: secondaryConfig ? 35 : 10, t: totalDevices > 1 ? (isMobile ? 55 : 65) : 0, b: 45 },
             hovermode: 'x unified',
+            hoverlabel: {
+              bgcolor: plotColors.plotBg,
+              bordercolor: plotColors.gridcolor,
+              font: {
+                color: plotColors.textColor,
+                size: fontSizes.tick
+              }
+            },
             plot_bgcolor: plotColors.plotBg,
             paper_bgcolor: plotColors.plotBg,
-            legend: createLegendConfig(0, 'left'),
-            ...(secondaryConfig && { legend2: createLegendConfig(1, 'right') }),
             dragmode: 'pan',
-            showlegend: true,
-            selectdirection: 'h',
-            ...(totalDevices > 1 && {
-              annotations: [
-                createAnnotation(`${config.label} (${config.unit})`, 0, 'left'),
-                ...(secondaryConfig ? [createAnnotation(`${secondaryConfig.label} (${secondaryConfig.unit})`, 1, 'right')] : [])
-              ]
-            })
+            showlegend: false, // Custom legend rendered separately for pixel-based positioning
+            selectdirection: 'h'
           }}
           config={{
             displayModeBar: false,
@@ -800,8 +806,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       {!isOgMode && (
         <ChartControls
           metrics={metrics}
-          yAxisFromZero={yAxisFromZero}
-          setYAxisFromZero={setYAxisFromZero}
           deviceRenderStrategy={deviceRenderStrategy}
           setDeviceRenderStrategy={setDeviceRenderStrategy}
           hsvConfig={hsvConfig}

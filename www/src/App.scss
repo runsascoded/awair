@@ -495,26 +495,146 @@ footer {
     flex-wrap: wrap;
   }
 
-  // Y-axes control
-  .yaxes-controls {
-    flex-wrap: wrap;
+  // Y-axes control (removed - now integrated with legend)
+}
 
-    select {
-      padding: 0.1rem 0;
-      border-width: 1px;
-      line-height: 1.5;
-      box-sizing: border-box;
-      @include control;
+// Custom legend controls - positioned above Plotly legend
+.custom-legend-controls {
+  position: absolute;
+  top: 2px; // Small padding from top to prevent clipping
+  left: 35px; // Match plot left margin
+  right: 35px; // Match plot right margin
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+  z-index: 10;
+
+  .legend-metric-control {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    pointer-events: all;
+
+    .legend-controls-row {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .legend-labels-row {
+      position: absolute;
+      top: 27px; // Nudged down from controls
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
     }
 
     .metric-select {
-      display: flex;
-      flex-direction: row;
-      gap: 0;
-      flex: 0 1 auto;
-      min-width: 0;
-      align-items: center;
+      padding: 0.1rem 0.25rem;
+      border: 1px solid var(--border-secondary);
+      background: var(--bg-control);
+      color: var(--text-control);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      height: auto;
+      width: auto; // Auto-size to content
+
+      &:hover {
+        border-color: var(--text-secondary);
+      }
+
+      &:focus {
+        outline: 2px solid var(--accent-primary);
+        outline-offset: 1px;
+      }
     }
+
+    .range-mode-btn {
+      padding: 0 0.4rem;
+      border: 1px solid var(--border-secondary);
+      background: var(--bg-control);
+      color: var(--text-control);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      height: auto;
+      transition: all 0.2s;
+      user-select: none;
+
+      &:hover {
+        border-color: var(--text-secondary);
+        background: var(--bg-tertiary);
+      }
+
+      &.active {
+        background: var(--accent-primary);
+        border-color: var(--accent-primary);
+        color: white;
+
+        &:hover {
+          background: var(--accent-secondary);
+          border-color: var(--accent-secondary);
+        }
+      }
+
+      &:focus {
+        outline: 2px solid var(--accent-primary);
+        outline-offset: 1px;
+      }
+    }
+
+    .metric-unit {
+      font-size: 0.85rem;
+      color: var(--text-primary); // Match y-tick color
+      white-space: nowrap;
+    }
+
+    .legend-devices {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+
+      .legend-device-name {
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        white-space: nowrap;
+
+        &::before {
+          content: '━━';
+          margin-right: 0.4rem;
+          font-weight: bold;
+          letter-spacing: -0.1em;
+          color: var(--legend-color, var(--text-primary));
+        }
+      }
+    }
+
+    &.legend-metric-left {
+      align-items: flex-start;
+
+      .legend-labels-row {
+        left: 0;
+      }
+    }
+
+    &.legend-metric-right {
+      align-items: flex-end;
+
+      .legend-labels-row {
+        right: 0;
+        flex-direction: row-reverse;
+      }
+    }
+  }
+
+  // Mobile: keep horizontal but allow wrapping if needed
+  @media (max-width: 768px) {
+    left: 10px;
+    right: 10px;
   }
 }
 

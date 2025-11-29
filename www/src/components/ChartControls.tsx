@@ -2,7 +2,6 @@ import React from 'react'
 import { AggregationControl } from './AggregationControl'
 import { DevicesControl } from './DevicesControl'
 import { RangeWidthControl } from './RangeWidthControl'
-import { YAxesControl } from './YAxesControl'
 import { getFileBounds } from '../services/awairService'
 import type { PxOption } from './AggregationControl'
 import type { HsvConfig } from './DeviceRenderSettings'
@@ -22,8 +21,6 @@ interface MetricConfig {
 
 interface ChartControlsProps {
   metrics: MetricsState
-  yAxisFromZero: boolean
-  setYAxisFromZero: (value: boolean) => void
   deviceRenderStrategy: DeviceRenderStrategy
   setDeviceRenderStrategy: (value: DeviceRenderStrategy) => void
   hsvConfig: HsvConfig
@@ -68,9 +65,7 @@ const metricConfig = {
 export type MetricKey = keyof typeof metricConfig
 
 export function ChartControls({
-  metrics,
-  yAxisFromZero,
-  setYAxisFromZero,
+  metrics: _metrics,
   deviceRenderStrategy,
   setDeviceRenderStrategy,
   hsvConfig,
@@ -173,13 +168,6 @@ export function ChartControls({
         setDeviceRenderStrategy={setDeviceRenderStrategy}
         hsvConfig={hsvConfig}
         setHsvConfig={setHsvConfig}
-      />
-
-      <YAxesControl
-        metrics={metrics}
-        yAxisFromZero={yAxisFromZero}
-        setYAxisFromZero={setYAxisFromZero}
-        isMobile={isMobile}
       />
 
       <RangeWidthControl

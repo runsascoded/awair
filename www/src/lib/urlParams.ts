@@ -147,7 +147,7 @@ export function deviceIdsParam(devices: Device[]): Param<number[]> {
 }
 
 /**
- * Y-axes param - combines primary metric, secondary metric, and fromZero flag
+ * Y-axes param - combines primary metric, secondary metric, and per-axis auto-range flags
  *
  * Metric codes:
  *   t = temp
@@ -156,24 +156,28 @@ export function deviceIdsParam(devices: Device[]): Param<number[]> {
  *   p = PM2.5
  *   v = VOC
  *
- * Format: [primary][secondary?][Z?]
+ * Format: [primary][secondary?][a?][A?]
  *   - Single char = primary only (no secondary)
  *   - Two chars = primary + secondary
- *   - Trailing 'Z' = disable fromZero (default is fromZero enabled)
+ *   - Trailing 'a' = enable auto-range for left/primary axis
+ *   - Trailing 'A' = enable auto-range for right/secondary axis
+ *   - Default: both axes use rangemode='tozero' (>=0)
  *
  * Examples:
- *   ?y=t    → temp only, fromZero=true
- *   ?y=tc   → temp (L) + CO2 (R), fromZero=true (default, omitted)
- *   ?y=tcZ  → temp (L) + CO2 (R), fromZero=false
- *   ?y=th   → temp (L) + humidity (R), fromZero=true
- *   ?y=pZ   → PM2.5 only, fromZero=false
+ *   ?y=t    → temp only, tozero (default)
+ *   ?y=tc   → temp (L) + CO2 (R), both tozero (default, omitted)
+ *   ?y=tca  → temp (L) auto-range + CO2 (R) tozero
+ *   ?y=tcA  → temp (L) tozero + CO2 (R) auto-range
+ *   ?y=tcaA → temp (L) + CO2 (R), both auto-range
+ *   ?y=ta   → temp only, auto-range
  *
- * Default: temp + CO2, fromZero=true (omitted from URL)
+ * Default: temp + CO2, both tozero (omitted from URL)
  */
 export type YAxesConfig = {
   l: Metric
   r: Metric | 'none'
-  fromZero: boolean
+  lAutoRange: boolean
+  rAutoRange: boolean
 }
 
 const metricToChar: Record<Metric, string> = {
@@ -192,11 +196,11 @@ const charToMetric: Record<string, Metric> = {
   v: 'voc',
 }
 
-export function yAxesParam(init: YAxesConfig = { l: 'temp', r: 'co2', fromZero: true }): Param<YAxesConfig> {
+export function yAxesParam(init: YAxesConfig = { l: 'temp', r: 'co2', lAutoRange: false, rAutoRange: false }): Param<YAxesConfig> {
   return {
     encode: (config) => {
       // Check if matches default
-      if (config.l === init.l && config.r === init.r && config.fromZero === init.fromZero) {
+      if (config.l === init.l && config.r === init.r && config.lAutoRange === init.lAutoRange && config.rAutoRange === init.rAutoRange) {
         return undefined
       }
 
@@ -207,9 +211,14 @@ export function yAxesParam(init: YAxesConfig = { l: 'temp', r: 'co2', fromZero: 
         result += metricToChar[config.r]
       }
 
-      // Append Z if fromZero is disabled (default is enabled)
-      if (!config.fromZero) {
-        result += 'Z'
+      // Append 'a' if left auto-range is enabled
+      if (config.lAutoRange) {
+        result += 'a'
+      }
+
+      // Append 'A' if right auto-range is enabled
+      if (config.rAutoRange) {
+        result += 'A'
       }
 
       return result
@@ -218,9 +227,12 @@ export function yAxesParam(init: YAxesConfig = { l: 'temp', r: 'co2', fromZero: 
     decode: (encoded) => {
       if (!encoded) return init
 
-      // Check for trailing Z (fromZero disabled)
-      const hasZ = encoded.endsWith('Z')
-      const metricsStr = hasZ ? encoded.slice(0, -1) : encoded
+      // Check for trailing auto-range flags
+      const hasLeftAuto = encoded.includes('a')
+      const hasRightAuto = encoded.includes('A')
+
+      // Remove auto-range flags to get metric chars
+      const metricsStr = encoded.replace(/[aA]/g, '')
 
       const primaryChar = metricsStr[0]
       const secondaryChar = metricsStr[1]
@@ -232,24 +244,24 @@ export function yAxesParam(init: YAxesConfig = { l: 'temp', r: 'co2', fromZero: 
       }
 
       if (!secondaryChar) {
-        return { l: primary, r: 'none', fromZero: !hasZ }
+        return { l: primary, r: 'none', lAutoRange: hasLeftAuto, rAutoRange: hasRightAuto }
       }
 
       const secondary = charToMetric[secondaryChar]
       if (!secondary) {
         console.warn(`Unknown metric char: ${secondaryChar}`)
-        return { l: primary, r: 'none', fromZero: !hasZ }
+        return { l: primary, r: 'none', lAutoRange: hasLeftAuto, rAutoRange: hasRightAuto }
       }
 
-      return { l: primary, r: secondary, fromZero: !hasZ }
+      return { l: primary, r: secondary, lAutoRange: hasLeftAuto, rAutoRange: hasRightAuto }
     },
   }
 }
 
 /**
- * Default Y-axes param instance with temp + CO2, fromZero=true defaults
+ * Default Y-axes param instance with temp + CO2, both using tozero (>=0) range mode
  */
-export const defaultYAxesParam = yAxesParam({ l: 'temp', r: 'co2', fromZero: true })
+export const defaultYAxesParam = yAxesParam({ l: 'temp', r: 'co2', lAutoRange: false, rAutoRange: false })
 
 /**
  * Time range URL param - wraps codec in Param interface
