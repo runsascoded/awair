@@ -12,29 +12,6 @@
 
 ## 1. UI Polish & Improvements
 
-### Loading States
-- [x] **Dimmed view during refetch** - replace FOUC with overlay on current chart ✅ (2025-11-29)
-  - ✅ Implemented manual `keepPreviousData` using refs (TanStack Query v5 limitation)
-  - ✅ Changed to `isFetching` for loading overlay detection
-  - ✅ Separate `isInitialLoad` tracking for full-screen vs overlay states
-  - ✅ Fixed "All" button to use Parquet metadata and properly set visual range
-
-### Data Table
-- [x] Add device dropdown - currently only shows first device's data ✅ (2025-11-29)
-  - ✅ Dropdown appears when multiple devices selected
-  - ✅ Shows device name in dropdown options
-  - ✅ Switches table data based on selection
-
-### Theme Toggle
-- [x] Replace "💻" system default icon with clearer indicator ✅ (2025-11-29)
-  - ✅ Now uses `MdBrightnessAuto` icon from react-icons/md
-  - ✅ More clearly indicates "Auto/System" theme mode
-
-### Table Pagination
-- [x] Fix disabled ">"/">>" buttons appearing blank ✅ (2025-11-29)
-  - ✅ Changed from `--disabled-text` to `--text-secondary` for visibility
-  - ✅ Icons now clearly visible in disabled state
-
 ### Y-Axis Controls Refactor
 - [ ] Move metric dropdowns up to legend title positions (currently redundant)
 - [ ] Dropdown format: `<emoji> <abbrev> (<units>)` (e.g. "🌡️ Temp (°F)")
