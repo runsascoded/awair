@@ -1,6 +1,54 @@
 # Awair Dashboard Roadmap
 
-## 1. Hotkey Library (`use-hotkeys` or similar)
+## Priority Order
+
+1. **UI Polish & Improvements** - High-impact QoL fixes (Section 1)
+2. **Hotkey Library** - Extractable standalone project (Section 2)
+3. **Performance & Caching** - Further optimizations (Section 3)
+4. **Alternative Data Sources** - Comparison framework (Section 4)
+5. **Network Profiling** - Automated benchmarking (Section 5)
+
+---
+
+## 1. UI Polish & Improvements
+
+### Loading States
+- [ ] **Dimmed view during refetch** - replace FOUC with overlay on current chart
+  - Current: chart disappears/reappears when fetching new data
+  - Desired: keep current view visible but dimmed with subtle loading indicator
+  - Implementation options:
+    - Backdrop blur with subtle overlay
+    - Small corner spinner instead of center
+    - Check `isFetching` vs `isLoading` for background refetches
+  - Benefits: reduces visual jarring, maintains context during refresh
+
+### Data Table
+- [ ] Add device dropdown - currently only shows first device's data
+
+### Theme Toggle
+- [ ] Replace "💻" system default icon with clearer indicator (monitor with sun/moon? or standard auto icon)
+
+### Table Pagination
+- [ ] Fix disabled ">"/">>" buttons appearing blank - need visible foreground color for disabled state
+
+### Y-Axis Controls Refactor
+- [ ] Move metric dropdowns up to legend title positions (currently redundant)
+- [ ] Dropdown format: `<emoji> <abbrev> (<units>)` (e.g. "🌡️ Temp (°F)")
+- [ ] Each y-axis gets its own "auto-range" checkbox (instead of shared ">=0")
+- [ ] Change default semantics: >=0 is default, checkbox enables auto-range
+- [ ] URL param: append `a`/`A` for auto-range instead of `Z` for not-from-zero
+
+### X Range Controls
+- [ ] Convert buttons to dropdown (add 12h option, reduce width)
+- [ ] Keep hotkey support for direct selection
+
+### Mobile Accessibility
+- [ ] Tooltips on clickable controls don't work on mobile
+- [ ] Options: move tooltip content to adjacent title text, or add info icons
+
+---
+
+## 2. Hotkey Library (`use-hotkeys` or similar)
 
 **Goal:** Standalone library for vim-style keyboard shortcuts with customization UI.
 
@@ -28,7 +76,7 @@
 
 ---
 
-## 2. Parquet Fetch Optimization
+## 3. Performance & Caching (ParquetCache Optimization)
 
 **Goal:** Efficient incremental fetching with row-group-level caching.
 
@@ -128,7 +176,7 @@ On-demand (user selects longer range):
 
 ---
 
-## 3. Alternative Data Sources
+## 4. Alternative Data Sources
 
 **Current:** `s3-hyparquet` only
 
@@ -151,7 +199,7 @@ export interface DataSource {
 
 ---
 
-## 4. Network Performance Profiling
+## 5. Network Performance Profiling
 
 **Goal:** Automated network performance benchmarking via headless browser.
 
@@ -200,36 +248,3 @@ await browser.close()
 - Previous (512KB default): ~800KB initial, ~800KB on refresh
 - Current (split sizes): ~265KB initial, ~100KB on refresh (~85% reduction)
 
----
-
-## 5. UI Polish & Improvements
-
-### Loading States
-- [ ] **Dimmed view during refetch** - replace FOUC with overlay on current chart
-  - Current: chart disappears/reappears when fetching new data
-  - Desired: keep current view visible but dimmed with subtle loading indicator
-  - Benefits: reduces visual jarring, maintains context during refresh
-
-### Data Table
-- [ ] Add device dropdown - currently only shows first device's data
-
-### Theme Toggle
-- [ ] Replace "💻" system default icon with clearer indicator (monitor with sun/moon? or standard auto icon)
-
-### Table Pagination
-- [ ] Fix disabled ">"/">>" buttons appearing blank - need visible foreground color for disabled state
-
-### Y-Axis Controls Refactor
-- [ ] Move metric dropdowns up to legend title positions (currently redundant)
-- [ ] Dropdown format: `<emoji> <abbrev> (<units>)` (e.g. "🌡️ Temp (°F)")
-- [ ] Each y-axis gets its own "auto-range" checkbox (instead of shared ">=0")
-- [ ] Change default semantics: >=0 is default, checkbox enables auto-range
-- [ ] URL param: append `a`/`A` for auto-range instead of `Z` for not-from-zero
-
-### X Range Controls
-- [ ] Convert buttons to dropdown (add 12h option, reduce width)
-- [ ] Keep hotkey support for direct selection
-
-### Mobile Accessibility
-- [ ] Tooltips on clickable controls don't work on mobile
-- [ ] Options: move tooltip content to adjacent title text, or add info icons
