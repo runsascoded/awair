@@ -19,22 +19,22 @@ export interface LineProps {
 export type DeviceRenderStrategy = 'hsv-nudge' | 'dash' | 'none'
 
 /**
- * Configuration for HSV nudging strategy
+ * Configuration for HSL nudging strategy
  */
-interface HsvNudgeConfig {
+export interface HsvConfig {
   hueStep: number
   saturationStep: number
   lightnessStep: number
 }
 
 /**
- * Default HSV nudge configuration
+ * Default HSL nudge configuration
  * Only adjusts lightness, keeps hue/saturation constant
  */
-const DEFAULT_HSV_CONFIG: HsvNudgeConfig = {
+const DEFAULT_HSV_CONFIG: HsvConfig = {
   hueStep: 0,
   saturationStep: 0,
-  lightnessStep: 15,
+  lightnessStep: 12,
 }
 
 /**
@@ -115,7 +115,7 @@ function getHsvNudgedColor(
   baseColor: string,
   deviceIndex: number,
   totalDevices: number,
-  config: HsvNudgeConfig = DEFAULT_HSV_CONFIG
+  config: HsvConfig = DEFAULT_HSV_CONFIG
 ): string {
   if (totalDevices === 1) {
     return baseColor
@@ -160,7 +160,7 @@ export function getDeviceLineProps(
   totalDevices: number,
   strategy: DeviceRenderStrategy,
   width: number,
-  hsvConfig?: HsvNudgeConfig
+  hsvConfig?: HsvConfig
 ): LineProps {
   switch (strategy) {
     case 'hsv-nudge':

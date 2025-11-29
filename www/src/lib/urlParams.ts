@@ -314,7 +314,7 @@ export const deviceRenderStrategyParam: Param<import('../utils/deviceRenderStrat
  *
  * Default (0,0,12) is omitted from URL
  */
-export const hsvConfigParam: Param<import('../components/DeviceRenderSettings').HsvConfig> = {
+export const hsvConfigParam: Param<import('../utils/deviceRenderStrategy').HsvConfig> = {
   encode: (config) => {
     // Default values (lightness-only nudging)
     if (config.hueStep === 0 && config.saturationStep === 0 && config.lightnessStep === 12) {

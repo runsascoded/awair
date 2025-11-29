@@ -4,12 +4,11 @@ import { DevicesControl } from './DevicesControl'
 import { RangeWidthControl } from './RangeWidthControl'
 import { getFileBounds } from '../services/awairService'
 import type { PxOption } from './AggregationControl'
-import type { HsvConfig } from './DeviceRenderSettings'
 import type { TimeWindow } from '../hooks/useDataAggregation'
 import type { MetricsState } from "../hooks/useMetrics"
 import type { Device } from '../services/awairService'
 import type { AwairRecord, DataSummary } from '../types/awair'
-import type { DeviceRenderStrategy } from '../utils/deviceRenderStrategy'
+import type { DeviceRenderStrategy, HsvConfig } from '../utils/deviceRenderStrategy'
 
 interface MetricConfig {
   label: string

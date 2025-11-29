@@ -1,9 +1,8 @@
 import React, { useRef, useEffect } from 'react'
 import { Tooltip } from './Tooltip'
 import { MAX_SELECTED_DEVICES } from '../utils/colorUtils'
-import type { HsvConfig } from './DeviceRenderSettings'
 import type { Device } from '../services/awairService'
-import type { DeviceRenderStrategy } from '../utils/deviceRenderStrategy'
+import type { DeviceRenderStrategy, HsvConfig } from '../utils/deviceRenderStrategy'
 
 interface DevicesControlProps {
   devices: Device[]
@@ -118,7 +117,7 @@ export function DevicesControl({
                       type="range"
                       min="0"
                       max="40"
-                      step="5"
+                      step="1"
                       value={hsvConfig.lightnessStep}
                       onChange={(e) => setHsvConfig({ ...hsvConfig, lightnessStep: Number(e.target.value) })}
                     />
