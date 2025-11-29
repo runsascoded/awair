@@ -1,5 +1,7 @@
 import { useQueries } from '@tanstack/react-query'
+import { useRef } from 'react'
 import { fetchAwairData } from '../services/awairService'
+import { encodeTimeRange } from '../lib/timeRangeCodec'
 import type { TimeRange } from '../lib/urlParams'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
@@ -8,6 +10,7 @@ export interface DeviceDataResult {
   data: AwairRecord[]
   summary: DataSummary | null
   loading: boolean
+  isInitialLoad: boolean
   error: string | null
 }
 
@@ -30,9 +33,12 @@ export function useMultiDeviceData(
 ): DeviceDataResult[] {
   const { refetchInterval, refetchIntervalInBackground } = options
 
+  // Manual keepPreviousData implementation (useQueries doesn't support it in v5)
+  const previousDataRef = useRef<Map<number, { records: AwairRecord[]; summary: DataSummary | null }>>(new Map())
+
   const queries = useQueries({
     queries: deviceIds.map(deviceId => ({
-      queryKey: ['awair-data', deviceId, timeRange.duration],
+      queryKey: ['awair-data', deviceId, encodeTimeRange(timeRange)],
       queryFn: () => fetchAwairData(deviceId, timeRange),
       enabled: deviceId !== undefined,
       refetchInterval,
@@ -42,11 +48,26 @@ export function useMultiDeviceData(
 
   return deviceIds.map((deviceId, index) => {
     const query = queries[index]
+
+    // Use current data if available, otherwise use previous data
+    const currentData = query.data?.records
+    const currentSummary = query.data?.summary || null
+    const previousData = previousDataRef.current.get(deviceId)
+
+    const data = currentData || previousData?.records || []
+    const summary = currentSummary || previousData?.summary || null
+
+    // Update ref when we have new data
+    if (currentData && currentData.length > 0) {
+      previousDataRef.current.set(deviceId, { records: currentData, summary: currentSummary })
+    }
+
     return {
       deviceId,
-      data: query.data?.records || [],
-      summary: query.data?.summary || null,
-      loading: query.isLoading,
+      data,
+      summary,
+      loading: query.isFetching,
+      isInitialLoad: query.isLoading,
       error: query.error ? (query.error as Error).message : null,
     }
   })
