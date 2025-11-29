@@ -1,7 +1,7 @@
 import { useQueries } from '@tanstack/react-query'
 import { useRef } from 'react'
-import { fetchAwairData } from '../services/awairService'
 import { encodeTimeRange } from '../lib/timeRangeCodec'
+import { fetchAwairData } from '../services/awairService'
 import type { TimeRange } from '../lib/urlParams'
 import type { AwairRecord, DataSummary } from '../types/awair'
 

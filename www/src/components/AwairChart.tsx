@@ -233,46 +233,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     return false // Allowed
   }, [getAllDeviceBounds, jumpToLatest, setXAxisRange])
 
-  // Shift time window by given milliseconds (positive = forward, negative = backward)
-  // Maintains current duration and mode (Latest vs fixed timestamp)
-  const shiftTimeWindow = useCallback((shiftMs: number) => {
-    if (!xAxisRange || data.length === 0) return
-
-    const currentStart = new Date(xAxisRange[0])
-    const currentEnd = new Date(xAxisRange[1])
-
-    // Calculate new range
-    const newStart = new Date(currentStart.getTime() + shiftMs)
-    const newEnd = new Date(currentEnd.getTime() + shiftMs)
-
-    const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(newEnd)]
-
-    // Check if going into future - if so, jump to Latest instead
-    if (checkAndPreventFuture(newRange)) return
-
-    setIgnoreNextPanCheck()
-    setXAxisRange(newRange)
-  }, [xAxisRange, data, formatForPlotly, setIgnoreNextPanCheck, setXAxisRange, checkAndPreventFuture])
-
-  // Jump to earliest available data (maintain current duration)
-  const jumpToEarliest = useCallback(() => {
-    if (!xAxisRange || data.length === 0) return
-
-    const rangeWidth = new Date(xAxisRange[1]).getTime() - new Date(xAxisRange[0]).getTime()
-
-    // Use Parquet metadata for absolute earliest, not current view's data
-    const allBounds = getAllDeviceBounds()
-    if (allBounds.length === 0) return
-
-    const globalStart = allBounds.reduce((min, b) => b.earliest < min ? b.earliest : min, allBounds[0].earliest)
-    const newStart = globalStart
-    const newEnd = new Date(newStart.getTime() + rangeWidth)
-
-    const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(newEnd)]
-    setIgnoreNextPanCheck()
-    setXAxisRange(newRange)
-  }, [xAxisRange, data, formatForPlotly, setIgnoreNextPanCheck, setXAxisRange, getAllDeviceBounds])
-
   // Handle auto-update from Latest mode hook
   useEffect(() => {
     if (autoUpdateRange) {
@@ -728,7 +688,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       fullDataStartTime: bounds.earliest,
       fullDataEndTime: bounds.latest,
     }
-  }, [selectedDeviceIdForTable, selectedWindow])
+  }, [selectedDeviceIdForTable, selectedWindow, deviceDataResults])
 
   return (
     <div className="awair-chart" style={isOgMode ? { position: 'relative', height: '100vh', overflow: 'hidden' } : undefined}>
@@ -894,25 +854,15 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           isRawData={isRawData}
           totalDataCount={tableMetadata.totalDataCount}
           windowLabel={selectedWindow.label}
-          plotStartTime={xAxisRange?.[0]}
-          plotEndTime={xAxisRange?.[1]}
           fullDataStartTime={tableMetadata.fullDataStartTime}
           fullDataEndTime={tableMetadata.fullDataEndTime}
           windowMinutes={selectedWindow.minutes}
           deviceAggregations={deviceAggregations}
           selectedDeviceId={selectedDeviceIdForTable}
           onDeviceChange={setSelectedDeviceIdForTable}
-          latestModeIntended={latestModeIntended}
-          xAxisRange={xAxisRange}
-          shiftTimeWindow={shiftTimeWindow}
-          jumpToEarliest={jumpToEarliest}
-          onJumpToLatest={useCallback(() => {
-            // Jump to latest like the Latest button
-            const newRange = jumpToLatest()
-            if (newRange) {
-              setXAxisRange(newRange)
-            }
-          }, [jumpToLatest, setXAxisRange, formatForPlotly, data])}
+          timeRange={timeRangeFromProps}
+          setTimeRange={setTimeRangeFromProps}
+          formatForPlotly={formatForPlotly}
           pageSize={tablePageSize}
           onPageSizeChange={(size) => setTablePageSize(size as 10 | 20 | 50 | 100 | 200)}
         />

@@ -89,7 +89,7 @@ export function ChartControls({
   setRangeByWidth: _setRangeByWidth,
   setIgnoreNextPanCheck,
   setDuration,
-  timeRange,
+  timeRange: _timeRange,
   setTimeRange,
   devices,
   selectedDeviceIds,
