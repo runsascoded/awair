@@ -313,9 +313,19 @@ The frontend uses a `DataSource` interface (`www/src/services/dataSource.ts`) to
 | `lambda` | AWS Lambda endpoint with pandas/DuckDB | Planned |
 | `cfw` | CloudFlare Worker endpoint | Planned |
 
-**Current limitation:** Parquet files have 1 row group (~239k rows), so partial fetches aren't possible. Plan: configure writer to use `row_group_size=10000` to enable hyparquet's HTTP Range Request optimization.
+**Current implementation:** Parquet files have 25 row groups (~10,200 rows each, ~7 days), enabling efficient partial fetches:
+- Initial fetch: 128KB (footer + last RG)
+- Refresh: ~122KB (from last RG start to EOF)
+- Uses `github:runsascoded/hyparquet#dist` (v1.22.1+) with `suffixStart` option
+- HAR testing tools in `www/har-test/` for performance analysis
 
-**Performance targets:**
+**Performance:**
+- Initial load: ~265KB total parquet data (2 devices, 1d view)
+- Refresh with no change: HEAD only (0 bytes transferred)
+- Refresh with new data: ~100KB per device
+- 85% reduction vs previous 512KB default
+
+**Alternative data sources (planned):**
 - CloudFlare Workers: ~5ms cold start
 - AWS Lambda + SnapStart: ~276ms cold start (Python 3.12+)
-- Direct S3: depends on row group structure
+- DuckDB-WASM: SQL queries, fast aggregation

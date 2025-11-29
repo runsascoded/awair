@@ -56,10 +56,10 @@ Footer: ~24KB (now using 128KB initial fetch instead of 512KB default)
 - Reduced `SAFETY_MARGIN` from 1.5 to 1.01
 
 **RG size tuning:**
-- Current: 10,000 rows = 6.94 days (pathological for 7d view - always needs 2 RGs)
+- ✅ **Current: 10,200 rows = ~7.1 days** (already optimal!)
 - Drift analysis: 99.93% slow (>1min), 0.07% fast (<1min), avg 1.005 min/row
-- Recommended: **10,200 rows = ~7.1 days** (margin for rare sub-minute drift)
-- To update: `python scripts/rewrite_parquet_row_groups.py s3://380nwk/awair-{id}.parquet 10200`
+- Margin accommodates rare sub-minute drift spikes
+- Each RG: ~150-160KB, well-sized for single Range requests
 
 ### Implementation Status
 
@@ -91,9 +91,16 @@ Footer: ~24KB (now using 128KB initial fetch instead of 512KB default)
   - `refetchInterval` and `refetchIntervalInBackground` options
   - 60-second polling enabled by default (only when tab active)
 
-**Not yet done:**
-- IndexedDB persistence (currently in-memory only)
-- Phase-shifted polling (poll ~5-10s after Lambda updates)
+**Next steps:**
+- [ ] IndexedDB persistence (currently in-memory only)
+- [ ] Phase-shifted polling (poll ~5-10s after Lambda updates)
+- [ ] CI integration for HAR performance testing
+
+**Potential optimizations (lower priority):**
+- Column-specific fetching: Only fetch displayed columns from each RG
+  - Pros: Further bandwidth reduction (currently fetching all 7 columns)
+  - Cons: Complicates "last RG to EOF" refresh logic, need to track visible columns
+  - Current: ~122KB refresh is already very efficient, probably not worth complexity
 
 ### Optimal Fetch Pattern
 
@@ -116,7 +123,8 @@ On-demand (user selects longer range):
 - Refresh fetch: from `lastRG.startByte` to EOF (~100KB)
 - Uses hyparquet's `suffixStart` option to tell it exactly where cached data starts
 - Coalescing logic assembles data from multiple cache sources when needed
-- Requires local hyparquet fork with `suffixStart` support (not yet published)
+- **✅ Deployed:** Using `github:runsascoded/hyparquet#dist` (v1.22.1 with `suffixStart`)
+- **HAR testing tools:** Added `www/har-test/` for network analysis and benchmarking
 
 ---
 
@@ -195,6 +203,12 @@ await browser.close()
 ---
 
 ## 5. UI Polish & Improvements
+
+### Loading States
+- [ ] **Dimmed view during refetch** - replace FOUC with overlay on current chart
+  - Current: chart disappears/reappears when fetching new data
+  - Desired: keep current view visible but dimmed with subtle loading indicator
+  - Benefits: reduces visual jarring, maintains context during refresh
 
 ### Data Table
 - [ ] Add device dropdown - currently only shows first device's data
