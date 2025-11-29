@@ -16,8 +16,8 @@ function computeRange(
 
   let endTime: Date
   if (timeRange.timestamp === null) {
-    // In Latest mode, add buffer so the latest point isn't at the very edge
-    endTime = new Date(new Date(data[0].timestamp).getTime() + LATEST_MODE_BUFFER_MS)
+    // In Latest mode, use current time (not data timestamp which may be cached/stale)
+    endTime = new Date(new Date().getTime() + LATEST_MODE_BUFFER_MS)
   } else {
     endTime = timeRange.timestamp
   }
@@ -87,15 +87,13 @@ export function useTimeRangeParam(
 
   // Toggle Latest mode
   const setLatestModeIntended = useCallback((enabled: boolean) => {
-    if (data.length === 0) return
-
     const currentDuration = xAxisRange
       ? new Date(xAxisRange[1]).getTime() - new Date(xAxisRange[0]).getTime()
       : timeRange.duration
 
     if (enabled) {
-      // Add buffer so latest point isn't at edge
-      const endTime = new Date(new Date(data[0].timestamp).getTime() + LATEST_MODE_BUFFER_MS)
+      // Add buffer so latest point isn't at edge (use current time, not cached data)
+      const endTime = new Date(new Date().getTime() + LATEST_MODE_BUFFER_MS)
       const startTime = new Date(endTime.getTime() - currentDuration)
       setXAxisRangeState([formatForPlotly(startTime), formatForPlotly(endTime)])
       setTimeRange({ timestamp: null, duration: currentDuration })
@@ -103,24 +101,22 @@ export function useTimeRangeParam(
       const endTime = new Date(xAxisRange[1])
       setTimeRange({ timestamp: endTime, duration: currentDuration })
     }
-  }, [data, xAxisRange, timeRange.duration, setTimeRange, formatForPlotly])
+  }, [xAxisRange, timeRange.duration, setTimeRange, formatForPlotly])
 
   // Update duration - keeps end time fixed, adjusts start time
   const setDuration = useCallback((duration: number) => {
-    if (data.length === 0) return
-
-    // Determine end time: use current xAxisRange end, or latest data if in Latest mode
+    // Determine end time: use current xAxisRange end, or current time if in Latest mode
     let endTime: Date
     let stayInLatestMode = false
     if (xAxisRange) {
       endTime = new Date(xAxisRange[1])
-      // Check if current end is close to latest data (within 10 min) -> stay in Latest mode
-      const latestDataTime = new Date(data[0].timestamp)
-      const timeDiffMinutes = Math.abs(endTime.getTime() - latestDataTime.getTime()) / (1000 * 60)
+      // Check if current end is close to now (within 10 min) -> stay in Latest mode
+      const now = new Date()
+      const timeDiffMinutes = Math.abs(endTime.getTime() - now.getTime()) / (1000 * 60)
       stayInLatestMode = timeDiffMinutes < 10
     } else if (timeRange.timestamp === null) {
-      // Add buffer so latest point isn't at edge
-      endTime = new Date(new Date(data[0].timestamp).getTime() + LATEST_MODE_BUFFER_MS)
+      // Add buffer so latest point isn't at edge (use current time, not cached data)
+      endTime = new Date(new Date().getTime() + LATEST_MODE_BUFFER_MS)
       stayInLatestMode = true
     } else {
       endTime = timeRange.timestamp
@@ -129,7 +125,7 @@ export function useTimeRangeParam(
     const startTime = new Date(endTime.getTime() - duration)
     setXAxisRangeState([formatForPlotly(startTime), formatForPlotly(endTime)])
     setTimeRange({ timestamp: stayInLatestMode ? null : endTime, duration })
-  }, [data, xAxisRange, timeRange.timestamp, setTimeRange, formatForPlotly])
+  }, [xAxisRange, timeRange.timestamp, setTimeRange, formatForPlotly])
 
   return {
     timeRange,

@@ -3,6 +3,7 @@ import { AggregationControl } from './AggregationControl'
 import { DevicesControl } from './DevicesControl'
 import { RangeWidthControl } from './RangeWidthControl'
 import { YAxesControl } from './YAxesControl'
+import { getFileBounds } from '../services/awairService'
 import type { PxOption } from './AggregationControl'
 import type { HsvConfig } from './DeviceRenderSettings'
 import type { TimeWindow } from '../hooks/useDataAggregation'
@@ -90,6 +91,8 @@ export function ChartControls({
   setRangeByWidth: _setRangeByWidth,
   setIgnoreNextPanCheck,
   setDuration,
+  timeRange,
+  setTimeRange,
   devices,
   selectedDeviceIds,
   onDeviceSelectionChange,
@@ -138,13 +141,28 @@ export function ChartControls({
   }
 
   const handleAllButtonClick = () => {
-    if (summary?.earliest && summary?.latest) {
-      const earliest = new Date(summary.earliest)
-      const latest = new Date(summary.latest)
+    if (setTimeRange && selectedDeviceIds.length > 0) {
+      // Get file bounds from Parquet metadata (not just currently displayed data)
+      const allBounds = selectedDeviceIds
+        .map(id => getFileBounds(id))
+        .filter((bounds): bounds is { earliest: Date; latest: Date } => bounds !== null)
+
+      if (allBounds.length === 0) return
+
+      // Find overall earliest and latest across all devices
+      const earliest = allBounds.reduce((min, b) => b.earliest < min ? b.earliest : min, allBounds[0].earliest)
+      const latest = allBounds.reduce((max, b) => b.latest > max ? b.latest : max, allBounds[0].latest)
+
       const durationMs = latest.getTime() - earliest.getTime()
-      const hours = durationMs / (1000 * 60 * 60)
-      // Use the same code path as other time range buttons
-      handleTimeRangeClick(hours)
+
+      // Set the visual range (anchored to current time in Latest mode)
+      const BUFFER_MS = 60 * 1000 // 1 minute buffer
+      const endTime = new Date(new Date().getTime() + BUFFER_MS)
+      const startTime = new Date(endTime.getTime() - durationMs)
+      setXAxisRange([formatForPlotly(startTime), formatForPlotly(endTime)])
+
+      // Use Latest mode (timestamp=null) so it auto-follows new data, but with full duration
+      setTimeRange({ timestamp: null, duration: durationMs })
     }
   }
 

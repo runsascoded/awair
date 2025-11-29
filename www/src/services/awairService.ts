@@ -86,6 +86,27 @@ export async function fetchDevices(): Promise<Device[]> {
   }
 }
 
+export function getFileBounds(deviceId: number): { earliest: Date; latest: Date } | null {
+  const url = getDataUrl(deviceId)
+  const cache = hyparquetSource.getCache(url)
+  if (!cache) return null
+
+  const rgInfos = cache.getRowGroupInfos()
+  if (rgInfos.length === 0) return null
+
+  const earliest = rgInfos.reduce((min, rg) =>
+    rg.minTimestamp && (!min || rg.minTimestamp < min) ? rg.minTimestamp : min,
+    null as Date | null
+  )
+  const latest = rgInfos.reduce((max, rg) =>
+    rg.maxTimestamp && (!max || rg.maxTimestamp > max) ? rg.maxTimestamp : max,
+    null as Date | null
+  )
+
+  if (!earliest || !latest) return null
+  return { earliest, latest }
+}
+
 export async function fetchAwairData(
   deviceId: number | undefined,
   timeRange: { timestamp: Date | null; duration: number }

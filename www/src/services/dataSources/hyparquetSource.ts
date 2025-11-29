@@ -54,6 +54,12 @@ export class HyparquetSource implements DataSource {
   readonly type = 's3-hyparquet' as const
   readonly name = 'S3 Direct (hyparquet)'
 
+  /** Get cache for a URL (if it exists and is initialized) */
+  getCache(url: string): ParquetCache | null {
+    const cache = cacheManager.get(url)
+    return (cache && cache.getMetadata()) ? cache : null
+  }
+
   async fetch(options: FetchOptions): Promise<FetchResult> {
     const { deviceId, range } = options
     const url = getDataUrl(deviceId)
