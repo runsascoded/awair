@@ -819,6 +819,33 @@ footer {
     }
   }
 
+  .time-range-select {
+    display: flex;
+    justify-content: center;
+
+    select {
+      font-size: 0.85rem;
+      font-weight: 500;
+      padding: 0.3rem 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      cursor: pointer;
+      min-width: 80px;
+
+      &:hover {
+        border-color: var(--accent-primary);
+      }
+
+      &:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 2px var(--accent-primary-alpha);
+      }
+    }
+  }
+
   .range-info {
     .display {
       font-size: 0.9rem;
@@ -891,15 +918,6 @@ footer {
     flex-direction: column;
     gap: 1rem;
     align-items: flex-start;
-  }
-
-  .range-width-section .time-range-buttons {
-    flex-wrap: wrap;
-    justify-content: center;
-
-    button {
-      min-width: 30px;
-    }
   }
 }
 

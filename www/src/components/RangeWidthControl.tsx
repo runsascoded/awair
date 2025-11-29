@@ -15,12 +15,14 @@ interface RangeWidthControlProps {
   isMobile: boolean
 }
 
-const timeRangeButtons = [
+const timeRangeOptions = [
+  { label: '12h', hours: 12 },
   { label: '1d', hours: 24 },
   { label: '3d', hours: 24 * 3 },
   { label: '7d', hours: 24 * 7 },
   { label: '14d', hours: 24 * 14 },
-  { label: '30d', hours: 24 * 30 }
+  { label: '30d', hours: 24 * 30 },
+  { label: 'All', hours: -1 } // Special value for "All"
 ]
 
 export function RangeWidthControl({
@@ -35,6 +37,8 @@ export function RangeWidthControl({
   summary: _summary,
   isMobile
 }: RangeWidthControlProps) {
+  const activeRange = getActiveTimeRange()
+
   return (
     <div className="control-group range-width-section">
       {/* Row 1: Label and Latest button */}
@@ -42,7 +46,7 @@ export function RangeWidthControl({
         {isMobile ? (
           <label className="unselectable">X Range:</label>
         ) : (
-          <Tooltip content="Keyboard: 1=1day, 3=3days, 7=7days, 2=14days(2wk), m=30days, a=All">
+          <Tooltip content="Keyboard: h=12h, 1=1d, 3=3d, 7=7d, 2=14d, m=30d, x=All">
             <label className="unselectable">X Range:</label>
           </Tooltip>
         )}
@@ -69,23 +73,28 @@ export function RangeWidthControl({
         )}
       </div>
 
-      {/* Row 2: Duration buttons */}
-      <div className="body time-range-buttons">
-        {timeRangeButtons.map(({ label, hours }) => (
-          <button
-            key={label}
-            className={`unselectable ${getActiveTimeRange() === label || getActiveTimeRange() === `latest-${label}` ? 'active' : ''}`}
-            onClick={() => handleTimeRangeButtonClick(hours)}
-          >
-            {label}
-          </button>
-        ))}
-        <button
-          className={`unselectable ${getActiveTimeRange() === 'all' ? 'active' : ''}`}
-          onClick={handleAllButtonClick}
+      {/* Row 2: Duration dropdown */}
+      <div className="body time-range-select">
+        <select
+          value={activeRange.startsWith('latest-') ? activeRange.slice(7) : activeRange}
+          onChange={(e) => {
+            const value = e.target.value
+            if (value === 'all') {
+              handleAllButtonClick()
+            } else {
+              const option = timeRangeOptions.find(opt => opt.label === value)
+              if (option && option.hours > 0) {
+                handleTimeRangeButtonClick(option.hours)
+              }
+            }
+          }}
         >
-          All
-        </button>
+          {timeRangeOptions.map(({ label }) => (
+            <option key={label} value={label.toLowerCase()}>
+              {label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Row 3: Current range display */}

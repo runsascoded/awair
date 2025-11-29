@@ -121,6 +121,10 @@ export function useKeyboardShortcuts({
           setXAxisRange(null)
         }
         event.preventDefault()
+      } else if (key === 'h' && !isShift) {
+        // h = 12 hours (half-day)
+        handleTimeRangeClick(12)
+        event.preventDefault()
       } else if (key === '1') {
         // 1 = 1 day
         handleTimeRangeClick(24)
