@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { FaGithub } from 'react-icons/fa'
+import { MdBrightnessAuto } from 'react-icons/md'
 import { useTheme } from '../contexts/ThemeContext'
 
 export function ThemeToggle() {
@@ -50,7 +51,7 @@ export function ThemeToggle() {
     switch (theme) {
       case 'light': return '☀️'
       case 'dark': return '🌙'
-      case 'system': return '💻'
+      case 'system': return <MdBrightnessAuto />
     }
   }
 

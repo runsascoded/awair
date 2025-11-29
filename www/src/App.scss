@@ -296,11 +296,11 @@ main {
     }
 
     &:disabled {
-      color: var(--disabled-text);
-      border-color: var(--disabled-text);
+      color: var(--text-secondary);
+      border-color: var(--border-secondary);
       background: var(--bg-tertiary);
       cursor: not-allowed;
-      opacity: 0.5;
+      opacity: 0.6;
     }
   }
 

@@ -28,6 +28,13 @@ interface AggregatedData {
   count: number;
 }
 
+interface DeviceAggregatedData {
+  deviceId: number;
+  deviceName: string;
+  aggregatedData: AggregatedData[];
+  isRawData: boolean;
+}
+
 interface Props {
   data: AggregatedData[];
   formatCompactDate: (date: Date) => string;
@@ -42,6 +49,9 @@ interface Props {
   windowMinutes: number;
   onPageChange?: (pageOffset: number) => void;
   onJumpToLatest?: () => void;
+  deviceAggregations: DeviceAggregatedData[];
+  selectedDeviceId?: number;
+  onDeviceChange: (deviceId: number) => void;
 }
 
 // Simple tooltip component for table values
@@ -99,7 +109,7 @@ function ValueTooltip({ children, content }: { children: React.ReactElement; con
   )
 }
 
-export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, onPageChange, onJumpToLatest }: Props) {
+export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, onPageChange, onJumpToLatest, deviceAggregations, selectedDeviceId, onDeviceChange }: Props) {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
 
@@ -145,6 +155,31 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
       <div className="header">
         <h3>{isRawData ? 'Raw Data' : 'Aggregated Data'}</h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {deviceAggregations.length > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label htmlFor="device-select" style={{ fontSize: '14px' }}>Device:</label>
+              <select
+                id="device-select"
+                value={selectedDeviceId}
+                onChange={(e) => onDeviceChange(parseInt(e.target.value))}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '14px',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border-primary)',
+                  backgroundColor: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer'
+                }}
+              >
+                {deviceAggregations.map(device => (
+                  <option key={device.deviceId} value={device.deviceId}>
+                    {device.deviceName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <label htmlFor="rows-per-page" style={{ fontSize: '14px' }}>Rows:</label>
             <select

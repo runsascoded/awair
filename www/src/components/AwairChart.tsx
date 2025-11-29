@@ -173,8 +173,19 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     { containerWidth: viewportWidth, overrideWindow, targetPx }
   )
 
-  // For backwards compatibility with DataTable, use first device's aggregated data
-  const aggregatedData = deviceAggregations[0]?.aggregatedData || []
+  // Track which device to show in the DataTable (defaults to first device)
+  const [selectedDeviceIdForTable, setSelectedDeviceIdForTable] = useState<number | undefined>(undefined)
+
+  // Auto-select first device when deviceAggregations changes
+  useEffect(() => {
+    if (deviceAggregations.length > 0 && selectedDeviceIdForTable === undefined) {
+      setSelectedDeviceIdForTable(deviceAggregations[0].deviceId)
+    }
+  }, [deviceAggregations, selectedDeviceIdForTable])
+
+  // Get the selected device's aggregated data for the table
+  const selectedDeviceAggregation = deviceAggregations.find(d => d.deviceId === selectedDeviceIdForTable)
+  const aggregatedData = selectedDeviceAggregation?.aggregatedData || []
 
   // Calculate time range in minutes for aggregation control
   const timeRangeMinutes = useMemo(() => {
@@ -823,6 +834,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           fullDataStartTime={data.length > 0 ? data[data.length - 1].timestamp : undefined}
           fullDataEndTime={data.length > 0 ? data[0].timestamp : undefined}
           windowMinutes={selectedWindow.minutes}
+          deviceAggregations={deviceAggregations}
+          selectedDeviceId={selectedDeviceIdForTable}
+          onDeviceChange={setSelectedDeviceIdForTable}
           onJumpToLatest={useCallback(() => {
             // Jump to latest like the Latest button
             const newRange = jumpToLatest()
