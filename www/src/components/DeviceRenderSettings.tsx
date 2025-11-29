@@ -23,7 +23,7 @@ export function DeviceRenderSettings({
 }: DeviceRenderSettingsProps) {
   return (
     <details className="device-render-settings">
-      <Tooltip content="Configure how multiple devices are visually distinguished: HSV color nudging, dashed lines, or no distinction">
+      <Tooltip content="Configure how multiple devices are visually distinguished: HSL color nudging, dashed lines, or no distinction">
         <summary>
           <span className="settings-icon">🎨</span>
         </summary>
@@ -35,7 +35,7 @@ export function DeviceRenderSettings({
             value={strategy}
             onChange={(e) => setStrategy(e.target.value as DeviceRenderStrategy)}
           >
-            <option value="hsv-nudge">HSV Nudge</option>
+            <option value="hsv-nudge">HSL Nudge</option>
             <option value="dash">Dashed</option>
             <option value="none">None</option>
           </select>
@@ -75,7 +75,7 @@ export function DeviceRenderSettings({
                 type="range"
                 min="0"
                 max="40"
-                step="5"
+                step="1"
                 value={hsvConfig.lightnessStep}
                 onChange={(e) => setHsvConfig({ ...hsvConfig, lightnessStep: Number(e.target.value) })}
               />

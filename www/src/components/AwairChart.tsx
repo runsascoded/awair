@@ -50,8 +50,8 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   // Device render strategy: how to visually distinguish multiple devices
   const [deviceRenderStrategy, setDeviceRenderStrategy] = useUrlParam('dr', deviceRenderStrategyParam)
 
-  // HSV config for hsv-nudge strategy
-  const [hsvConfig, setHsvConfig] = useUrlParam('hsv', hsvConfigParam)
+  // HSL config for hsv-nudge strategy
+  const [hsvConfig, setHsvConfig] = useUrlParam('hsl', hsvConfigParam)
 
   // X-axis grouping: auto mode (px values) or fixed window mode (time labels)
   const [xGrouping, setXGrouping] = useUrlParam('x', xGroupingParam)

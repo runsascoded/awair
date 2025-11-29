@@ -304,36 +304,41 @@ export const deviceRenderStrategyParam: Param<import('../utils/deviceRenderStrat
 }
 
 /**
- * HSV configuration param - stores hue/saturation/lightness step values
+ * HSL configuration param - stores hue/saturation/lightness step values
  *
- * Compact encoding: "h,s,l" where each is a number 0-100
+ * Compact encoding: "h{num}s{num}l{num}" where only non-zero values are included
  * Examples:
- *   ?hsv=0,0,15  → hue=0, sat=0, lightness=15 (default)
- *   ?hsv=10,5,20 → hue=10, sat=5, lightness=20
+ *   ?hsl=l12     → hue=0, sat=0, lightness=12 (default)
+ *   ?hsl=h10l15  → hue=10, sat=0, lightness=15
+ *   ?hsl=h10s5l20 → hue=10, sat=5, lightness=20
  *
- * Default (0,0,15) is omitted from URL
+ * Default (0,0,12) is omitted from URL
  */
 export const hsvConfigParam: Param<import('../components/DeviceRenderSettings').HsvConfig> = {
   encode: (config) => {
     // Default values (lightness-only nudging)
-    if (config.hueStep === 0 && config.saturationStep === 0 && config.lightnessStep === 15) {
+    if (config.hueStep === 0 && config.saturationStep === 0 && config.lightnessStep === 12) {
       return undefined
     }
-    return `${config.hueStep},${config.saturationStep},${config.lightnessStep}`
+    const parts: string[] = []
+    if (config.hueStep !== 0) parts.push(`h${config.hueStep}`)
+    if (config.saturationStep !== 0) parts.push(`s${config.saturationStep}`)
+    if (config.lightnessStep !== 0) parts.push(`l${config.lightnessStep}`)
+    return parts.length > 0 ? parts.join('') : undefined
   },
   decode: (encoded) => {
     if (!encoded) {
-      return { hueStep: 0, saturationStep: 0, lightnessStep: 15 }
+      return { hueStep: 0, saturationStep: 0, lightnessStep: 12 }
     }
-    const parts = encoded.split(',').map(Number)
-    if (parts.length !== 3 || parts.some(isNaN)) {
-      console.warn(`Invalid HSV config: ${encoded}`)
-      return { hueStep: 0, saturationStep: 0, lightnessStep: 15 }
-    }
+    // Parse format like "h10s5l15" or "l15"
+    const hMatch = encoded.match(/h(\d+)/)
+    const sMatch = encoded.match(/s(\d+)/)
+    const lMatch = encoded.match(/l(\d+)/)
+
     return {
-      hueStep: parts[0],
-      saturationStep: parts[1],
-      lightnessStep: parts[2],
+      hueStep: hMatch ? Number(hMatch[1]) : 0,
+      saturationStep: sMatch ? Number(sMatch[1]) : 0,
+      lightnessStep: lMatch ? Number(lMatch[1]) : 12,
     }
   },
 }
