@@ -8,7 +8,6 @@ interface UseKeyboardShortcutsProps {
   setYAxisFromZero: (value: boolean) => void
   xAxisRange: [string, string] | null
   setXAxisRange: (range: [string, string] | null) => void
-  setHasSetDefaultRange: (value: boolean) => void
   data: AwairRecord[]
   formatForPlotly: (date: Date) => string
   latestModeIntended: boolean
@@ -23,7 +22,6 @@ export function useKeyboardShortcuts({
   setYAxisFromZero,
   xAxisRange,
   setXAxisRange,
-  setHasSetDefaultRange,
   data,
   formatForPlotly,
   latestModeIntended,
@@ -100,7 +98,6 @@ export function useKeyboardShortcuts({
           const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)]
           setIgnoreNextPanCheck() // Don't disable Latest mode for our own update
           setXAxisRange(newRange)
-          setHasSetDefaultRange(true)
           setLatestModeIntended(true)
         }
         event.preventDefault()
@@ -112,7 +109,6 @@ export function useKeyboardShortcuts({
             formatForPlotly(new Date(data[0].timestamp))
           ]
           setXAxisRange(fullRange)
-          setHasSetDefaultRange(true)
           setLatestModeIntended(true)
         } else {
           setXAxisRange(null)
@@ -153,7 +149,6 @@ export function useKeyboardShortcuts({
     setYAxisFromZero,
     xAxisRange,
     setXAxisRange,
-    setHasSetDefaultRange,
     data,
     formatForPlotly,
     latestModeIntended,

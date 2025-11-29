@@ -20,6 +20,26 @@ export type Metrics = {
 }
 
 /**
+ * Helper: Create a Param for an integer that must be one of a predefined set of values
+ * @param values - Allowed values
+ * @param defaultValue - Default value (must be in values array)
+ * @returns Param object for use with useUrlParam
+ */
+export function intFromList<T extends number>(values: readonly T[], defaultValue: T): Param<T> {
+  if (!values.includes(defaultValue)) {
+    throw new Error(`Default value ${defaultValue} not in allowed values: ${values.join(', ')}`)
+  }
+  return {
+    decode: (v) => {
+      if (!v) return defaultValue
+      const num = parseInt(v) as T
+      return values.includes(num) ? num : defaultValue
+    },
+    encode: (v) => v === defaultValue ? undefined : v.toString()
+  }
+}
+
+/**
  * Find device by pattern (exact ID, or case-insensitive substring match)
  * Requires exactly one match - warns and returns null if ambiguous
  */

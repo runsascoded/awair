@@ -30,7 +30,6 @@ interface ChartControlsProps {
   setHsvConfig: (value: HsvConfig) => void
   xAxisRange: [string, string] | null
   setXAxisRange: (range: [string, string] | null) => void
-  setHasSetDefaultRange: (value: boolean) => void
   data: AwairRecord[]
   summary: DataSummary | null
   formatForPlotly: (date: Date) => string
@@ -78,7 +77,6 @@ export function ChartControls({
   setHsvConfig,
   xAxisRange,
   setXAxisRange,
-  setHasSetDefaultRange,
   data,
   summary,
   formatForPlotly,
@@ -135,7 +133,6 @@ export function ChartControls({
       const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(latestTime)]
       setIgnoreNextPanCheck() // Don't disable Latest mode for our own update
       setXAxisRange(newRange)
-      setHasSetDefaultRange(true)
       setLatestModeIntended(true)
     }
   }

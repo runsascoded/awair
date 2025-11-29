@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef } from 'react'
+import { useCallback, useState, useRef, useEffect } from 'react'
 import type { AwairRecord } from '../types/awair'
 
 /**
@@ -56,34 +56,41 @@ export function useTimeRangeParam(
   // Latest mode is when timestamp is null
   const latestModeIntended = timeRange.timestamp === null
 
-  // Simple setXAxisRange - just update state, sync to URL
-  const setXAxisRange = useCallback((range: [string, string] | null) => {
+  // Sync xAxisRange when timeRange changes (from URL or external updates)
+  useEffect(() => {
+    if (data.length > 0 && initializedRef.current) {
+      const range = computeRange(data, timeRange, formatForPlotly)
+      if (range) {
+        setXAxisRangeState(range)
+      }
+    }
+  }, [timeRange, data, formatForPlotly])
+
+  // Simple setXAxisRange - only updates URL param, xAxisRange syncs via useEffect
+  const setXAxisRange = useCallback((
+    range: [string, string] | null,
+    options?: { duration?: number }
+  ) => {
     if (range === null) {
-      setXAxisRangeState(null)
       setTimeRange({ timestamp: null, duration: 24 * 60 * 60 * 1000 })
       return
     }
 
-    // Update displayed range
-    setXAxisRangeState(range)
-
-    // Sync to URL
+    // Sync to URL - xAxisRange will update via useEffect
     const endTime = new Date(range[1])
-    const startTime = new Date(range[0])
-    const duration = endTime.getTime() - startTime.getTime()
+    // Duration comes from explicit option or current timeRange state - never recalculated from range
+    const duration = options?.duration ?? timeRange.duration
 
     // Check if close to latest (within 10 min) -> Latest mode
-    if (data.length > 0) {
-      const latestDataTime = new Date(data[0].timestamp)
-      const timeDiffMinutes = Math.abs(endTime.getTime() - latestDataTime.getTime()) / (1000 * 60)
+    const latestDataTime = data.length > 0 ? new Date(data[0].timestamp) : new Date()
+    const timeDiffMinutes = Math.abs(endTime.getTime() - latestDataTime.getTime()) / (1000 * 60)
 
-      if (timeDiffMinutes < 10) {
-        setTimeRange({ timestamp: null, duration })
-      } else {
-        setTimeRange({ timestamp: endTime, duration })
-      }
+    if (timeDiffMinutes < 10) {
+      setTimeRange({ timestamp: null, duration })
+    } else {
+      setTimeRange({ timestamp: endTime, duration })
     }
-  }, [data, setTimeRange])
+  }, [data, setTimeRange, timeRange.duration])
 
   // Toggle Latest mode
   const setLatestModeIntended = useCallback((enabled: boolean) => {

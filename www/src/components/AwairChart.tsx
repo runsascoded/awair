@@ -9,7 +9,8 @@ import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
-import { deviceRenderStrategyParam, hsvConfigParam, xGroupingParam } from '../lib/urlParams'
+import { deviceRenderStrategyParam, hsvConfigParam, intFromList, xGroupingParam } from '../lib/urlParams'
+import { getFileBounds } from '../services/awairService'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { PxOption } from './AggregationControl'
 import type { DeviceDataResult } from '../hooks/useMultiDeviceData'
@@ -17,7 +18,7 @@ import type { Device } from '../services/awairService'
 import type { DataSummary } from '../types/awair'
 import type { Data, PlotRelayoutEvent } from 'plotly.js'
 
-// Extend Data type to include zorder (supported by plotly.js but not in @types/plotly.js)
+// Extend Data type to include zorder (supported by plotly.js but not in @types/plotly.js); https://github.com/DefinitelyTyped/DefinitelyTyped/pull/74155 will fix
 type DataWithZorder = Data & { zorder?: number }
 
 interface Props {
@@ -66,7 +67,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     return undefined
   }, [xGrouping])
 
-  const [hasSetDefaultRange, setHasSetDefaultRange] = useState(false)
   const [isMobile, setIsMobile] = useState(() => {
     const mobileQuery = window.matchMedia('(max-width: 767px) or (max-height: 599px)')
     return mobileQuery.matches
@@ -141,29 +141,24 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   // Time range handlers
   const handleTimeRangeClick = useCallback((hours: number) => {
     if (data.length === 0) return
+    const duration = hours * 60 * 60 * 1000
     const latestTime = new Date(data[0].timestamp)
-    const earliestTime = new Date(latestTime.getTime() - (hours * 60 * 60 * 1000))
+    const earliestTime = new Date(latestTime.getTime() - duration)
     const newRange: [string, string] = [formatForPlotly(earliestTime), formatForPlotly(latestTime)]
-    setXAxisRange(newRange)
-    setHasSetDefaultRange(true)
-  }, [data, formatForPlotly])
+    setXAxisRange(newRange, { duration })
+  }, [data, formatForPlotly, setXAxisRange])
 
   const setRangeByWidth = useCallback((hours: number, centerTime?: Date) => {
     if (data.length === 0) return
+    const duration = hours * 60 * 60 * 1000
     const center = centerTime || (xAxisRange ? new Date((new Date(xAxisRange[0]).getTime() + new Date(xAxisRange[1]).getTime()) / 2) : new Date(data[0].timestamp))
-    const halfRange = (hours * 60 * 60 * 1000) / 2
+    const halfRange = duration / 2
     const newStart = new Date(center.getTime() - halfRange)
     const newEnd = new Date(center.getTime() + halfRange)
 
-    // Clamp to data bounds
-    const globalStart = new Date(data[data.length - 1].timestamp)
-    const globalEnd = new Date(data[0].timestamp)
-    const clampedStart = new Date(Math.max(newStart.getTime(), globalStart.getTime()))
-    const clampedEnd = new Date(Math.min(newEnd.getTime(), globalEnd.getTime()))
-
-    const newRange: [string, string] = [formatForPlotly(clampedStart), formatForPlotly(clampedEnd)]
-    setXAxisRange(newRange)
-  }, [xAxisRange, data, formatForPlotly])
+    const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(newEnd)]
+    setXAxisRange(newRange, { duration })
+  }, [xAxisRange, data, formatForPlotly, setXAxisRange])
 
   // Extract custom hooks - use multi-device aggregation
   const { deviceAggregations, selectedWindow, validWindows, isRawData } = useMultiDeviceAggregation(
@@ -182,6 +177,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       setSelectedDeviceIdForTable(deviceAggregations[0].deviceId)
     }
   }, [deviceAggregations, selectedDeviceIdForTable])
+
+  // Table page size - persisted in URL
+  const [tablePageSize, setTablePageSize] = useUrlParam('p', intFromList([10, 20, 50, 100, 200] as const, 20))
 
   // Get the selected device's aggregated data for the table
   const selectedDeviceAggregation = deviceAggregations.find(d => d.deviceId === selectedDeviceIdForTable)
@@ -208,19 +206,79 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     setIgnoreNextPanCheck
   } = useLatestMode(data, xAxisRange, formatForPlotly, latestModeIntended, setLatestModeIntended)
 
+  // Helper: Get all device bounds for selected devices
+  const getAllDeviceBounds = useCallback(() => {
+    return selectedDeviceIds
+      .map(id => getFileBounds(id))
+      .filter((bounds): bounds is { earliest: Date; latest: Date } => bounds !== null)
+  }, [selectedDeviceIds])
+
+  // Helper: Check if range would go into future, and if so, jump to Latest
+  const checkAndPreventFuture = useCallback((newRange: [string, string]): boolean => {
+    const allBounds = getAllDeviceBounds()
+
+    if (allBounds.length > 0) {
+      const absoluteLatest = allBounds.reduce((max, b) => b.latest > max ? b.latest : max, allBounds[0].latest)
+      const newEndTime = new Date(newRange[1])
+      const FUTURE_BUFFER = 2 * 60 * 1000 // 2 minutes
+
+      if (newEndTime.getTime() > absoluteLatest.getTime() + FUTURE_BUFFER) {
+        const latestRange = jumpToLatest()
+        if (latestRange) {
+          setXAxisRange(latestRange)
+        }
+        return true // Prevented
+      }
+    }
+    return false // Allowed
+  }, [getAllDeviceBounds, jumpToLatest, setXAxisRange])
+
+  // Shift time window by given milliseconds (positive = forward, negative = backward)
+  // Maintains current duration and mode (Latest vs fixed timestamp)
+  const shiftTimeWindow = useCallback((shiftMs: number) => {
+    if (!xAxisRange || data.length === 0) return
+
+    const currentStart = new Date(xAxisRange[0])
+    const currentEnd = new Date(xAxisRange[1])
+
+    // Calculate new range
+    const newStart = new Date(currentStart.getTime() + shiftMs)
+    const newEnd = new Date(currentEnd.getTime() + shiftMs)
+
+    const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(newEnd)]
+
+    // Check if going into future - if so, jump to Latest instead
+    if (checkAndPreventFuture(newRange)) return
+
+    setIgnoreNextPanCheck()
+    setXAxisRange(newRange)
+  }, [xAxisRange, data, formatForPlotly, setIgnoreNextPanCheck, setXAxisRange, checkAndPreventFuture])
+
+  // Jump to earliest available data (maintain current duration)
+  const jumpToEarliest = useCallback(() => {
+    if (!xAxisRange || data.length === 0) return
+
+    const rangeWidth = new Date(xAxisRange[1]).getTime() - new Date(xAxisRange[0]).getTime()
+
+    // Use Parquet metadata for absolute earliest, not current view's data
+    const allBounds = getAllDeviceBounds()
+    if (allBounds.length === 0) return
+
+    const globalStart = allBounds.reduce((min, b) => b.earliest < min ? b.earliest : min, allBounds[0].earliest)
+    const newStart = globalStart
+    const newEnd = new Date(newStart.getTime() + rangeWidth)
+
+    const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(newEnd)]
+    setIgnoreNextPanCheck()
+    setXAxisRange(newRange)
+  }, [xAxisRange, data, formatForPlotly, setIgnoreNextPanCheck, setXAxisRange, getAllDeviceBounds])
+
   // Handle auto-update from Latest mode hook
   useEffect(() => {
     if (autoUpdateRange) {
       setXAxisRange(autoUpdateRange)
     }
   }, [autoUpdateRange])
-
-  // Track when we've loaded data for the first time (for hasSetDefaultRange purposes)
-  useEffect(() => {
-    if (!hasSetDefaultRange && data.length > 0 && xAxisRange) {
-      setHasSetDefaultRange(true)
-    }
-  }, [data, xAxisRange, hasSetDefaultRange])
 
   // Determine which time range button is active based on the requested duration
   const getActiveTimeRange = useCallback(() => {
@@ -250,7 +308,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         formatForPlotly(new Date(data[0].timestamp))
       ]
       setXAxisRange(fullRange)
-      setHasSetDefaultRange(true)
     } else {
       setXAxisRange(null)
     }
@@ -263,9 +320,13 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     if (x0 !== undefined && x1 !== undefined) {
       // PlotRelayoutEvent types these as number, but for date axes they're strings
       const newRange: [string, string] = [String(x0), String(x1)]
+
+      // Check if panning into the future - if so, jump to Latest instead
+      if (checkAndPreventFuture(newRange)) return
+
       setXAxisRange(newRange)
     }
-  }, [setXAxisRange])
+  }, [setXAxisRange, checkAndPreventFuture])
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -274,7 +335,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     setYAxisFromZero,
     xAxisRange,
     setXAxisRange,
-    setHasSetDefaultRange,
     data,
     formatForPlotly,
     latestModeIntended,
@@ -307,7 +367,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   }, [])
 
   // Theme-aware plot colors
-  const [plotColors, setPlotColors] = useState(() => {
+  const computePlotColors = useCallback(() => {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
     return {
       gridcolor: getComputedStyle(document.documentElement).getPropertyValue('--plot-grid').trim() || '#ddd',
@@ -316,19 +376,12 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       textColor: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333',
       spikeColor: isDark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)',
     }
-  })
+  }, [])
+
+  const [plotColors, setPlotColors] = useState(computePlotColors)
 
   useEffect(() => {
-    const updatePlotColors = () => {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
-      setPlotColors({
-        gridcolor: getComputedStyle(document.documentElement).getPropertyValue('--plot-grid').trim() || '#ddd',
-        plotBg: getComputedStyle(document.documentElement).getPropertyValue('--plot-bg').trim() || 'white',
-        legendBg: getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || 'white',
-        textColor: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333',
-        spikeColor: isDark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)',
-      })
-    }
+    const updatePlotColors = () => setPlotColors(computePlotColors())
 
     // Watch for theme changes
     const observer = new MutationObserver(updatePlotColors)
@@ -658,6 +711,25 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   // OG mode: fill viewport height (625px to leave room for bottom margin in 630px viewport)
   const chartHeight = isOgMode ? 625 : (isMobile ? 300 : 500)
 
+  // Consolidate table metadata calculations
+  const tableMetadata = useMemo(() => {
+    if (!selectedDeviceIdForTable) {
+      return { totalDataCount: 0, fullDataStartTime: undefined, fullDataEndTime: undefined }
+    }
+
+    const bounds = getFileBounds(selectedDeviceIdForTable)
+    if (!bounds) {
+      return { totalDataCount: 0, fullDataStartTime: undefined, fullDataEndTime: undefined }
+    }
+
+    const totalMinutes = (bounds.latest.getTime() - bounds.earliest.getTime()) / (1000 * 60)
+    return {
+      totalDataCount: Math.ceil(totalMinutes / selectedWindow.minutes),
+      fullDataStartTime: bounds.earliest,
+      fullDataEndTime: bounds.latest,
+    }
+  }, [selectedDeviceIdForTable, selectedWindow])
+
   return (
     <div className="awair-chart" style={isOgMode ? { position: 'relative', height: '100vh', overflow: 'hidden' } : undefined}>
       {/* OG mode title overlay */}
@@ -776,7 +848,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           setHsvConfig={setHsvConfig}
           xAxisRange={xAxisRange}
           setXAxisRange={setXAxisRange}
-          setHasSetDefaultRange={setHasSetDefaultRange}
           data={data}
           summary={summary}
           formatForPlotly={formatForPlotly}
@@ -821,83 +892,29 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           formatCompactDate={formatCompactDate}
           formatFullDate={formatFullDate}
           isRawData={isRawData}
-          totalDataCount={useMemo(() => {
-            if (data.length === 0) return 0
-            const firstTime = new Date(data[data.length - 1].timestamp).getTime()
-            const lastTime = new Date(data[0].timestamp).getTime()
-            const totalMinutes = (lastTime - firstTime) / (1000 * 60)
-            return Math.ceil(totalMinutes / selectedWindow.minutes)
-          }, [data, selectedWindow])}
+          totalDataCount={tableMetadata.totalDataCount}
           windowLabel={selectedWindow.label}
           plotStartTime={xAxisRange?.[0]}
           plotEndTime={xAxisRange?.[1]}
-          fullDataStartTime={data.length > 0 ? data[data.length - 1].timestamp : undefined}
-          fullDataEndTime={data.length > 0 ? data[0].timestamp : undefined}
+          fullDataStartTime={tableMetadata.fullDataStartTime}
+          fullDataEndTime={tableMetadata.fullDataEndTime}
           windowMinutes={selectedWindow.minutes}
           deviceAggregations={deviceAggregations}
           selectedDeviceId={selectedDeviceIdForTable}
           onDeviceChange={setSelectedDeviceIdForTable}
+          latestModeIntended={latestModeIntended}
+          xAxisRange={xAxisRange}
+          shiftTimeWindow={shiftTimeWindow}
+          jumpToEarliest={jumpToEarliest}
           onJumpToLatest={useCallback(() => {
             // Jump to latest like the Latest button
             const newRange = jumpToLatest()
             if (newRange) {
               setXAxisRange(newRange)
-              setHasSetDefaultRange(true)
             }
-          }, [jumpToLatest])}
-          onPageChange={useCallback((pageOffset: number) => {
-            console.log('📈 Chart onPageChange called with offset:', pageOffset)
-            if (!xAxisRange || data.length === 0) {
-              console.log('📈 Chart onPageChange early return - no range or data')
-              return
-            }
-
-            const pageSize = 20
-            const timeShiftMinutes = pageOffset * pageSize * selectedWindow.minutes
-            const timeShiftMs = timeShiftMinutes * 60 * 1000
-
-            const currentStart = new Date(xAxisRange[0])
-            const currentEnd = new Date(xAxisRange[1])
-            const rangeWidth = currentEnd.getTime() - currentStart.getTime()
-
-            const newEnd = new Date(currentEnd.getTime() - timeShiftMs)
-            const newStart = new Date(newEnd.getTime() - rangeWidth)
-
-            const globalStart = new Date(data[data.length - 1].timestamp)
-            const globalEnd = new Date(data[0].timestamp)
-
-            const clampedStart = new Date(Math.max(newStart.getTime(), globalStart.getTime()))
-            const clampedEnd = new Date(Math.min(newEnd.getTime(), globalEnd.getTime()))
-
-            // Check if this navigation moves us away from latest data
-            const latestTime = new Date(data[0].timestamp)
-            const timeDiffMinutes = Math.abs(clampedEnd.getTime() - latestTime.getTime()) / (1000 * 60)
-            if (timeDiffMinutes > 10) {
-              console.log('📈 Table navigation moved away from latest, disabling Latest mode')
-              setLatestModeIntended(false)
-            }
-
-            if (clampedStart.getTime() === globalStart.getTime()) {
-              const adjustedEnd = new Date(clampedStart.getTime() + rangeWidth)
-              if (adjustedEnd <= globalEnd) {
-                const newRange: [string, string] = [formatForPlotly(clampedStart), formatForPlotly(adjustedEnd)]
-                setXAxisRange(newRange)
-                return
-              }
-            }
-            if (clampedEnd.getTime() === globalEnd.getTime()) {
-              const adjustedStart = new Date(clampedEnd.getTime() - rangeWidth)
-              if (adjustedStart >= globalStart) {
-                const newRange: [string, string] = [formatForPlotly(adjustedStart), formatForPlotly(clampedEnd)]
-                setXAxisRange(newRange)
-                return
-              }
-            }
-
-            const newRange: [string, string] = [formatForPlotly(clampedStart), formatForPlotly(clampedEnd)]
-            console.log('📈 Chart setting new range from table:', { oldRange: xAxisRange, newRange })
-            setXAxisRange(newRange)
-          }, [xAxisRange, data, selectedWindow, formatForPlotly, setLatestModeIntended])}
+          }, [jumpToLatest, setXAxisRange, formatForPlotly, data])}
+          pageSize={tablePageSize}
+          onPageSizeChange={(size) => setTablePageSize(size as 10 | 20 | 50 | 100 | 200)}
         />
       )}
     </div>

@@ -47,11 +47,16 @@ interface Props {
   fullDataStartTime?: Date;
   fullDataEndTime?: Date;
   windowMinutes: number;
-  onPageChange?: (pageOffset: number) => void;
-  onJumpToLatest?: () => void;
   deviceAggregations: DeviceAggregatedData[];
   selectedDeviceId?: number;
   onDeviceChange: (deviceId: number) => void;
+  latestModeIntended: boolean;
+  xAxisRange: [string, string] | null;
+  shiftTimeWindow: (shiftMs: number) => void;
+  jumpToEarliest: () => void;
+  onJumpToLatest: () => void;
+  pageSize: number;
+  onPageSizeChange: (size: number) => void;
 }
 
 // Simple tooltip component for table values
@@ -109,19 +114,8 @@ function ValueTooltip({ children, content }: { children: React.ReactElement; con
   )
 }
 
-export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, onPageChange, onJumpToLatest, deviceAggregations, selectedDeviceId, onDeviceChange }: Props) {
+export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, windowLabel, plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, deviceAggregations, selectedDeviceId, onDeviceChange, latestModeIntended, xAxisRange, shiftTimeWindow, jumpToEarliest, onJumpToLatest, pageSize, onPageSizeChange }: Props) {
   const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(20)
-
-  const handlePageChange = (newPage: number) => {
-    const pageOffset = newPage - page
-    console.log('📋 Table pagination:', { oldPage: page, newPage, pageOffset })
-    setPage(newPage)
-    if (onPageChange && pageOffset !== 0) {
-      console.log('📋 Calling onPageChange with offset:', pageOffset)
-      onPageChange(pageOffset)
-    }
-  }
 
   // Reverse the data to show most recent first (reverse chronological)
   const reversedData = [...data].reverse()
@@ -143,12 +137,30 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
     const windowsAfterPlot = Math.floor((fullEnd - plotEnd) / (windowMinutes * 60 * 1000))
 
     // In reverse chronological order, latest data has lowest indices
-    // The current page shows windows starting from windowsAfterPlot + startIdx
-    const globalStart = windowsAfterPlot + startIdx + 1
-    const globalEnd = windowsAfterPlot + endIdx
+    // When windowsAfterPlot is negative (Latest mode buffer), we're viewing the most recent data
+    // In that case, just use simple 1-indexed positions within the view
+    if (windowsAfterPlot < 0) {
+      return {
+        globalStartIdx: startIdx + 1,
+        globalEndIdx: endIdx
+      }
+    }
+
+    // Otherwise calculate positions relative to full dataset
+    const globalStart = Math.max(1, windowsAfterPlot + startIdx + 1)
+    const globalEnd = Math.max(globalStart, windowsAfterPlot + endIdx)
 
     return { globalStartIdx: globalStart, globalEndIdx: globalEnd }
   }, [plotStartTime, plotEndTime, fullDataStartTime, fullDataEndTime, windowMinutes, startIdx, endIdx])
+
+  // Check if we're at earliest data boundary
+  const isAtEarliest = useMemo(() => {
+    if (!xAxisRange || !fullDataStartTime) return false
+    const plotStart = new Date(xAxisRange[0])
+    const dataStart = fullDataStartTime
+    // Within 1 minute of earliest
+    return Math.abs(plotStart.getTime() - dataStart.getTime()) < 60 * 1000
+  }, [xAxisRange, fullDataStartTime])
 
   return (
     <div className="data-table">
@@ -187,7 +199,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               value={pageSize}
               onChange={(e) => {
                 const newSize = parseInt(e.target.value)
-                setPageSize(newSize)
+                onPageSizeChange(newSize)
                 setPage(0) // Reset to first page when changing page size
               }}
               style={{
@@ -210,33 +222,36 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
           <div className="pagination">
             <button
               onClick={() => {
-                if (plotStartTime && plotEndTime && onPageChange) {
-                // Calculate how many pages needed to reach oldest data, then go to last page of that
-                  const totalGlobalPages = Math.ceil(totalDataCount / 20)
-                  const currentPagesInView = totalPages
-                  const pagesNeededToReachOldest = totalGlobalPages - currentPagesInView + (totalPages - 1)
-                  console.log('📋 Going to oldest data:', { totalGlobalPages, currentPagesInView, pagesNeededToReachOldest })
-                  // Request navigation to oldest data and go to its last page
-                  onPageChange(pagesNeededToReachOldest)
-                } else {
-                // No time filtering, just go to last page
-                  handlePageChange(totalPages - 1)
-                }
+                jumpToEarliest()
+                setPage(0)
               }}
-              disabled={
-              // Disable if we're already at the last page AND we're viewing the oldest possible data
-                page >= totalPages - 1 &&
-              globalEndIdx >= totalDataCount
-              }
-              title="Oldest data"
+              disabled={isAtEarliest}
+              title="Jump to earliest data"
+              className="btn"
+            >
+              <i className="fas fa-backward-step"></i>
+            </button>
+            <button
+              onClick={() => {
+                if (!xAxisRange) return
+                const rangeWidth = new Date(xAxisRange[1]).getTime() - new Date(xAxisRange[0]).getTime()
+                shiftTimeWindow(-rangeWidth)
+                setPage(0)
+              }}
+              disabled={isAtEarliest}
+              title="Pan backward by plot width"
               className="btn"
             >
               <i className="fas fa-angles-left"></i>
             </button>
             <button
-              onClick={() => handlePageChange(Math.min(totalPages - 1, page + 1))}
-              disabled={page >= totalPages - 1 || globalEndIdx >= totalDataCount}
-              title="Older data"
+              onClick={() => {
+                const pageShiftMs = pageSize * windowMinutes * 60 * 1000
+                shiftTimeWindow(-pageShiftMs)
+                setPage(0)
+              }}
+              disabled={isAtEarliest}
+              title="Pan backward by one page"
               className="btn"
             >
               <i className="fas fa-angle-left"></i>
@@ -246,37 +261,39 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
             </span>
             <button
               onClick={() => {
-                if (onPageChange && globalStartIdx > 20) {
-                // We're not at latest data, so navigate toward latest (negative offset = toward present)
-                  onPageChange(-1)
-                  setPage(Math.max(0, page - 1))
-                } else if (page > 0) {
-                // We're at latest data but not on first page, go to previous page
-                  handlePageChange(page - 1)
-                }
+                const pageShiftMs = pageSize * windowMinutes * 60 * 1000
+                shiftTimeWindow(pageShiftMs)
+                setPage(0)
               }}
-              disabled={page === 0 && globalStartIdx <= 20}
-              title="Newer data"
+              disabled={latestModeIntended}
+              title="Pan forward by one page"
               className="btn"
             >
               <i className="fas fa-angle-right"></i>
             </button>
             <button
               onClick={() => {
-                if (onJumpToLatest) {
-                // Jump to Latest mode (like clicking the Latest button)
-                  onJumpToLatest()
-                  setPage(0) // Reset to first page
-                } else {
-                // Fallback to just going to first page
-                  handlePageChange(0)
-                }
+                if (!xAxisRange) return
+                const rangeWidth = new Date(xAxisRange[1]).getTime() - new Date(xAxisRange[0]).getTime()
+                shiftTimeWindow(rangeWidth)
+                setPage(0)
               }}
-              disabled={page === 0 && globalStartIdx <= 20}
-              title="Jump to Latest"
+              disabled={latestModeIntended}
+              title="Pan forward by plot width"
               className="btn"
             >
               <i className="fas fa-angles-right"></i>
+            </button>
+            <button
+              onClick={() => {
+                onJumpToLatest()
+                setPage(0)
+              }}
+              disabled={latestModeIntended}
+              title="Jump to Latest"
+              className="btn"
+            >
+              <i className="fas fa-forward-step"></i>
             </button>
           </div>
         </div>
