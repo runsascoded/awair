@@ -88,8 +88,8 @@ test.describe('Table Pagination Navigation', () => {
       }
     })
 
-    // Navigate to the page with Gym device
-    await page.goto('/?y=th&d=gym')
+    // Navigate to the page with Gym device, using fixed endpoint (Nov 29, 2025 12:40pm EST = 17:40 UTC, at/after test data end at 17:39 UTC to trigger Latest mode)
+    await page.goto('/?y=th&d=gym&t=251129T1240')
 
     // Wait for data to load (increased timeout for first load)
     await page.waitForSelector('.data-table', { timeout: 30000 })
@@ -108,7 +108,7 @@ test.describe('Table Pagination Navigation', () => {
     expect(tableText).toBe('1-20 of 254,859 × 1m')
 
     // Click < button (pan backward by one page)
-    await page.locator('.pagination button[title="Pan backward by one page"]').click()
+    await page.locator('.pagination button[aria-label="Pan backward by one page"]').click()
 
     // Wait for update
     await page.waitForTimeout(500)
@@ -120,14 +120,14 @@ test.describe('Table Pagination Navigation', () => {
 
   test('> button pans forward by one page (21-40 → 1-20)', async ({ page }) => {
     // First go back one page to 21-40
-    await page.locator('.pagination button[title="Pan backward by one page"]').click()
+    await page.locator('.pagination button[aria-label="Pan backward by one page"]').click()
     await page.waitForTimeout(500)
 
     let tableText = await page.locator('.pagination span').textContent()
     expect(tableText).toBe('21-40 of 254,859 × 1m')
 
     // Click > button (pan forward by one page)
-    await page.locator('.pagination button[title="Pan forward by one page"]').click()
+    await page.locator('.pagination button[aria-label="Pan forward by one page"]').click()
     await page.waitForTimeout(500)
 
     // Should return to 1-20 (Latest mode)
@@ -141,7 +141,7 @@ test.describe('Table Pagination Navigation', () => {
     expect(initialText).toBe('1-20 of 254,859 × 1m')
 
     // Click << button (pan backward by plot width = 1440 windows for 24h)
-    await page.locator('.pagination button[title="Pan backward by plot width"]').click()
+    await page.locator('.pagination button[aria-label="Pan backward by plot width"]').click()
     await page.waitForTimeout(500)
 
     // Should jump back 1440 windows (24h) to show windows 1441-1460
@@ -151,14 +151,14 @@ test.describe('Table Pagination Navigation', () => {
 
   test('>> button pans forward by plot width', async ({ page }) => {
     // First go back by plot width
-    await page.locator('.pagination button[title="Pan backward by plot width"]').click()
+    await page.locator('.pagination button[aria-label="Pan backward by plot width"]').click()
     await page.waitForTimeout(500)
 
     const backText = await page.locator('.pagination span').textContent()
     expect(backText).toBe('1,441-1,460 of 254,859 × 1m')
 
     // Click >> button (pan forward by plot width)
-    await page.locator('.pagination button[title="Pan forward by plot width"]').click()
+    await page.locator('.pagination button[aria-label="Pan forward by plot width"]').click()
     await page.waitForTimeout(500)
 
     // Should return to Latest mode (1-20)
@@ -168,7 +168,7 @@ test.describe('Table Pagination Navigation', () => {
 
   test('|< button jumps to earliest data', async ({ page }) => {
     // Click |< button (jump to earliest)
-    await page.locator('.pagination button[title="Jump to earliest data"]').click()
+    await page.locator('.pagination button[aria-label="Jump to earliest data"]').click()
     await page.waitForTimeout(500)
 
     // Should jump to earliest, leaving plot width - table page size gap to end
@@ -184,7 +184,7 @@ test.describe('Table Pagination Navigation', () => {
 
   test('>| button jumps to Latest', async ({ page }) => {
     // First go to earliest
-    await page.locator('.pagination button[title="Jump to earliest data"]').click()
+    await page.locator('.pagination button[aria-label="Jump to earliest data"]').click()
     await page.waitForTimeout(500)
 
     // Verify we're at earliest
@@ -192,7 +192,7 @@ test.describe('Table Pagination Navigation', () => {
     expect(tableText).toBe('253,419-253,438 of 254,859 × 1m')
 
     // Click >| button (jump to Latest)
-    await page.locator('.pagination button[title="Jump to Latest"]').click()
+    await page.locator('.pagination button[aria-label="Jump to Latest"]').click()
     await page.waitForTimeout(500)
 
     // Should be back at Latest (1-20)
@@ -202,9 +202,9 @@ test.describe('Table Pagination Navigation', () => {
 
   test('cannot navigate forward past Latest', async ({ page }) => {
     // At latest, > and >> buttons should be disabled
-    const forwardPage = page.locator('.pagination button[title="Pan forward by one page"]')
-    const forwardPlot = page.locator('.pagination button[title="Pan forward by plot width"]')
-    const jumpLatest = page.locator('.pagination button[title="Jump to Latest"]')
+    const forwardPage = page.locator('.pagination button[aria-label="Pan forward by one page"]')
+    const forwardPlot = page.locator('.pagination button[aria-label="Pan forward by plot width"]')
+    const jumpLatest = page.locator('.pagination button[aria-label="Jump to Latest"]')
 
     await expect(forwardPage).toBeDisabled()
     await expect(forwardPlot).toBeDisabled()
@@ -213,13 +213,13 @@ test.describe('Table Pagination Navigation', () => {
 
   test('cannot navigate backward past earliest', async ({ page }) => {
     // Jump to earliest
-    await page.locator('.pagination button[title="Jump to earliest data"]').click()
+    await page.locator('.pagination button[aria-label="Jump to earliest data"]').click()
     await page.waitForTimeout(500)
 
     // At earliest, < and << buttons should be disabled
-    const backPage = page.locator('.pagination button[title="Pan backward by one page"]')
-    const backPlot = page.locator('.pagination button[title="Pan backward by plot width"]')
-    const jumpEarliest = page.locator('.pagination button[title="Jump to earliest data"]')
+    const backPage = page.locator('.pagination button[aria-label="Pan backward by one page"]')
+    const backPlot = page.locator('.pagination button[aria-label="Pan backward by plot width"]')
+    const jumpEarliest = page.locator('.pagination button[aria-label="Jump to earliest data"]')
 
     await expect(backPage).toBeDisabled()
     await expect(backPlot).toBeDisabled()

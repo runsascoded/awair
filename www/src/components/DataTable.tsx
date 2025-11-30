@@ -12,6 +12,7 @@ import {
   FloatingPortal
 } from '@floating-ui/react'
 import React, { useState, useMemo } from 'react'
+import { Tooltip } from './Tooltip'
 
 interface AggregatedData {
   timestamp: Date;
@@ -237,101 +238,149 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
             </select>
           </div>
           <div className="pagination">
-            <button
-              onClick={() => {
-                if (!fullDataStartTime) return
-                // Jump to earliest: position plot to show full duration starting from earliest
-                // Range will be [fullDataStartTime, fullDataStartTime + duration]
-                // Table shows first pageSize windows, leaving (duration_in_windows - pageSize) gap to end
-                const timestamp = new Date(fullDataStartTime.getTime() + timeRange.duration)
-                setTimeRange({ timestamp, duration: timeRange.duration })
-                setPage(0)
-              }}
-              disabled={isAtEarliest}
-              title="Jump to earliest data"
-              className="btn"
+            <Tooltip
+              content={
+                fullDataStartTime
+                  ? `Jump to earliest plot-width page: ${formatFullDate(new Date(fullDataStartTime.getTime() + timeRange.duration))}`
+                  : "Jump to earliest data"
+              }
             >
-              <i className="fas fa-backward-step"></i>
-            </button>
-            <button
-              onClick={() => {
-                // Pan backward by plot width
-                const currentTimestamp = timeRange.timestamp || fullDataEndTime
-                if (!currentTimestamp) return
-                const newTimestamp = new Date(currentTimestamp.getTime() - timeRange.duration)
-                setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
-                setPage(0)
-              }}
-              disabled={isAtEarliest}
-              title="Pan backward by plot width"
-              className="btn"
+              <button
+                onClick={() => {
+                  if (!fullDataStartTime) return
+                  // Jump to earliest: position plot to show full duration starting from earliest
+                  // Range will be [fullDataStartTime, fullDataStartTime + duration]
+                  // Table shows first pageSize windows, leaving (duration_in_windows - pageSize) gap to end
+                  const timestamp = new Date(fullDataStartTime.getTime() + timeRange.duration)
+                  setTimeRange({ timestamp, duration: timeRange.duration })
+                  setPage(0)
+                }}
+                disabled={isAtEarliest}
+                aria-label="Jump to earliest data"
+                className="btn"
+              >
+                <i className="fas fa-backward-step"></i>
+              </button>
+            </Tooltip>
+            <Tooltip
+              content={
+                timeRange.timestamp || fullDataEndTime
+                  ? `Rewind by ${Math.round(timeRange.duration / (windowMinutes * 60 * 1000))} time points (plot width) to ${formatFullDate(new Date(((timeRange.timestamp || fullDataEndTime)!).getTime() - timeRange.duration))}`
+                  : "Pan backward by plot width"
+              }
             >
-              <i className="fas fa-angles-left"></i>
-            </button>
-            <button
-              onClick={() => {
-                // Pan backward by one table page
-                const currentTimestamp = timeRange.timestamp || fullDataEndTime
-                if (!currentTimestamp) return
-                const pageShiftMs = pageSize * windowMinutes * 60 * 1000
-                const newTimestamp = new Date(currentTimestamp.getTime() - pageShiftMs)
-                setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
-                setPage(0)
-              }}
-              disabled={isAtEarliest}
-              title="Pan backward by one page"
-              className="btn"
+              <button
+                onClick={() => {
+                  // Pan backward by plot width
+                  const currentTimestamp = timeRange.timestamp || fullDataEndTime
+                  if (!currentTimestamp) return
+                  const newTimestamp = new Date(currentTimestamp.getTime() - timeRange.duration)
+                  setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
+                  setPage(0)
+                }}
+                disabled={isAtEarliest}
+                aria-label="Pan backward by plot width"
+                className="btn"
+              >
+                <i className="fas fa-angles-left"></i>
+              </button>
+            </Tooltip>
+            <Tooltip
+              content={
+                timeRange.timestamp || fullDataEndTime
+                  ? `Rewind by ${pageSize} windows (1 table page) to ${formatFullDate(new Date(((timeRange.timestamp || fullDataEndTime)!).getTime() - pageSize * windowMinutes * 60 * 1000))}`
+                  : "Pan backward by one page"
+              }
             >
-              <i className="fas fa-angle-left"></i>
-            </button>
+              <button
+                onClick={() => {
+                  // Pan backward by one table page
+                  const currentTimestamp = timeRange.timestamp || fullDataEndTime
+                  if (!currentTimestamp) return
+                  const pageShiftMs = pageSize * windowMinutes * 60 * 1000
+                  const newTimestamp = new Date(currentTimestamp.getTime() - pageShiftMs)
+                  setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
+                  setPage(0)
+                }}
+                disabled={isAtEarliest}
+                aria-label="Pan backward by one page"
+                className="btn"
+              >
+                <i className="fas fa-angle-left"></i>
+              </button>
+            </Tooltip>
             <span>
               {globalStartIdx.toLocaleString()}-{globalEndIdx.toLocaleString()} of {totalDataCount.toLocaleString()} × {windowLabel}
             </span>
-            <button
-              onClick={() => {
-                if (!timeRange.timestamp || !fullDataEndTime) return
-                // Pan forward by one table page - clamp to not exceed latest
-                const pageShiftMs = pageSize * windowMinutes * 60 * 1000
-                const newTime = timeRange.timestamp.getTime() + pageShiftMs
-                // If would exceed latest, go to Latest mode instead
-                const newTimestamp = newTime >= fullDataEndTime.getTime() ? null : new Date(newTime)
-                setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
-                setPage(0)
-              }}
-              disabled={isAtLatest}
-              title="Pan forward by one page"
-              className="btn"
+            <Tooltip
+              content={
+                timeRange.timestamp && fullDataEndTime
+                  ? `Forward by ${pageSize} windows (table page) to ${timeRange.timestamp.getTime() + pageSize * windowMinutes * 60 * 1000 >= fullDataEndTime.getTime() ? "Latest" : formatFullDate(new Date(timeRange.timestamp.getTime() + pageSize * windowMinutes * 60 * 1000))}`
+                  : "Pan forward by one page"
+              }
             >
-              <i className="fas fa-angle-right"></i>
-            </button>
-            <button
-              onClick={() => {
-                if (!timeRange.timestamp || !fullDataEndTime) return
-                // Pan forward by plot width - clamp to not exceed latest
-                const newTime = timeRange.timestamp.getTime() + timeRange.duration
-                // If would exceed latest, go to Latest mode instead
-                const newTimestamp = newTime >= fullDataEndTime.getTime() ? null : new Date(newTime)
-                setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
-                setPage(0)
-              }}
-              disabled={isAtLatest}
-              title="Pan forward by plot width"
-              className="btn"
+              <button
+                onClick={() => {
+                  if (!timeRange.timestamp || !fullDataEndTime) return
+                  // Pan forward by one table page - clamp to not exceed latest
+                  const pageShiftMs = pageSize * windowMinutes * 60 * 1000
+                  const newTime = timeRange.timestamp.getTime() + pageShiftMs
+                  // If would exceed latest, go to Latest mode instead
+                  const newTimestamp = newTime >= fullDataEndTime.getTime() ? null : new Date(newTime)
+                  setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
+                  setPage(0)
+                }}
+                disabled={isAtLatest}
+                aria-label="Pan forward by one page"
+                className="btn"
+              >
+                <i className="fas fa-angle-right"></i>
+              </button>
+            </Tooltip>
+            <Tooltip
+              content={
+                timeRange.timestamp && fullDataEndTime
+                  ? `Forward by ${Math.round(timeRange.duration / (windowMinutes * 60 * 1000))} windows (plot width) to ${timeRange.timestamp.getTime() + timeRange.duration >= fullDataEndTime.getTime() ? "Latest" : formatFullDate(new Date(timeRange.timestamp.getTime() + timeRange.duration))}`
+                  : "Pan forward by plot width"
+              }
             >
-              <i className="fas fa-angles-right"></i>
-            </button>
-            <button
-              onClick={() => {
-                // Jump to latest: set timestamp to null
-                setTimeRange({ timestamp: null, duration: timeRange.duration })
-                setPage(0)
-              }}
-              disabled={isAtLatest}
-              title="Jump to Latest"
-              className="btn"
+              <button
+                onClick={() => {
+                  if (!timeRange.timestamp || !fullDataEndTime) return
+                  // Pan forward by plot width - clamp to not exceed latest
+                  const newTime = timeRange.timestamp.getTime() + timeRange.duration
+                  // If would exceed latest, go to Latest mode instead
+                  const newTimestamp = newTime >= fullDataEndTime.getTime() ? null : new Date(newTime)
+                  setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
+                  setPage(0)
+                }}
+                disabled={isAtLatest}
+                aria-label="Pan forward by plot width"
+                className="btn"
+              >
+                <i className="fas fa-angles-right"></i>
+              </button>
+            </Tooltip>
+            <Tooltip
+              content={
+                fullDataEndTime
+                  ? `Jump to Latest: ${formatFullDate(fullDataEndTime)}`
+                  : "Jump to Latest"
+              }
             >
-              <i className="fas fa-forward-step"></i>
-            </button>
+              <button
+                onClick={() => {
+                  // Jump to latest: set timestamp to null
+                  setTimeRange({ timestamp: null, duration: timeRange.duration })
+                  setPage(0)
+                }}
+                disabled={isAtLatest}
+                aria-label="Jump to Latest"
+                className="btn"
+              >
+                <i className="fas fa-forward-step"></i>
+              </button>
+            </Tooltip>
           </div>
         </div>
       </div>
