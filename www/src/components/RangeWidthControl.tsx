@@ -32,24 +32,24 @@ export function RangeWidthControl({
   latestModeIntended,
   handleLatestButtonClick,
   xAxisRange,
-  formatCompactDate,
+  formatCompactDate: _formatCompactDate,
   formatFullDate,
   summary: _summary,
   isMobile
 }: RangeWidthControlProps) {
   const activeRange = getActiveTimeRange()
 
+  const tooltipContent = xAxisRange
+    ? `${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`
+    : 'All data'
+
   return (
-    <div className="control-group range-width-section">
+    <div className="control-group range-width-section no-footer">
       {/* Row 1: Label */}
       <div className="header">
-        {isMobile ? (
+        <Tooltip content={tooltipContent}>
           <label className="unselectable">X Range:</label>
-        ) : (
-          <Tooltip content="Keyboard: h=12h, 1=1d, 3=3d, 7=7d, 2=14d, m=30d, x=All">
-            <label className="unselectable">X Range:</label>
-          </Tooltip>
-        )}
+        </Tooltip>
       </div>
 
       {/* Row 2: Duration dropdown + Latest checkbox */}
@@ -95,21 +95,6 @@ export function RangeWidthControl({
               <i className="fas fa-forward-step"></i>
             </label>
           </Tooltip>
-        )}
-      </div>
-
-      {/* Row 3: Current range display */}
-      <div className="footer range-info">
-        {xAxisRange ? (
-          <Tooltip content={`${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`}>
-            <div className="display">
-              <span className="start">{formatCompactDate(new Date(xAxisRange[0]))}</span>
-              <span className="separator"> → </span>
-              <span className="end">{formatCompactDate(new Date(xAxisRange[1]))}</span>
-            </div>
-          </Tooltip>
-        ) : (
-          <span className="display">All data</span>
         )}
       </div>
     </div>
