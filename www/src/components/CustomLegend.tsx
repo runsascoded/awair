@@ -1,6 +1,7 @@
 import React from 'react'
 import { metricConfig } from './ChartControls'
 import { Tooltip } from './Tooltip'
+import type { LegendHoverState } from './AwairChart'
 import type { MetricsState } from "../hooks/useMetrics"
 import type { Metric } from "../lib/urlParams"
 
@@ -10,6 +11,52 @@ interface CustomLegendProps {
   deviceNames: string[]
   primaryColors: string[]
   secondaryColors: string[]
+  onHover: (state: LegendHoverState) => void
+}
+
+/**
+ * Helper to render a legend device item with hover handlers
+ */
+function LegendDeviceItem({
+  name,
+  idx,
+  color,
+  metric,
+  onHover
+}: {
+  name: string
+  idx: number
+  color: string
+  metric: 'primary' | 'secondary'
+  onHover: (state: LegendHoverState) => void
+}) {
+  return (
+    <span
+      key={`${name}-${metric}`}
+      className="legend-device-item"
+      onMouseEnter={() => onHover({ type: 'device', deviceIndex: idx })}
+      onMouseLeave={() => onHover(null)}
+    >
+      <span
+        className="legend-line"
+        style={{ color }}
+        onMouseEnter={() => onHover({ type: 'trace', deviceIndex: idx, metric })}
+        onMouseLeave={(e) => {
+          // Only revert to device hover if mouse is still within the legend item
+          const container = (e.currentTarget as HTMLElement).parentElement
+          if (container && container.contains(e.relatedTarget as Node)) {
+            e.stopPropagation()
+            onHover({ type: 'device', deviceIndex: idx })
+          }
+        }}
+      >
+        ━━
+      </span>
+      <span className="legend-device-name">
+        {name}
+      </span>
+    </span>
+  )
 }
 
 /**
@@ -21,7 +68,8 @@ export function CustomLegend({
   isMobile,
   deviceNames,
   primaryColors,
-  secondaryColors
+  secondaryColors,
+  onHover
 }: CustomLegendProps) {
   const hasSecondary = r.val !== 'none'
 
@@ -81,13 +129,14 @@ export function CustomLegend({
           {deviceNames.length > 0 && (
             <div className="legend-devices">
               {deviceNames.map((name, idx) => (
-                <span
+                <LegendDeviceItem
                   key={`${name}-primary`}
-                  className="legend-device-name"
-                  style={{ '--legend-color': primaryColors[idx] } as React.CSSProperties}
-                >
-                  {name}
-                </span>
+                  name={name}
+                  idx={idx}
+                  color={primaryColors[idx]}
+                  metric="primary"
+                  onHover={onHover}
+                />
               ))}
             </div>
           )}
@@ -155,13 +204,14 @@ export function CustomLegend({
             {deviceNames.length > 0 && (
               <div className="legend-devices">
                 {deviceNames.map((name, idx) => (
-                  <span
+                  <LegendDeviceItem
                     key={`${name}-secondary`}
-                    className="legend-device-name"
-                    style={{ '--legend-color': secondaryColors[idx] } as React.CSSProperties}
-                  >
-                    {name}
-                  </span>
+                    name={name}
+                    idx={idx}
+                    color={secondaryColors[idx]}
+                    metric="secondary"
+                    onHover={onHover}
+                  />
                 ))}
               </div>
             )}

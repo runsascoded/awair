@@ -22,6 +22,11 @@ import type { Data, PlotRelayoutEvent } from 'plotly.js'
 // Extend Data type to include zorder (supported by plotly.js but not in @types/plotly.js); https://github.com/DefinitelyTyped/DefinitelyTyped/pull/74155 will fix
 type DataWithZorder = Data & { zorder?: number }
 
+export type LegendHoverState =
+  | { type: 'device', deviceIndex: number }
+  | { type: 'trace', deviceIndex: number, metric: 'primary' | 'secondary' }
+  | null
+
 interface Props {
   deviceDataResults: DeviceDataResult[]
   summary: DataSummary | null
@@ -70,6 +75,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     return mobileQuery.matches
   })
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth)
+
+  // Legend hover state - tracks what is currently hovered
+  const [hoverState, setHoverState] = useState<LegendHoverState>(null)
 
   // Refs for handling programmatic updates
   const ignoreNextRelayoutRef = useRef(false)
@@ -424,6 +432,16 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   const secondaryConfig = r.val !== 'none' ? metricConfig[r.val] : null
   const totalDevices = deviceAggregations.length
 
+  // Helper to calculate trace opacity based on hover state
+  const getTraceOpacity = useCallback((deviceIndex: number, metric: 'primary' | 'secondary'): number => {
+    if (!hoverState) return 1.0
+    if (hoverState.type === 'device') {
+      return hoverState.deviceIndex === deviceIndex ? 1.0 : 0.2
+    }
+    // hoverState.type === 'trace'
+    return hoverState.deviceIndex === deviceIndex && hoverState.metric === metric ? 1.0 : 0.2
+  }, [hoverState])
+
   // Generate traces for all devices, grouped by metric for better hover ordering
   const plotTraces = useMemo(() => {
     const traces: DataWithZorder[] = []
@@ -507,6 +525,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         y: d.avgValues,
         mode: 'lines',
         line: d.primaryLineProps,
+        opacity: getTraceOpacity(d.deviceIndex, 'primary'),
         name: d.legendName || `${config.label} (${config.unit})`,
         legendgroup: 'primary',
         ...(isRawData ? {
@@ -545,6 +564,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             y: d.secondaryAvgValues,
             mode: 'lines',
             line: d.secondaryLineProps,
+            opacity: getTraceOpacity(d.deviceIndex, 'secondary'),
             name: d.legendName || `${secondaryConfig.label} (${secondaryConfig.unit})`,
             legendgroup: 'secondary',
             legend: 'legend2',
@@ -617,7 +637,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     }
 
     return traces
-  }, [deviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, formatForPlotly, deviceRenderStrategy, hsvConfig])
+  }, [deviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, formatForPlotly, deviceRenderStrategy, hsvConfig, getTraceOpacity])
 
   // Font sizes - larger in og mode for better screenshot readability
   const fontSizes = isOgMode
@@ -680,7 +700,11 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           <span style={{ fontFamily: '"Noto Color Emoji", sans-serif', marginLeft: '0.5em', letterSpacing: '-0.5em' }}>🌡️ 💨 💦 🏭 🧪</span>
         </div>
       )}
-      <div className="plot-container" style={isOgMode ? { height: '100%' } : { position: 'relative' }}>
+      <div
+        className="plot-container"
+        style={isOgMode ? { height: '100%' } : { position: 'relative' }}
+        onMouseEnter={() => setHoverState(null)}
+      >
         {!isOgMode && totalDevices > 1 && (() => {
           // Calculate device colors for legend markers (primary metric)
           const primaryColors = deviceAggregations.map((_, deviceIndex) => {
@@ -715,6 +739,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
               deviceNames={deviceAggregations.map(d => d.deviceName)}
               primaryColors={primaryColors}
               secondaryColors={secondaryColors}
+              onHover={setHoverState}
             />
           )
         })()}
