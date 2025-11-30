@@ -16,6 +16,7 @@ interface MetricConfig {
   emoji: string
   unit: string
   color: string
+  rangeFloor?: number  // Minimum value for non-auto-range mode (e.g., CO2 never goes below 400 ppm)
 }
 
 interface ChartControlsProps {
@@ -55,7 +56,7 @@ interface ChartControlsProps {
 
 const metricConfig = {
   temp: { label: 'Temperature', shortLabel: 'Temp', emoji: '🌡️', unit: '°F', color: '#ff6384' },
-  co2: { label: 'CO₂', shortLabel: 'CO₂', emoji: '💨', unit: 'ppm', color: '#36a2eb' },
+  co2: { label: 'CO₂', shortLabel: 'CO₂', emoji: '💨', unit: 'ppm', color: '#36a2eb', rangeFloor: 400 },
   humid: { label: 'Humidity', shortLabel: 'Hum.', emoji: '💦', unit: '%', color: '#4bc0c0' },
   pm25: { label: 'PM2.5', shortLabel: 'PM2.5', emoji: '🏭', unit: 'μg/m³', color: '#9966ff' },
   voc: { label: 'VOC', shortLabel: 'VOC', emoji: '🧪', unit: 'ppb', color: '#ff9f40' },

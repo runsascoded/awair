@@ -653,7 +653,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     : { tick: 11, legend: 11, annotation: 12, title: 16 }
 
   // Helper to create yaxis config
-  const createYAxisConfig = (side: 'left' | 'right', autoRange: boolean) => ({
+  const createYAxisConfig = (side: 'left' | 'right', autoRange: boolean, floor: number = 0) => ({
     gridcolor: side === 'left' ? plotColors.gridcolor : 'transparent',
     fixedrange: true,
     tickfont: { color: plotColors.textColor, size: fontSizes.tick },
@@ -661,8 +661,9 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     zerolinecolor: side === 'left' ? plotColors.gridcolor : 'transparent',
     side,
     tickformat: '.3~s',
-    // Default is tozero (>=0), auto-range overrides this
-    ...(!autoRange && { rangemode: 'tozero' as const }),
+    // If not auto-ranging: use floor as minimum (default 0 with rangemode tozero)
+    ...(!autoRange && floor === 0 && { rangemode: 'tozero' as const }),
+    ...(!autoRange && floor > 0 && { rangemode: 'nonnegative' as const, range: [floor, null] as const }),
     ...(side === 'right' && { overlaying: 'y' as const }),
   })
   // OG mode: fill viewport height (625px to leave room for bottom margin in 630px viewport)
@@ -791,8 +792,8 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
                 tickmode: 'array'
               })
             },
-            yaxis: createYAxisConfig('left', leftAutoRangeDisplay),
-            ...(secondaryConfig && { yaxis2: createYAxisConfig('right', rightAutoRangeDisplay) }),
+            yaxis: createYAxisConfig('left', leftAutoRangeDisplay, metricConfig[l.val].rangeFloor ?? 0),
+            ...(secondaryConfig && { yaxis2: createYAxisConfig('right', rightAutoRangeDisplay, metricConfig[r.val].rangeFloor ?? 0) }),
             margin: isOgMode
               ? { l: 50, r: 50, t: 55, b: 70 }  // Just enough for axis labels, no border
               : { l: 35, r: secondaryConfig ? 35 : 10, t: totalDevices > 1 ? (isMobile ? 55 : 65) : 0, b: 45 },
