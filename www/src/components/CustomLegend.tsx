@@ -35,7 +35,6 @@ export function CustomLegend({
               <select
                 value={l.val}
                 onChange={(e) => l.set(e.target.value as Metric)}
-                className="metric-select"
               >
                 {Object.entries(metricConfig).map(([key, cfg]) => (
                   <option key={key} value={key}>
@@ -57,7 +56,6 @@ export function CustomLegend({
                 <select
                   value={l.val}
                   onChange={(e) => l.set(e.target.value as Metric)}
-                  className="metric-select"
                 >
                   {Object.entries(metricConfig).map(([key, cfg]) => (
                     <option key={key} value={key}>
@@ -112,7 +110,6 @@ export function CustomLegend({
                 <select
                   value={r.val}
                   onChange={(e) => r.set(e.target.value as Metric | 'none')}
-                  className="metric-select"
                 >
                   <option value="none">None</option>
                   {Object.entries(metricConfig).map(([key, cfg]) => (
@@ -138,7 +135,6 @@ export function CustomLegend({
                   <select
                     value={r.val}
                     onChange={(e) => r.set(e.target.value as Metric | 'none')}
-                    className="metric-select"
                   >
                     <option value="none">None</option>
                     {Object.entries(metricConfig).map(([key, cfg]) => (

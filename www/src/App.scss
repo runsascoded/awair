@@ -119,6 +119,48 @@ body {
   }
 }
 
+// Global select styling - consistent across entire app
+select {
+  border: 1px solid var(--border-secondary);
+  border-radius: 4px;
+  background: var(--bg-control);
+  color: var(--text-control);
+  min-width: 0;
+  cursor: pointer;
+  padding: 0.1rem 0.05rem;
+  @include control;
+
+  &:hover {
+    border-color: var(--text-secondary);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+  }
+}
+
+// Global button styling - consistent across entire app
+button {
+  border: 1px solid var(--border-secondary);
+  border-radius: 4px;
+  background: var(--bg-control);
+  color: var(--text-control);
+  cursor: pointer;
+  padding: 0.1rem 0.4rem;
+  @include control;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: var(--text-secondary);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+  }
+}
+
 .app {
   min-height: 100vh;
   display: flex;
@@ -455,21 +497,6 @@ footer {
     white-space: nowrap;
   }
 
-  select {
-    border: 1px solid var(--border-secondary);
-    border-radius: 4px;
-    background: var(--bg-control);
-    color: var(--text-control);
-    font-size: 0.9rem;
-    min-width: 0;
-    cursor: pointer;
-
-    &:focus {
-      outline: none;
-      border-color: var(--accent-primary);
-    }
-  }
-
   .checkbox-label {
     display: flex;
     align-items: center;
@@ -524,51 +551,15 @@ footer {
 
     .legend-labels-row {
       position: absolute;
-      top: 27px; // Nudged down from controls
+      top: 2rem; // Nudged down from controls
       display: flex;
       align-items: center;
       gap: 0.75rem;
     }
 
-    .metric-select {
-      padding: 0.1rem 0.25rem;
-      border: 1px solid var(--border-secondary);
-      background: var(--bg-control);
-      color: var(--text-control);
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      line-height: 1.5;
-      height: auto;
-      width: auto; // Auto-size to content
-
-      &:hover {
-        border-color: var(--text-secondary);
-      }
-
-      &:focus {
-        outline: 2px solid var(--accent-primary);
-        outline-offset: 1px;
-      }
-    }
 
     .range-mode-btn {
-      padding: 0 0.4rem;
-      border: 1px solid var(--border-secondary);
-      background: var(--bg-control);
-      color: var(--text-control);
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      line-height: 1.5;
-      height: auto;
-      transition: all 0.2s;
       user-select: none;
-
-      &:hover {
-        border-color: var(--text-secondary);
-        background: var(--bg-tertiary);
-      }
 
       &.active {
         background: var(--accent-primary);
@@ -579,11 +570,6 @@ footer {
           background: var(--accent-secondary);
           border-color: var(--accent-secondary);
         }
-      }
-
-      &:focus {
-        outline: 2px solid var(--accent-primary);
-        outline-offset: 1px;
       }
     }
 
@@ -786,26 +772,6 @@ footer {
 
 // Range control
 .range-width-section {
-  .range-header-row {
-    gap: 0.5rem;
-    justify-content: space-between;
-
-    .latest-checkbox {
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-      cursor: pointer;
-
-      input[type="checkbox"] {
-        cursor: pointer;
-      }
-
-      span {
-        font-weight: 500;
-      }
-    }
-  }
-
   .time-range-buttons {
     button {
       @include chip;
@@ -821,27 +787,23 @@ footer {
 
   .time-range-select {
     display: flex;
-    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
 
-    select {
-      font-size: 0.85rem;
-      font-weight: 500;
-      padding: 0.3rem 0.5rem;
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      background: var(--bg-primary);
-      color: var(--text-primary);
+    .latest-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
       cursor: pointer;
-      min-width: 80px;
+      user-select: none;
+      margin-bottom: 0; // Override default label margin
 
-      &:hover {
-        border-color: var(--accent-primary);
+      input[type="checkbox"] {
+        cursor: pointer;
       }
 
-      &:focus {
-        outline: none;
-        border-color: var(--accent-primary);
-        box-shadow: 0 0 0 2px var(--accent-primary-alpha);
+      i {
+        color: var(--text-primary);
       }
     }
   }
@@ -861,15 +823,8 @@ footer {
 
 // Aggregation control
 .aggregation-section {
-  .window-select {
-    @include control;
-    padding: 0.1rem 0.05rem;
-  }
-
   .px-select {
-    @include control;
     margin-left: 0.45rem;
-    padding: 0.1rem 0;
   }
 }
 

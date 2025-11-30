@@ -40,9 +40,8 @@ function AppContent() {
   })
 
   // Combine results
-  const { combinedData, combinedSummary, loading, isInitialLoad, error } = useMemo(() => {
+  const { combinedData, combinedSummary, isInitialLoad, error } = useMemo(() => {
     const allData = deviceDataResults.flatMap(r => r.data)
-    const anyLoading = deviceDataResults.some(r => r.loading)
     const anyInitialLoad = deviceDataResults.some(r => r.isInitialLoad)
     const firstError = deviceDataResults.find(r => r.error)?.error || null
 
@@ -81,7 +80,6 @@ function AppContent() {
     return {
       combinedData: allData,
       combinedSummary,
-      loading: anyLoading,
       isInitialLoad: anyInitialLoad,
       error: firstError,
     }
@@ -114,8 +112,8 @@ function AppContent() {
   return (
     <div className="app">
       <main>
-        {/* Show loading overlay when refetching */}
-        {loading && combinedData.length > 0 && (
+        {/* Only show loading overlay during initial load, not background refreshes */}
+        {isInitialLoad && combinedData.length > 0 && (
           <div className="loading-overlay">
             <div className="spinner" />
           </div>

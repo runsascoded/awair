@@ -41,8 +41,8 @@ export function RangeWidthControl({
 
   return (
     <div className="control-group range-width-section">
-      {/* Row 1: Label and Latest button */}
-      <div className="header range-header-row">
+      {/* Row 1: Label */}
+      <div className="header">
         {isMobile ? (
           <label className="unselectable">X Range:</label>
         ) : (
@@ -50,30 +50,9 @@ export function RangeWidthControl({
             <label className="unselectable">X Range:</label>
           </Tooltip>
         )}
-        {isMobile ? (
-          <label className="checkbox-label latest-checkbox">
-            <input
-              type="checkbox"
-              checked={latestModeIntended}
-              onChange={handleLatestButtonClick}
-            />
-            <span>Latest</span>
-          </label>
-        ) : (
-          <Tooltip content="Auto-follow latest data (Keyboard: l)">
-            <label className="checkbox-label latest-checkbox">
-              <input
-                type="checkbox"
-                checked={latestModeIntended}
-                onChange={handleLatestButtonClick}
-              />
-              <span>Latest</span>
-            </label>
-          </Tooltip>
-        )}
       </div>
 
-      {/* Row 2: Duration dropdown */}
+      {/* Row 2: Duration dropdown + Latest checkbox */}
       <div className="body time-range-select">
         <select
           value={activeRange.startsWith('latest-') ? activeRange.slice(7) : activeRange}
@@ -95,6 +74,28 @@ export function RangeWidthControl({
             </option>
           ))}
         </select>
+
+        {isMobile ? (
+          <label className="checkbox-label latest-checkbox">
+            <input
+              type="checkbox"
+              checked={latestModeIntended}
+              onChange={handleLatestButtonClick}
+            />
+            <i className="fas fa-forward-step"></i>
+          </label>
+        ) : (
+          <Tooltip content="Auto-follow latest data (Keyboard: l)">
+            <label className="checkbox-label latest-checkbox">
+              <input
+                type="checkbox"
+                checked={latestModeIntended}
+                onChange={handleLatestButtonClick}
+              />
+              <i className="fas fa-forward-step"></i>
+            </label>
+          </Tooltip>
+        )}
       </div>
 
       {/* Row 3: Current range display */}
