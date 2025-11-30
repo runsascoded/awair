@@ -25,6 +25,7 @@ type DataWithZorder = Data & { zorder?: number }
 export type LegendHoverState =
   | { type: 'device', deviceIndex: number }
   | { type: 'trace', deviceIndex: number, metric: 'primary' | 'secondary' }
+  | { type: 'metric', metric: 'primary' | 'secondary' }
   | null
 
 interface Props {
@@ -78,6 +79,10 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   // Legend hover state - tracks what is currently hovered
   const [hoverState, setHoverState] = useState<LegendHoverState>(null)
+
+  // Auto-range button display state - what the buttons are currently showing (including preview)
+  const [leftAutoRangeDisplay, setLeftAutoRangeDisplay] = useState(l.autoRange)
+  const [rightAutoRangeDisplay, setRightAutoRangeDisplay] = useState(r.autoRange)
 
   // Refs for handling programmatic updates
   const ignoreNextRelayoutRef = useRef(false)
@@ -438,8 +443,11 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     if (hoverState.type === 'device') {
       return hoverState.deviceIndex === deviceIndex ? 1.0 : 0.2
     }
-    // hoverState.type === 'trace'
-    return hoverState.deviceIndex === deviceIndex && hoverState.metric === metric ? 1.0 : 0.2
+    if (hoverState.type === 'trace') {
+      return hoverState.deviceIndex === deviceIndex && hoverState.metric === metric ? 1.0 : 0.2
+    }
+    // hoverState.type === 'metric'
+    return hoverState.metric === metric ? 1.0 : 0.2
   }, [hoverState])
 
   // Generate traces for all devices, grouped by metric for better hover ordering
@@ -740,6 +748,8 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
               primaryColors={primaryColors}
               secondaryColors={secondaryColors}
               onHover={setHoverState}
+              onLeftAutoRangeDisplayChange={setLeftAutoRangeDisplay}
+              onRightAutoRangeDisplayChange={setRightAutoRangeDisplay}
             />
           )
         })()}
@@ -781,8 +791,8 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
                 tickmode: 'array'
               })
             },
-            yaxis: createYAxisConfig('left', l.autoRange),
-            ...(secondaryConfig && { yaxis2: createYAxisConfig('right', r.autoRange) }),
+            yaxis: createYAxisConfig('left', leftAutoRangeDisplay),
+            ...(secondaryConfig && { yaxis2: createYAxisConfig('right', rightAutoRangeDisplay) }),
             margin: isOgMode
               ? { l: 50, r: 50, t: 55, b: 70 }  // Just enough for axis labels, no border
               : { l: 35, r: secondaryConfig ? 35 : 10, t: totalDevices > 1 ? (isMobile ? 55 : 65) : 0, b: 45 },
