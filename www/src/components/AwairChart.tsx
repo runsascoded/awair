@@ -175,7 +175,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   const {
     autoUpdateRange,
-    jumpToLatest,
+    jumpToLatest: _jumpToLatest,
     setIgnoreNextPanCheck
   } = useLatestMode(data, xAxisRange, formatForPlotly, latestModeIntended, setLatestModeIntended)
 
@@ -185,26 +185,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       .map(id => getFileBounds(id))
       .filter((bounds): bounds is { earliest: Date; latest: Date } => bounds !== null)
   }, [selectedDeviceIds])
-
-  // Helper: Check if range would go into future, and if so, jump to Latest
-  const checkAndPreventFuture = useCallback((newRange: [string, string]): boolean => {
-    const allBounds = getAllDeviceBounds()
-
-    if (allBounds.length > 0) {
-      const absoluteLatest = allBounds.reduce((max, b) => b.latest > max ? b.latest : max, allBounds[0].latest)
-      const newEndTime = new Date(newRange[1])
-      const FUTURE_BUFFER = 2 * 60 * 1000 // 2 minutes
-
-      if (newEndTime.getTime() > absoluteLatest.getTime() + FUTURE_BUFFER) {
-        const latestRange = jumpToLatest()
-        if (latestRange) {
-          setXAxisRange(latestRange)
-        }
-        return true // Prevented
-      }
-    }
-    return false // Allowed
-  }, [getAllDeviceBounds, jumpToLatest, setXAxisRange])
 
   // Handle auto-update from Latest mode hook
   useEffect(() => {
@@ -220,6 +200,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     const isLatestView = latestModeIntended
 
     // Check range width with tolerance
+    if (Math.abs(durationHours - 12) < 1) return isLatestView ? 'latest-12h' : '12h'
     if (Math.abs(durationHours - 24) < 2) return isLatestView ? 'latest-1d' : '1d'
     if (Math.abs(durationHours - (24 * 3)) < 6) return isLatestView ? 'latest-3d' : '3d'
     if (Math.abs(durationHours - (24 * 7)) < 12) return isLatestView ? 'latest-7d' : '7d'
@@ -252,14 +233,27 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     const x1 = eventData['xaxis.range[1]']
     if (x0 !== undefined && x1 !== undefined) {
       // PlotRelayoutEvent types these as number, but for date axes they're strings
-      const newRange: [string, string] = [String(x0), String(x1)]
+      const newStart = new Date(x0 as string)
+      const newEnd = new Date(x1 as string)
+      const newDuration = newEnd.getTime() - newStart.getTime()
 
-      // Check if panning into the future - if so, jump to Latest instead
-      if (checkAndPreventFuture(newRange)) return
+      // Check if range end goes into the future
+      const allBounds = getAllDeviceBounds()
+      if (allBounds.length > 0) {
+        const absoluteLatest = allBounds.reduce((max, b) => b.latest > max ? b.latest : max, allBounds[0].latest)
+        const FUTURE_BUFFER = 2 * 60 * 1000 // 2 minutes
 
-      setXAxisRange(newRange)
+        if (newEnd.getTime() > absoluteLatest.getTime() + FUTURE_BUFFER) {
+          // End is in future - clamp to latest but keep the new duration
+          // This happens when zooming out in Latest mode
+          setXAxisRange(null, { duration: newDuration }) // null = Latest mode
+          return
+        }
+      }
+
+      setXAxisRange([formatForPlotly(newStart), formatForPlotly(newEnd)], { duration: newDuration })
     }
-  }, [setXAxisRange, checkAndPreventFuture])
+  }, [setXAxisRange, getAllDeviceBounds, formatForPlotly])
 
   // Keyboard shortcuts
   useKeyboardShortcuts({

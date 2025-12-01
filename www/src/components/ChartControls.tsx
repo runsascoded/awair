@@ -90,7 +90,7 @@ export function ChartControls({
   setRangeByWidth: _setRangeByWidth,
   setIgnoreNextPanCheck,
   setDuration,
-  timeRange: _timeRange,
+  timeRange,
   setTimeRange,
   devices,
   selectedDeviceIds,
@@ -183,6 +183,7 @@ export function ChartControls({
         formatCompactDate={formatCompactDate}
         formatFullDate={formatFullDate}
         summary={summary}
+        duration={timeRange?.duration ?? 24 * 60 * 60 * 1000}
       />
 
       <AggregationControl

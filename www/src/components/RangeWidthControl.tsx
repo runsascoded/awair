@@ -1,5 +1,6 @@
 import React from 'react'
 import { Tooltip } from './Tooltip'
+import { formatDuration } from '../hooks/useTimeRangeParam'
 import type { DataSummary } from '../types/awair'
 
 interface RangeWidthControlProps {
@@ -12,6 +13,7 @@ interface RangeWidthControlProps {
   formatCompactDate: (date: Date) => string
   formatFullDate: (date: Date) => string
   summary: DataSummary | null
+  duration: number
 }
 
 const timeRangeOptions = [
@@ -34,8 +36,12 @@ export function RangeWidthControl({
   formatCompactDate: _formatCompactDate,
   formatFullDate,
   summary: _summary,
+  duration,
 }: RangeWidthControlProps) {
   const activeRange = getActiveTimeRange()
+
+  // Get custom duration label if not at a preset
+  const customLabel = formatDuration(duration)
 
   const rangeText = xAxisRange
     ? `${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`
@@ -60,24 +66,48 @@ export function RangeWidthControl({
       {/* Row 2: Duration dropdown + Latest checkbox */}
       <div className="body time-range-select">
         <select
-          value={activeRange.startsWith('latest-') ? activeRange.slice(7) : activeRange}
+          value={customLabel ? 'custom' : (activeRange.startsWith('latest-') ? activeRange.slice(7) : activeRange)}
           onChange={(e) => {
             const value = e.target.value
             if (value === 'all') {
               handleAllButtonClick()
+            } else if (value === 'custom') {
+              // Custom option selected - no action (it's just for display)
             } else {
-              const option = timeRangeOptions.find(opt => opt.label === value)
+              const option = timeRangeOptions.find(opt => opt.label.toLowerCase() === value)
               if (option && option.hours > 0) {
                 handleTimeRangeButtonClick(option.hours)
               }
             }
           }}
         >
-          {timeRangeOptions.map(({ label }) => (
-            <option key={label} value={label.toLowerCase()}>
-              {label}
-            </option>
-          ))}
+          {(() => {
+            // Build sorted options list, inserting custom duration in correct position
+            const options = timeRangeOptions.map(opt => ({
+              value: opt.label.toLowerCase(),
+              label: opt.label,
+              hours: opt.hours,
+            }))
+
+            if (customLabel) {
+              const customHours = duration / (1000 * 60 * 60)
+              // Find insertion point (before first option with hours > customHours, or before All)
+              const insertIdx = options.findIndex(opt =>
+                opt.hours === -1 || (opt.hours > 0 && opt.hours > customHours)
+              )
+              options.splice(insertIdx === -1 ? options.length - 1 : insertIdx, 0, {
+                value: 'custom',
+                label: customLabel,
+                hours: customHours,
+              })
+            }
+
+            return options.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))
+          })()}
         </select>
 
         <Tooltip content="Latest mode: auto-follow newest data (l)">
