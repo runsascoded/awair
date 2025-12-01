@@ -24,8 +24,8 @@ export function ThemeToggle() {
       // Show when scrolling down past 30px OR near bottom
       if ((scrollingDown && currentScrollY > 30) || nearBottom) {
         setIsVisible(true)
-        // Auto-hide after 2 seconds of no scrolling
-        hideTimeout.current = setTimeout(() => setIsVisible(false), 2000)
+        // Auto-hide after 2.5 seconds of no scrolling
+        hideTimeout.current = setTimeout(() => setIsVisible(false), 2500)
       } else if (!scrollingDown) {
         // Hide when scrolling up
         setIsVisible(false)

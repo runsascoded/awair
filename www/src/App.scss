@@ -776,13 +776,7 @@ footer {
     summary {
       cursor: pointer;
       display: list-item;
-      padding: 0.25rem;
-      border-radius: 4px;
       user-select: none;
-
-      &:hover:not(.disabled) {
-        background: var(--bg-tertiary);
-      }
     }
 
     .settings-icon {
