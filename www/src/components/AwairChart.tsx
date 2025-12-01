@@ -15,7 +15,7 @@ import { getFileBounds } from '../services/awairService'
 import { formatForPlotly, formatCompactDate, formatFullDate } from '../utils/dateFormat'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { PxOption } from './AggregationControl'
-import type { DeviceDataResult } from '../hooks/useMultiDeviceData'
+import type { DeviceDataResult } from './DevicePoller'
 import type { Metric } from '../lib/urlParams'
 import type { Device } from '../services/awairService'
 import type { DataSummary } from '../types/awair'
@@ -233,8 +233,8 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     const x1 = eventData['xaxis.range[1]']
     if (x0 !== undefined && x1 !== undefined) {
       // PlotRelayoutEvent types these as number, but for date axes they're strings
-      const newStart = new Date(x0 as string)
-      const newEnd = new Date(x1 as string)
+      const newStart = new Date(x0 as unknown as string)
+      const newEnd = new Date(x1 as unknown as string)
       const newDuration = newEnd.getTime() - newStart.getTime()
 
       // Check if range end goes into the future

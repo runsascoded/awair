@@ -26,6 +26,8 @@ export interface FetchResult {
   records: AwairRecord[]
   /** Performance metrics */
   timing: FetchTiming
+  /** S3 file's Last-Modified timestamp (for smart polling) */
+  lastModified?: Date
 }
 
 export interface FetchTiming {

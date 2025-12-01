@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useDataAggregation, aggregateData } from './useDataAggregation'
 import type { AggregatedData, TimeWindow, UseDataAggregationOptions } from './useDataAggregation'
-import type { DeviceDataResult } from './useMultiDeviceData'
+import type { DeviceDataResult } from '../components/DevicePoller'
 
 export interface DeviceAggregatedData {
   deviceId: number

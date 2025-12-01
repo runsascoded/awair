@@ -110,7 +110,7 @@ export function getFileBounds(deviceId: number): { earliest: Date; latest: Date 
 export async function fetchAwairData(
   deviceId: number | undefined,
   timeRange: { timestamp: Date | null; duration: number }
-): Promise<{ records: AwairRecord[]; summary: DataSummary }> {
+): Promise<{ records: AwairRecord[]; summary: DataSummary; lastModified?: Date }> {
   // If no device ID provided, use first available device
   if (!deviceId) {
     const devices = await fetchDevices()
@@ -166,13 +166,16 @@ export async function fetchAwairData(
   }
 
   // Calculate e2e latency (how old is the newest data point?)
-  const latestTimestamp = new Date(fileLatest).getTime()
-  const e2eLatencyMs = Date.now() - latestTimestamp
-  const e2eLatencySec = (e2eLatencyMs / 1000).toFixed(1)
+  if (fileLatest) {
+    const latestTimestamp = new Date(fileLatest).getTime()
+    const e2eLatencyMs = Date.now() - latestTimestamp
+    const e2eLatencySec = (e2eLatencyMs / 1000).toFixed(1)
+    console.log(`✅ Fetched ${result.records.length} records (file spans ${fileEarliest} to ${fileLatest}, e2e latency: ${e2eLatencySec}s)`)
+  } else {
+    console.log(`✅ Fetched ${result.records.length} records`)
+  }
 
-  console.log(`✅ Fetched ${result.records.length} records (file spans ${fileEarliest} to ${fileLatest}, e2e latency: ${e2eLatencySec}s)`)
-
-  return { records: result.records, summary }
+  return { records: result.records, summary, lastModified: result.lastModified }
 }
 
 /**

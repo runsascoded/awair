@@ -184,7 +184,7 @@ export class HyparquetSource implements DataSource {
       source: this.type,
     }
 
-    return { records, timing }
+    return { records, timing, lastModified: cache.getLastModified() ?? undefined }
   }
 
   /**

@@ -1,11 +1,11 @@
 import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AwairChart } from './components/AwairChart'
+import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
 import { ThemeToggle } from './components/ThemeToggle'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
-import { useMultiDeviceData } from './hooks/useMultiDeviceData'
 import { queryClient } from './lib/queryClient'
 import { boolParam, deviceIdsParam, timeRangeParam, refetchIntervalParam } from './lib/urlParams'
 import './App.scss'
@@ -28,16 +28,27 @@ function AppContent() {
   // Time range persisted in URL (?t=...)
   const [timeRange, setTimeRange] = useUrlParam('t', timeRangeParam)
 
-  // Refetch interval for testing (?ri=5000 for 5 second polling)
+  // Smart polling can be disabled with ?ri=0
   const [refetchIntervalOverride] = useUrlParam('ri', refetchIntervalParam)
-  const refetchInterval = refetchIntervalOverride ?? 60_000 // Default 1 minute
+  const smartPolling = refetchIntervalOverride !== 0
 
-  // Fetch data for all selected devices with time range
-  // Poll every 60 seconds for new data (only when tab is active)
-  const deviceDataResults = useMultiDeviceData(selectedDeviceIds, timeRange, {
-    refetchInterval: refetchInterval === 0 ? undefined : refetchInterval,
-    refetchIntervalInBackground: false,
-  })
+  // Device data results from DevicePoller components
+  const [deviceResults, setDeviceResults] = useState<Map<number, DeviceDataResult>>(new Map())
+
+  // Callback for DevicePoller to report results
+  const handleDeviceResult = useCallback((result: DeviceDataResult) => {
+    setDeviceResults(prev => {
+      const next = new Map(prev)
+      next.set(result.deviceId, result)
+      return next
+    })
+  }, [])
+
+  // Convert map to array in device order
+  const deviceDataResults = useMemo(
+    () => selectedDeviceIds.map(id => deviceResults.get(id)).filter(Boolean) as DeviceDataResult[],
+    [selectedDeviceIds, deviceResults]
+  )
 
   // Combine results
   const { combinedData, combinedSummary, isInitialLoad, error } = useMemo(() => {
@@ -93,6 +104,16 @@ function AppContent() {
           <h1>Loading Awair Data...</h1>
           <p>Fetching air quality data from S3...</p>
         </div>
+        {/* Render pollers even during loading */}
+        {selectedDeviceIds.map(deviceId => (
+          <DevicePoller
+            key={deviceId}
+            deviceId={deviceId}
+            timeRange={timeRange}
+            smartPolling={smartPolling}
+            onResult={handleDeviceResult}
+          />
+        ))}
       </div>
     )
   }
@@ -105,12 +126,32 @@ function AppContent() {
           <p>{error}</p>
           <button onClick={() => window.location.reload()}>Retry</button>
         </div>
+        {/* Render pollers even during error */}
+        {selectedDeviceIds.map(deviceId => (
+          <DevicePoller
+            key={deviceId}
+            deviceId={deviceId}
+            timeRange={timeRange}
+            smartPolling={smartPolling}
+            onResult={handleDeviceResult}
+          />
+        ))}
       </div>
     )
   }
 
   return (
     <div className="app">
+      {/* Headless device pollers - one per selected device */}
+      {selectedDeviceIds.map(deviceId => (
+        <DevicePoller
+          key={deviceId}
+          deviceId={deviceId}
+          timeRange={timeRange}
+          smartPolling={smartPolling}
+          onResult={handleDeviceResult}
+        />
+      ))}
       <main>
         {/* Only show loading overlay during initial load, not background refreshes */}
         {isInitialLoad && combinedData.length > 0 && (
