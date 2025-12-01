@@ -24,10 +24,13 @@ import type { Data, PlotRelayoutEvent } from 'plotly.js'
 // Extend Data type to include zorder (supported by plotly.js but not in @types/plotly.js); https://github.com/DefinitelyTyped/DefinitelyTyped/pull/74155 will fix
 type DataWithZorder = Data & { zorder?: number }
 
+export type HasDeviceIdx = { deviceIdx: number }
+export type HasMetric = { metric: 'primary' | 'secondary' }
+
 export type LegendHoverState =
-  | { type: 'device', deviceIndex: number }
-  | { type: 'trace', deviceIndex: number, metric: 'primary' | 'secondary' }
-  | { type: 'metric', metric: 'primary' | 'secondary' }
+  | { type: 'device' } & HasDeviceIdx
+  | { type: 'trace' } & HasDeviceIdx & HasMetric
+  | { type: 'metric' } & HasMetric
   | null
 
 interface Props {
@@ -397,13 +400,13 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   const totalDevices = deviceAggregations.length
 
   // Helper to calculate trace opacity based on hover state
-  const getTraceOpacity = useCallback((deviceIndex: number, metric: 'primary' | 'secondary'): number => {
+  const getTraceOpacity = useCallback((deviceIdx: number, metric: 'primary' | 'secondary'): number => {
     if (!hoverState) return 1.0
     if (hoverState.type === 'device') {
-      return hoverState.deviceIndex === deviceIndex ? 1.0 : 0.2
+      return hoverState.deviceIdx === deviceIdx ? 1.0 : 0.2
     }
     if (hoverState.type === 'trace') {
-      return hoverState.deviceIndex === deviceIndex && hoverState.metric === metric ? 1.0 : 0.2
+      return hoverState.deviceIdx === deviceIdx && hoverState.metric === metric ? 1.0 : 0.2
     }
     // hoverState.type === 'metric'
     return hoverState.metric === metric ? 1.0 : 0.2
@@ -414,14 +417,14 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     const traces: DataWithZorder[] = []
 
     // Pre-compute data for all devices
-    const deviceData = deviceAggregations.map((deviceAgg, deviceIndex) => {
+    const deviceData = deviceAggregations.map((deviceAgg, deviceIdx) => {
       const { aggregatedData: devData, deviceName } = deviceAgg
       const timestamps = devData.map(d => formatForPlotly(new Date(d.timestamp)))
 
       // Get line props for primary metric
       const primaryLineProps = getDeviceLineProps(
         config.color,
-        deviceIndex,
+        deviceIdx,
         totalDevices,
         deviceRenderStrategy,
         2,
@@ -452,7 +455,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       const secondaryLineProps = secondaryConfig
         ? getDeviceLineProps(
           secondaryConfig.color,
-          deviceIndex,
+          deviceIdx,
           totalDevices,
           deviceRenderStrategy,
           2,
@@ -464,7 +467,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
       const legendName = totalDevices > 1 ? deviceName : ''
 
       return {
-        devData, deviceName, deviceIndex, timestamps, legendName,
+        devData, deviceName, deviceIdx, timestamps, legendName,
         primaryLineProps, avgValues, stddevValues, upperValues, lowerValues,
         secondaryLineProps, secondaryAvgValues, secondaryStddevValues, secondaryUpperValues, secondaryLowerValues,
       }
@@ -492,7 +495,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         y: d.avgValues,
         mode: 'lines',
         line: d.primaryLineProps,
-        opacity: getTraceOpacity(d.deviceIndex, 'primary'),
+        opacity: getTraceOpacity(d.deviceIdx, 'primary'),
         name: d.legendName || `${config.label} (${config.unit})`,
         legendgroup: 'primary',
         ...(isRawData ? {
@@ -531,7 +534,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             y: d.secondaryAvgValues,
             mode: 'lines',
             line: d.secondaryLineProps,
-            opacity: getTraceOpacity(d.deviceIndex, 'secondary'),
+            opacity: getTraceOpacity(d.deviceIdx, 'secondary'),
             name: d.legendName || `${secondaryConfig.label} (${secondaryConfig.unit})`,
             legendgroup: 'secondary',
             legend: 'legend2',
@@ -661,12 +664,12 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         className="plot-container"
         onMouseEnter={() => setHoverState(null)}
       >
-        {!isOgMode && totalDevices > 1 && (() => {
+        {!isOgMode && (() => {
           // Calculate device colors for legend markers (primary metric)
-          const primaryColors = deviceAggregations.map((_, deviceIndex) => {
+          const primaryColors = deviceAggregations.map((_, deviceIdx) => {
             const lineProps = getDeviceLineProps(
               config.color,
-              deviceIndex,
+              deviceIdx,
               totalDevices,
               deviceRenderStrategy,
               2,
@@ -676,10 +679,10 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           })
           // Calculate device colors for secondary metric
           const secondaryColors = secondaryConfig
-            ? deviceAggregations.map((_, deviceIndex) => {
+            ? deviceAggregations.map((_, deviceIdx) => {
               const lineProps = getDeviceLineProps(
                 secondaryConfig.color,
-                deviceIndex,
+                deviceIdx,
                 totalDevices,
                 deviceRenderStrategy,
                 2,
@@ -742,9 +745,10 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             },
             yaxis: createYAxisConfig('left', leftAutoRangeDisplay, getRangeFloor(l.val)),
             ...(secondaryConfig && r.val !== 'none' && { yaxis2: createYAxisConfig('right', rightAutoRangeDisplay, getRangeFloor(r.val as Metric)) }),
+            // Legend is now in flow above plot, so minimal top margin needed
             margin: isOgMode
               ? { l: 50, r: 50, t: 55, b: 70 }  // Just enough for axis labels, no border
-              : { l: 35, r: secondaryConfig ? 35 : 10, t: totalDevices > 1 ? (isMobile ? 55 : 65) : 0, b: 45 },
+              : { l: 35, r: secondaryConfig ? 35 : 10, t: 5, b: 45 },
             hovermode: 'x unified',
             hoverlabel: {
               bgcolor: plotColors.plotBg,

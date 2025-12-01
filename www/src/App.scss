@@ -593,21 +593,16 @@ footer {
 
 // Custom legend controls - positioned above Plotly legend
 .custom-legend-controls {
-  position: absolute;
-  top: 2px; // Small padding from top to prevent clipping
-  left: 35px; // Match plot left margin
-  right: 35px; // Match plot right margin
+  margin: 0 1rem; // Plot left/right margin is 35px; we want to align with the outside of the y-ticks that live in that margin.
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  pointer-events: none;
   z-index: 10;
 
   .legend-metric-control {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    pointer-events: all;
 
     .legend-controls-row {
       display: flex;
@@ -616,13 +611,16 @@ footer {
     }
 
     .legend-labels-row {
-      position: absolute;
-      top: 2rem; // Nudged down from controls
       display: flex;
       align-items: center;
-      gap: 0; // No gap - metric unit padding provides spacing + hover area
-    }
+      gap: 0; // No gap - padding extends hover areas to prevent flicker
 
+      > .legend-line-sample {
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0 0.25rem; // Extend hover area horizontally
+      }
+    }
 
     .range-mode-btn {
       user-select: none;
@@ -671,6 +669,7 @@ footer {
       .legend-device-item {
         display: inline-flex;
         align-items: center;
+        gap: 0.25rem;
         padding: 0 0.375rem;
 
         &:first-child {
@@ -682,11 +681,10 @@ footer {
         }
       }
 
-      .legend-line {
+      .legend-line-sample {
         font-weight: bold;
         letter-spacing: -0.1em;
         cursor: pointer;
-        margin-right: 0.4rem;
       }
 
       .legend-device-name {
@@ -699,17 +697,12 @@ footer {
 
     &.legend-metric-left {
       align-items: flex-start;
-
-      .legend-labels-row {
-        left: 0;
-      }
     }
 
     &.legend-metric-right {
       align-items: flex-end;
 
       .legend-labels-row {
-        right: 0;
         flex-direction: row-reverse;
       }
     }

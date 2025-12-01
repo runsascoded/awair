@@ -18,6 +18,34 @@ interface CustomLegendProps {
 }
 
 /**
+ * Colored line sample with hover effect to highlight trace
+ */
+function LegendLineSample({
+  color,
+  metric,
+  deviceIdx,
+  onHover
+}: {
+  color: string
+  metric: 'primary' | 'secondary'
+  deviceIdx?: number  // undefined = highlight all devices for this metric
+  onHover: (state: LegendHoverState) => void
+}) {
+  const hoverState: LegendHoverState = deviceIdx !== undefined
+    ? { type: 'trace', deviceIdx: deviceIdx, metric }
+    : { type: 'metric', metric }
+  return (
+    <span
+      className="legend-line-sample"
+      style={{ color }}
+      onMouseEnter={() => onHover(hoverState)}
+    >
+      ━━
+    </span>
+  )
+}
+
+/**
  * Helper to render a legend device item with hover handlers
  */
 function LegendDeviceItem({
@@ -37,25 +65,17 @@ function LegendDeviceItem({
     <span
       key={`${name}-${metric}`}
       className="legend-device-item"
-      onMouseEnter={() => onHover({ type: 'device', deviceIndex: idx })}
-      onMouseLeave={() => onHover(null)}
     >
+      <LegendLineSample
+        color={color}
+        metric={metric}
+        deviceIdx={idx}
+        onHover={onHover}
+      />
       <span
-        className="legend-line"
-        style={{ color }}
-        onMouseEnter={() => onHover({ type: 'trace', deviceIndex: idx, metric })}
-        onMouseLeave={(e) => {
-          // Only revert to device hover if mouse is still within the legend item
-          const container = (e.currentTarget as HTMLElement).parentElement
-          if (container && container.contains(e.relatedTarget as Node)) {
-            e.stopPropagation()
-            onHover({ type: 'device', deviceIndex: idx })
-          }
-        }}
+        className="legend-device-name"
+        onMouseEnter={() => onHover({ type: 'device', deviceIdx: idx })}
       >
-        ━━
-      </span>
-      <span className="legend-device-name">
         {name}
       </span>
     </span>
@@ -79,15 +99,26 @@ export function CustomLegend({
   const hasSecondary = r.val !== 'none'
 
   return (
-    <div className="custom-legend-controls">
+    <div
+      className="custom-legend-controls"
+      onMouseOver={(e) => {
+        // Reset to all traces when mouse is directly over container (not a child)
+        if (e.currentTarget === e.target) onHover(null)
+      }}
+      onMouseLeave={() => onHover(null)}
+    >
       {/* Primary metric control (left) */}
-      <div className="legend-metric-control legend-metric-left">
+      <div
+        className="legend-metric-control legend-metric-left"
+        onMouseOver={(e) => { if (e.currentTarget === e.target) onHover(null) }}
+      >
         <div className="legend-controls-row">
           {isMobile ? (
             <>
               <select
                 value={l.val}
                 onChange={(e) => l.set(e.target.value as Metric)}
+                onMouseEnter={() => onHover({ type: 'metric', metric: 'primary' })}
               >
                 {Object.entries(metricConfig).map(([key, cfg]) => (
                   <option key={key} value={key}>
@@ -111,6 +142,7 @@ export function CustomLegend({
                 <select
                   value={l.val}
                   onChange={(e) => l.set(e.target.value as Metric)}
+                  onMouseEnter={() => onHover({ type: 'metric', metric: 'primary' })}
                 >
                   {Object.entries(metricConfig).map(([key, cfg]) => (
                     <option key={key} value={key}>
@@ -132,16 +164,17 @@ export function CustomLegend({
             </>
           )}
         </div>
-        {/* Labels row: unit + device names */}
+        {/* Labels row: unit + line samples (with device names when multi-device) */}
         <div className="legend-labels-row">
           <span
             className="metric-unit left-unit"
             onMouseEnter={() => onHover({ type: 'metric', metric: 'primary' })}
-            onMouseLeave={() => onHover(null)}
           >
             ({metricConfig[l.val].unit})
           </span>
-          {deviceNames.length > 0 && (
+          {deviceNames.length === 1 ? (
+            <LegendLineSample color={primaryColors[0]} metric="primary" onHover={onHover} />
+          ) : deviceNames.length > 1 ? (
             <div className="legend-devices">
               {deviceNames.map((name, idx) => (
                 <LegendDeviceItem
@@ -154,13 +187,16 @@ export function CustomLegend({
                 />
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
       {/* Secondary metric control (right) */}
       {hasSecondary && (
-        <div className="legend-metric-control legend-metric-right">
+        <div
+          className="legend-metric-control legend-metric-right"
+          onMouseOver={(e) => { if (e.currentTarget === e.target) onHover(null) }}
+        >
           <div className="legend-controls-row">
             {isMobile ? (
               <>
@@ -176,6 +212,7 @@ export function CustomLegend({
                 <select
                   value={r.val}
                   onChange={(e) => r.set(e.target.value as Metric | 'none')}
+                  onMouseEnter={() => onHover({ type: 'metric', metric: 'secondary' })}
                 >
                   <option value="none">None</option>
                   {Object.entries(metricConfig).map(([key, cfg]) => (
@@ -203,6 +240,7 @@ export function CustomLegend({
                   <select
                     value={r.val}
                     onChange={(e) => r.set(e.target.value as Metric | 'none')}
+                    onMouseEnter={() => onHover({ type: 'metric', metric: 'secondary' })}
                   >
                     <option value="none">None</option>
                     {Object.entries(metricConfig).map(([key, cfg]) => (
@@ -217,16 +255,18 @@ export function CustomLegend({
               </>
             )}
           </div>
-          {/* Labels row: unit + device names */}
+          {/* Labels row: unit + line samples (with device names when multi-device) */}
+          {/* Note: row-reverse in CSS, so DOM order is: unit, then line samples */}
           <div className="legend-labels-row">
             <span
               className="metric-unit right-unit"
               onMouseEnter={() => onHover({ type: 'metric', metric: 'secondary' })}
-              onMouseLeave={() => onHover(null)}
             >
               ({metricConfig[r.val as Metric].unit})
             </span>
-            {deviceNames.length > 0 && (
+            {deviceNames.length === 1 ? (
+              <LegendLineSample color={secondaryColors[0]} metric="secondary" onHover={onHover} />
+            ) : deviceNames.length > 1 ? (
               <div className="legend-devices">
                 {deviceNames.map((name, idx) => (
                   <LegendDeviceItem
@@ -239,7 +279,7 @@ export function CustomLegend({
                   />
                 ))}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       )}

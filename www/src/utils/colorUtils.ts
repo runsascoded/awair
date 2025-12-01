@@ -77,7 +77,7 @@ function hslToHex(h: number, s: number, l: number): string {
  * - 2 devices: one lighter (+15%), one darker (-15%)
  * - 3 devices: lighter (+15%), base (0%), darker (-15%)
  */
-function getLightnessOffset(deviceIndex: number, totalDevices: number): number {
+function getLightnessOffset(deviceIdx: number, totalDevices: number): number {
   const LIGHTNESS_STEP = 15
 
   if (totalDevices === 1) {
@@ -86,32 +86,32 @@ function getLightnessOffset(deviceIndex: number, totalDevices: number): number {
 
   if (totalDevices === 2) {
     // Device 0: lighter, Device 1: darker
-    return deviceIndex === 0 ? LIGHTNESS_STEP : -LIGHTNESS_STEP
+    return deviceIdx === 0 ? LIGHTNESS_STEP : -LIGHTNESS_STEP
   }
 
   if (totalDevices === 3) {
     // Device 0: lighter, Device 1: base, Device 2: darker
-    if (deviceIndex === 0) return LIGHTNESS_STEP
-    if (deviceIndex === 1) return 0
+    if (deviceIdx === 0) return LIGHTNESS_STEP
+    if (deviceIdx === 1) return 0
     return -LIGHTNESS_STEP
   }
 
   // Fallback for more devices (shouldn't happen with max 3)
   const middleIndex = (totalDevices - 1) / 2
-  return Math.round((middleIndex - deviceIndex) * LIGHTNESS_STEP)
+  return Math.round((middleIndex - deviceIdx) * LIGHTNESS_STEP)
 }
 
 /**
  * Adjust a color's lightness for multi-device display.
  *
  * @param baseColor - Hex color string (e.g., "#ff6384")
- * @param deviceIndex - Index of the device (0-based)
+ * @param deviceIdx - Index of the device (0-based)
  * @param totalDevices - Total number of selected devices
  * @returns Adjusted hex color
  */
 export function getDeviceColor(
   baseColor: string,
-  deviceIndex: number,
+  deviceIdx: number,
   totalDevices: number
 ): string {
   if (totalDevices <= 1) {
@@ -119,7 +119,7 @@ export function getDeviceColor(
   }
 
   const { h, s, l } = hexToHsl(baseColor)
-  const offset = getLightnessOffset(deviceIndex, totalDevices)
+  const offset = getLightnessOffset(deviceIdx, totalDevices)
 
   // Clamp lightness to valid range [10, 90] to ensure visibility
   const newL = Math.max(10, Math.min(90, l + offset))

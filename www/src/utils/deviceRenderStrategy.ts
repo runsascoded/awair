@@ -113,7 +113,7 @@ function hslToHex(h: number, s: number, l: number): string {
  */
 function getHsvNudgedColor(
   baseColor: string,
-  deviceIndex: number,
+  deviceIdx: number,
   totalDevices: number,
   config: HsvConfig = DEFAULT_HSV_CONFIG
 ): string {
@@ -126,13 +126,13 @@ function getHsvNudgedColor(
   // Calculate offset based on device position
   let multiplier = 0
   if (totalDevices === 2) {
-    multiplier = deviceIndex === 0 ? 1 : -1
+    multiplier = deviceIdx === 0 ? 1 : -1
   } else if (totalDevices === 3) {
-    multiplier = deviceIndex === 0 ? 1 : deviceIndex === 1 ? 0 : -1
+    multiplier = deviceIdx === 0 ? 1 : deviceIdx === 1 ? 0 : -1
   } else {
     // Fallback for more devices
     const middleIndex = (totalDevices - 1) / 2
-    multiplier = middleIndex - deviceIndex
+    multiplier = middleIndex - deviceIdx
   }
 
   // Apply offsets
@@ -147,7 +147,7 @@ function getHsvNudgedColor(
  * Get line properties for a device based on rendering strategy
  *
  * @param baseColor - Base metric color (e.g., "#ff6384" for temp)
- * @param deviceIndex - Index of device (0-based)
+ * @param deviceIdx - Index of device (0-based)
  * @param totalDevices - Total number of devices being rendered
  * @param strategy - Rendering strategy to use
  * @param width - Base line width
@@ -156,7 +156,7 @@ function getHsvNudgedColor(
  */
 export function getDeviceLineProps(
   baseColor: string,
-  deviceIndex: number,
+  deviceIdx: number,
   totalDevices: number,
   strategy: DeviceRenderStrategy,
   width: number,
@@ -165,7 +165,7 @@ export function getDeviceLineProps(
   switch (strategy) {
     case 'hsv-nudge':
       return {
-        color: getHsvNudgedColor(baseColor, deviceIndex, totalDevices, hsvConfig),
+        color: getHsvNudgedColor(baseColor, deviceIdx, totalDevices, hsvConfig),
         width,
         dash: 'solid',
       }
@@ -175,7 +175,7 @@ export function getDeviceLineProps(
       return {
         color: baseColor,
         width,
-        dash: deviceIndex === 0 ? 'solid' : 'dash',
+        dash: deviceIdx === 0 ? 'solid' : 'dash',
       }
 
     case 'none':
@@ -203,10 +203,10 @@ export function getDeviceLineProps(
  */
 export function getDeviceColor(
   baseColor: string,
-  deviceIndex: number,
+  deviceIdx: number,
   totalDevices: number
 ): string {
-  return getDeviceLineProps(baseColor, deviceIndex, totalDevices, 'hsv-nudge', 1).color
+  return getDeviceLineProps(baseColor, deviceIdx, totalDevices, 'hsv-nudge', 1).color
 }
 
 /**
