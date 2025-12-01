@@ -88,8 +88,8 @@ test.describe('Table Pagination Navigation', () => {
       }
     })
 
-    // Navigate to the page with Gym device, using fixed endpoint (Nov 29, 2025 12:40pm EST = 17:40 UTC, at/after test data end at 17:39 UTC to trigger Latest mode)
-    await page.goto('/?y=th&d=gym&t=251129T1240')
+    // Navigate to the page with Gym device, using fixed endpoint at 17:40 UTC (just after test data end at 17:39 UTC) to trigger Latest mode
+    await page.goto('/?y=th&d=gym&t=251129T1740')
 
     // Wait for data to load (increased timeout for first load)
     await page.waitForSelector('.data-table', { timeout: 30000 })
