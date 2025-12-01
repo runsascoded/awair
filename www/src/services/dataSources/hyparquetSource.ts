@@ -71,12 +71,28 @@ export class HyparquetSource implements DataSource {
 
     // Check for new data on S3 (only does HEAD + tail fetch if file grew)
     const hadNewData = await cache.refresh()
-    if (hadNewData) {
-      console.log(`🔄 Cache refreshed with new data`)
-    }
 
     const metadata = cache.getMetadata()!
     const rgInfos = cache.getRowGroupInfos()
+
+    if (hadNewData) {
+      // Calculate e2e latency from latest data point
+      const lastRg = rgInfos[rgInfos.length - 1]
+      const latestTs = lastRg?.maxTimestamp
+      const lastModified = cache.getLastModified()
+      const now = Date.now()
+
+      if (latestTs) {
+        const e2eLatencyMs = now - latestTs.getTime()
+        const e2eLatencySec = (e2eLatencyMs / 1000).toFixed(1)
+        // Browser lag = time since S3 was modified (how long browser took to notice)
+        const browserLagMs = lastModified ? now - lastModified.getTime() : null
+        const browserLagSec = browserLagMs !== null ? (browserLagMs / 1000).toFixed(1) : '?'
+        console.log(`🔄 Cache refreshed with new data (e2e: ${e2eLatencySec}s, browser lag: ${browserLagSec}s)`)
+      } else {
+        console.log(`🔄 Cache refreshed with new data`)
+      }
+    }
 
     const totalRows = Number(metadata.num_rows)
     const numRowGroups = rgInfos.length

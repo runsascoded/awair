@@ -165,7 +165,12 @@ export async function fetchAwairData(
     dateRange,
   }
 
-  console.log(`✅ Fetched ${result.records.length} records (file spans ${fileEarliest} to ${fileLatest})`)
+  // Calculate e2e latency (how old is the newest data point?)
+  const latestTimestamp = new Date(fileLatest).getTime()
+  const e2eLatencyMs = Date.now() - latestTimestamp
+  const e2eLatencySec = (e2eLatencyMs / 1000).toFixed(1)
+
+  console.log(`✅ Fetched ${result.records.length} records (file spans ${fileEarliest} to ${fileLatest}, e2e latency: ${e2eLatencySec}s)`)
 
   return { records: result.records, summary }
 }

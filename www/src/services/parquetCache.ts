@@ -61,6 +61,7 @@ export class ParquetCache {
   private url: string
   private fileSize: number = 0
   private metadata: FileMetaData | null = null
+  private lastModified: Date | null = null
 
   /** Row group metadata (always complete after init) */
   private rowGroupInfos: RowGroupInfo[] = []
@@ -137,6 +138,12 @@ export class ParquetCache {
     if (!contentLength) throw new Error('Missing Content-Length header')
 
     const newFileSize = parseInt(contentLength)
+
+    // Capture Last-Modified header
+    const lastModifiedHeader = headRes.headers.get('Last-Modified')
+    if (lastModifiedHeader) {
+      this.lastModified = new Date(lastModifiedHeader)
+    }
 
     // If file hasn't changed, nothing to do
     if (newFileSize === this.fileSize) {
@@ -308,6 +315,11 @@ export class ParquetCache {
   /** Get file size */
   getFileSize(): number {
     return this.fileSize
+  }
+
+  /** Get last modified time from S3 */
+  getLastModified(): Date | null {
+    return this.lastModified
   }
 
   /** Get cache statistics */
