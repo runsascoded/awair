@@ -178,8 +178,8 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
             <Tooltip
               content={
                 timeRange.timestamp || fullDataEndTime
-                  ? `Rewind by ${Math.round(timeRange.duration / (windowMinutes * 60 * 1000))} time points (plot width) to ${formatFullDate(new Date(((timeRange.timestamp || fullDataEndTime)!).getTime() - timeRange.duration))}`
-                  : "Pan backward by plot width"
+                  ? `Rewind by ${Math.round(timeRange.duration / (windowMinutes * 60 * 1000))} time points (plot width), to ${formatFullDate(new Date(((timeRange.timestamp || fullDataEndTime)!).getTime() - timeRange.duration))}`
+                  : "Pan backward by one plot width"
               }
             >
               <button
@@ -195,7 +195,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                   setPage(0)
                 }}
                 disabled={isAtEarliest}
-                aria-label="Pan backward by plot width"
+                aria-label="Pan backward by one plot width"
                 className="btn"
               >
                 <i className="fas fa-angles-left"></i>
@@ -204,8 +204,8 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
             <Tooltip
               content={
                 timeRange.timestamp || fullDataEndTime
-                  ? `Rewind by ${pageSize} windows (1 table page) to ${formatFullDate(new Date(((timeRange.timestamp || fullDataEndTime)!).getTime() - pageSize * windowMinutes * 60 * 1000))}`
-                  : "Pan backward by one page"
+                  ? `Rewind by ${pageSize} time points, to ${formatFullDate(new Date(((timeRange.timestamp || fullDataEndTime)!).getTime() - pageSize * windowMinutes * 60 * 1000))}`
+                  : "Pan backward by one table page"
               }
             >
               <button
@@ -222,7 +222,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                   setPage(0)
                 }}
                 disabled={isAtEarliest}
-                aria-label="Pan backward by one page"
+                aria-label="Pan backward by one table page"
                 className="btn"
               >
                 <i className="fas fa-angle-left"></i>
@@ -237,7 +237,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               content={
                 timeRange.timestamp && fullDataEndTime
                   ? `Forward by ${pageSize} windows (table page) to ${timeRange.timestamp.getTime() + pageSize * windowMinutes * 60 * 1000 >= fullDataEndTime.getTime() ? "Latest" : formatFullDate(new Date(timeRange.timestamp.getTime() + pageSize * windowMinutes * 60 * 1000))}`
-                  : "Pan forward by one page"
+                  : "Pan forward by one table page"
               }
             >
               <button
@@ -252,7 +252,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                   setPage(0)
                 }}
                 disabled={isAtLatest}
-                aria-label="Pan forward by one page"
+                aria-label="Pan forward by one table page"
                 className="btn"
               >
                 <i className="fas fa-angle-right"></i>
@@ -261,14 +261,14 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
             <Tooltip
               content={
                 timeRange.timestamp && fullDataEndTime
-                  ? `Forward by ${Math.round(timeRange.duration / (windowMinutes * 60 * 1000))} windows (plot width) to ${timeRange.timestamp.getTime() + timeRange.duration >= fullDataEndTime.getTime() ? "Latest" : formatFullDate(new Date(timeRange.timestamp.getTime() + timeRange.duration))}`
-                  : "Pan forward by plot width"
+                  ? `Forward by ${Math.round(timeRange.duration / (windowMinutes * 60 * 1000))} time points (plot width), to ${timeRange.timestamp.getTime() + timeRange.duration >= fullDataEndTime.getTime() ? "Latest" : formatFullDate(new Date(timeRange.timestamp.getTime() + timeRange.duration))}`
+                  : "Pan forward by one plot width"
               }
             >
               <button
                 onClick={() => {
                   if (!timeRange.timestamp || !fullDataEndTime) return
-                  // Pan forward by plot width - clamp to not exceed latest
+                  // Pan forward by one plot width - clamp to not exceed latest
                   const newTime = timeRange.timestamp.getTime() + timeRange.duration
                   // If would exceed latest, go to Latest mode instead
                   const newTimestamp = newTime >= fullDataEndTime.getTime() ? null : new Date(newTime)
@@ -276,7 +276,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                   setPage(0)
                 }}
                 disabled={isAtLatest}
-                aria-label="Pan forward by plot width"
+                aria-label="Pan forward by one plot width"
                 className="btn"
               >
                 <i className="fas fa-angles-right"></i>
