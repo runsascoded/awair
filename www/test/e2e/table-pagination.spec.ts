@@ -96,7 +96,7 @@ test.describe('Table Pagination Navigation', () => {
   })
 
   test('starts at latest (1-20)', async ({ page }) => {
-    const tableText = await page.locator('.pagination span').textContent()
+    const tableText = await page.locator('.pagination .page-info').textContent()
     // Fixed test data: Gym device (17617) has 254,859 1-minute windows
     // (177 days from 2025-06-05 to 2025-11-29)
     expect(tableText).toBe('1-20 of 254,859 × 1m')
@@ -104,7 +104,7 @@ test.describe('Table Pagination Navigation', () => {
 
   test('< button pans backward by one page (1-20 → 21-40)', async ({ page }) => {
     // Verify starting position
-    let tableText = await page.locator('.pagination span').textContent()
+    let tableText = await page.locator('.pagination .page-info').textContent()
     expect(tableText).toBe('1-20 of 254,859 × 1m')
 
     // Click < button (pan backward by one page)
@@ -114,7 +114,7 @@ test.describe('Table Pagination Navigation', () => {
     await page.waitForTimeout(500)
 
     // Should now show 21-40 (one page back)
-    tableText = await page.locator('.pagination span').textContent()
+    tableText = await page.locator('.pagination .page-info').textContent()
     expect(tableText).toBe('21-40 of 254,859 × 1m')
   })
 
@@ -123,7 +123,7 @@ test.describe('Table Pagination Navigation', () => {
     await page.locator('.pagination button[aria-label="Pan backward by one page"]').click()
     await page.waitForTimeout(500)
 
-    let tableText = await page.locator('.pagination span').textContent()
+    let tableText = await page.locator('.pagination .page-info').textContent()
     expect(tableText).toBe('21-40 of 254,859 × 1m')
 
     // Click > button (pan forward by one page)
@@ -131,13 +131,13 @@ test.describe('Table Pagination Navigation', () => {
     await page.waitForTimeout(500)
 
     // Should return to 1-20 (Latest mode)
-    tableText = await page.locator('.pagination span').textContent()
+    tableText = await page.locator('.pagination .page-info').textContent()
     expect(tableText).toBe('1-20 of 254,859 × 1m')
   })
 
   test('<< button pans backward by plot width', async ({ page }) => {
     // Get initial position
-    const initialText = await page.locator('.pagination span').textContent()
+    const initialText = await page.locator('.pagination .page-info').textContent()
     expect(initialText).toBe('1-20 of 254,859 × 1m')
 
     // Click << button (pan backward by plot width = 1440 windows for 24h)
@@ -145,7 +145,7 @@ test.describe('Table Pagination Navigation', () => {
     await page.waitForTimeout(500)
 
     // Should jump back 1440 windows (24h) to show windows 1441-1460
-    const newText = await page.locator('.pagination span').textContent()
+    const newText = await page.locator('.pagination .page-info').textContent()
     expect(newText).toBe('1,441-1,460 of 254,859 × 1m')
   })
 
@@ -154,7 +154,7 @@ test.describe('Table Pagination Navigation', () => {
     await page.locator('.pagination button[aria-label="Pan backward by plot width"]').click()
     await page.waitForTimeout(500)
 
-    const backText = await page.locator('.pagination span').textContent()
+    const backText = await page.locator('.pagination .page-info').textContent()
     expect(backText).toBe('1,441-1,460 of 254,859 × 1m')
 
     // Click >> button (pan forward by plot width)
@@ -162,7 +162,7 @@ test.describe('Table Pagination Navigation', () => {
     await page.waitForTimeout(500)
 
     // Should return to Latest mode (1-20)
-    const forwardText = await page.locator('.pagination span').textContent()
+    const forwardText = await page.locator('.pagination .page-info').textContent()
     expect(forwardText).toBe('1-20 of 254,859 × 1m')
   })
 
@@ -178,7 +178,7 @@ test.describe('Table Pagination Navigation', () => {
     // Start index: 254,859 - 1440 + 1 = 253,420
     // But we're seeing 253,419, which suggests we're 1-indexed and showing the first window
     // of the visible plot range, so 253,419-253,438 is correct
-    const tableText = await page.locator('.pagination span').textContent()
+    const tableText = await page.locator('.pagination .page-info').textContent()
     expect(tableText).toBe('253,419-253,438 of 254,859 × 1m')
   })
 
@@ -188,7 +188,7 @@ test.describe('Table Pagination Navigation', () => {
     await page.waitForTimeout(500)
 
     // Verify we're at earliest
-    const tableText = await page.locator('.pagination span').textContent()
+    const tableText = await page.locator('.pagination .page-info').textContent()
     expect(tableText).toBe('253,419-253,438 of 254,859 × 1m')
 
     // NOTE: Cannot test ">| Latest" with stale test data.
