@@ -103,9 +103,6 @@ export function ChartControls({
   timeRangeMinutes,
   containerWidth,
 }: ChartControlsProps) {
-
-  const isMobile = window.innerWidth < 768 || window.innerHeight < 600
-
   const handleTimeRangeButtonClick = (hours: number) => {
     const activeRange = getActiveTimeRange()
     if (activeRange.startsWith('latest-') || activeRange === 'all') {
@@ -186,7 +183,6 @@ export function ChartControls({
         formatCompactDate={formatCompactDate}
         formatFullDate={formatFullDate}
         summary={summary}
-        isMobile={isMobile}
       />
 
       <AggregationControl

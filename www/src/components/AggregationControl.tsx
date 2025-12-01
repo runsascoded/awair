@@ -44,8 +44,9 @@ export function AggregationControl({
   return (
     <div className="control-group aggregation-section">
       <div className="header">
+        <label className="unselectable">X grouping:</label>
         <Tooltip content="Raw data arrives ≈1/min. Points are grouped into time windows for visualization. Smaller windows show more detail but may slow rendering.">
-          <label className="unselectable">X grouping:</label>
+          <span className="info-icon">?</span>
         </Tooltip>
       </div>
       <div className="body">
@@ -73,23 +74,24 @@ export function AggregationControl({
         </select>
       </div>
       <div className="footer">
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={isAutoMode}
+            onChange={(e) => {
+              if (e.target.checked) {
+                onTargetPxChange(1)  // Default to 1px
+                onWindowChange(null)
+              } else {
+                onTargetPxChange(null)
+                onWindowChange(selectedWindow)
+              }
+            }}
+          />
+          <span>Auto:</span>
+        </label>
         <Tooltip content="Auto mode dynamically selects the time window to achieve the target pixels per data point.">
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={isAutoMode}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  onTargetPxChange(1)  // Default to 1px
-                  onWindowChange(null)
-                } else {
-                  onTargetPxChange(null)
-                  onWindowChange(selectedWindow)
-                }
-              }}
-            />
-            <span>Auto:</span>
-          </label>
+          <span className="info-icon">?</span>
         </Tooltip>
         <Tooltip content="Target pixels per aggregated data point. Lower values show more detail.">
           <select

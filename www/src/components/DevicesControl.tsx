@@ -42,22 +42,25 @@ export function DevicesControl({
     return null
   }
 
+  const tooltipContent = <div>
+    <p>Select devices to display on the chart (at least one device must be selected).</p>
+    {isMultiDevice ? <p>🎨: Configure how devices are visually distinguished (HSL color shifts, dashed lines, or none).</p> : null}
+  </div>
+
   return (
     <div className="control-group devices-section no-footer">
       <div className="header devices-header">
         <label className="unselectable">Devices:</label>
+        <Tooltip content={tooltipContent}>
+          <span className="info-icon">?</span>
+        </Tooltip>
         <details
           ref={detailsRef}
           className={`render-settings-details ${!isMultiDevice ? 'disabled' : ''}`}
         >
-          <Tooltip content={isMultiDevice
-            ? "Configure how multiple devices are visually distinguished"
-            : "Select multiple devices to configure visual distinction"
-          }>
-            <summary>
-              <span className="settings-icon">🎨</span>
-            </summary>
-          </Tooltip>
+          <summary>
+            <span className="settings-icon">🎨</span>
+          </summary>
           {isMultiDevice && (
             <div className="render-settings-panel">
               <div className="setting-row">
@@ -79,7 +82,7 @@ export function DevicesControl({
                       ? "Use dashed lines for secondary devices"
                       : "No visual distinction between devices"
                 }>
-                  <span className="strategy-help">?</span>
+                  <span className="info-icon">?</span>
                 </Tooltip>
               </div>
 

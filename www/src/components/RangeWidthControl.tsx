@@ -12,7 +12,6 @@ interface RangeWidthControlProps {
   formatCompactDate: (date: Date) => string
   formatFullDate: (date: Date) => string
   summary: DataSummary | null
-  isMobile: boolean
 }
 
 const timeRangeOptions = [
@@ -35,20 +34,26 @@ export function RangeWidthControl({
   formatCompactDate: _formatCompactDate,
   formatFullDate,
   summary: _summary,
-  isMobile
 }: RangeWidthControlProps) {
   const activeRange = getActiveTimeRange()
 
-  const tooltipContent = xAxisRange
+  const rangeText = xAxisRange
     ? `${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`
     : 'All data'
+
+  const tooltipContent = <div>
+    <p>Current: {rangeText}</p>
+    <p>Duration dropdown hotkeys: 1=12h, 2=1d, 3=3d, 4=7d, 5=14d, 6=30d, 0=All</p>
+    <p>▶|: "Latest" mode; auto-follow newest data (hotkey: l)</p>
+  </div>
 
   return (
     <div className="control-group range-width-section no-footer">
       {/* Row 1: Label */}
       <div className="header">
+        <label className="unselectable">X Range:</label>
         <Tooltip content={tooltipContent}>
-          <label className="unselectable">X Range:</label>
+          <span className="info-icon">?</span>
         </Tooltip>
       </div>
 
@@ -75,7 +80,7 @@ export function RangeWidthControl({
           ))}
         </select>
 
-        {isMobile ? (
+        <Tooltip content="Latest mode: auto-follow newest data (l)">
           <label className="checkbox-label latest-checkbox">
             <input
               type="checkbox"
@@ -84,18 +89,7 @@ export function RangeWidthControl({
             />
             <i className="fas fa-forward-step"></i>
           </label>
-        ) : (
-          <Tooltip content="Auto-follow latest data (Keyboard: l)">
-            <label className="checkbox-label latest-checkbox">
-              <input
-                type="checkbox"
-                checked={latestModeIntended}
-                onChange={handleLatestButtonClick}
-              />
-              <i className="fas fa-forward-step"></i>
-            </label>
-          </Tooltip>
-        )}
+        </Tooltip>
       </div>
     </div>
   )
