@@ -1,16 +1,10 @@
 import React from 'react'
-import { metricConfig } from './ChartControls'
+import { metricConfig, getRangeFloor } from './ChartControls'
 import { HoverableToggleButton } from './HoverableToggleButton'
 import { Tooltip } from './Tooltip'
 import type { LegendHoverState } from './AwairChart'
 import type { MetricsState } from "../hooks/useMetrics"
 import type { Metric } from "../lib/urlParams"
-
-// Helper to safely get rangeFloor with fallback to 0
-const getRangeFloor = (metric: Metric): number => {
-  const config = metricConfig[metric]
-  return ('rangeFloor' in config) ? config.rangeFloor! : 0
-}
 
 interface CustomLegendProps {
   metrics: MetricsState

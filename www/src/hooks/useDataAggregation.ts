@@ -39,7 +39,7 @@ export const TIME_WINDOWS: TimeWindow[] = [
 ]
 
 // Aggregate data into time windows for performance and visual clarity
-function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedData[] {
+export function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedData[] {
   if (data.length === 0) return []
 
   // For 1-minute windows, return raw data in the expected format

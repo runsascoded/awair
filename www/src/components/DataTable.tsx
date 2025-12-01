@@ -1,17 +1,4 @@
-import {
-  useFloating,
-  autoUpdate,
-  offset,
-  flip,
-  shift,
-  useHover,
-  useFocus,
-  useDismiss,
-  useRole,
-  useInteractions,
-  FloatingPortal
-} from '@floating-ui/react'
-import React, { useState, useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Tooltip } from './Tooltip'
 
 interface AggregatedData {
@@ -54,61 +41,6 @@ interface Props {
   formatForPlotly: (date: Date) => string;
   pageSize: number;
   onPageSizeChange: (size: number) => void;
-}
-
-// Simple tooltip component for table values
-function ValueTooltip({ children, content }: { children: React.ReactElement; content: string }) {
-  const [isOpen, setIsOpen] = useState(false)
-
-  const { refs, floatingStyles, context } = useFloating({
-    open: isOpen,
-    onOpenChange: setIsOpen,
-    placement: 'top',
-    middleware: [
-      offset(5),
-      flip(),
-      shift()
-    ],
-    whileElementsMounted: autoUpdate,
-  })
-
-  const hover = useHover(context)
-  const focus = useFocus(context)
-  const dismiss = useDismiss(context)
-  const role = useRole(context, { role: 'tooltip' })
-
-  const { getReferenceProps, getFloatingProps } = useInteractions([
-    hover,
-    focus,
-    dismiss,
-    role,
-  ])
-
-  return (
-    <>
-      {React.cloneElement(children, getReferenceProps({ ref: refs.setReference, ...(children.props as Record<string, unknown>) }))}
-      {isOpen && (
-        <FloatingPortal>
-          <div
-            ref={refs.setFloating}
-            style={{
-              ...floatingStyles,
-              backgroundColor: 'rgba(0, 0, 0, 0.9)',
-              color: 'white',
-              padding: '6px 10px',
-              borderRadius: '4px',
-              fontSize: '13px',
-              maxWidth: '200px',
-              zIndex: 1000,
-            }}
-            {...getFloatingProps()}
-          >
-            {content}
-          </div>
-        </FloatingPortal>
-      )}
-    </>
-  )
 }
 
 export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, windowLabel, fullDataStartTime, fullDataEndTime, windowMinutes, deviceAggregations, selectedDeviceId, onDeviceChange, timeRange, setTimeRange, formatForPlotly: _formatForPlotly, pageSize, onPageSizeChange }: Props) {
@@ -389,9 +321,9 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               <tr key={startIdx + idx}>
                 <td>
                   {isRawData ? (
-                    <ValueTooltip content={formatFullDate(record.timestamp)}>
+                    <Tooltip maxWidth={200} content={formatFullDate(record.timestamp)}>
                       <span className="help-cursor">{formatCompactDate(record.timestamp)}</span>
-                    </ValueTooltip>
+                    </Tooltip>
                   ) : (
                     formatCompactDate(record.timestamp)
                   )}
@@ -400,45 +332,45 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                   {isRawData ? (
                     record.temp_avg.toFixed(1)
                   ) : (
-                    <ValueTooltip content={`±σ: ${(record.temp_avg - record.temp_stddev).toFixed(1)} - ${(record.temp_avg + record.temp_stddev).toFixed(1)} °F${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
+                    <Tooltip maxWidth={200} content={`±σ: ${(record.temp_avg - record.temp_stddev).toFixed(1)} - ${(record.temp_avg + record.temp_stddev).toFixed(1)} °F${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
                       <span className="help-cursor">{record.temp_avg.toFixed(1)}</span>
-                    </ValueTooltip>
+                    </Tooltip>
                   )}
                 </td>
                 <td>
                   {isRawData ? (
                     record.humid_avg.toFixed(1)
                   ) : (
-                    <ValueTooltip content={`±σ: ${(record.humid_avg - record.humid_stddev).toFixed(1)} - ${(record.humid_avg + record.humid_stddev).toFixed(1)} %${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
+                    <Tooltip maxWidth={200} content={`±σ: ${(record.humid_avg - record.humid_stddev).toFixed(1)} - ${(record.humid_avg + record.humid_stddev).toFixed(1)} %${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
                       <span className="help-cursor">{record.humid_avg.toFixed(1)}</span>
-                    </ValueTooltip>
+                    </Tooltip>
                   )}
                 </td>
                 <td>
                   {isRawData ? (
                     Math.round(record.co2_avg)
                   ) : (
-                    <ValueTooltip content={`±σ: ${Math.round(record.co2_avg - record.co2_stddev)} - ${Math.round(record.co2_avg + record.co2_stddev)} ppm${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
+                    <Tooltip maxWidth={200} content={`±σ: ${Math.round(record.co2_avg - record.co2_stddev)} - ${Math.round(record.co2_avg + record.co2_stddev)} ppm${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
                       <span className="help-cursor">{Math.round(record.co2_avg)}</span>
-                    </ValueTooltip>
+                    </Tooltip>
                   )}
                 </td>
                 <td>
                   {isRawData ? (
                     Math.round(record.voc_avg)
                   ) : (
-                    <ValueTooltip content={`±σ: ${Math.round(record.voc_avg - record.voc_stddev)} - ${Math.round(record.voc_avg + record.voc_stddev)} ppb${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
+                    <Tooltip maxWidth={200} content={`±σ: ${Math.round(record.voc_avg - record.voc_stddev)} - ${Math.round(record.voc_avg + record.voc_stddev)} ppb${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
                       <span className="help-cursor">{Math.round(record.voc_avg)}</span>
-                    </ValueTooltip>
+                    </Tooltip>
                   )}
                 </td>
                 <td>
                   {isRawData ? (
                     record.pm25_avg.toFixed(1)
                   ) : (
-                    <ValueTooltip content={`±σ: ${(record.pm25_avg - record.pm25_stddev).toFixed(1)} - ${(record.pm25_avg + record.pm25_stddev).toFixed(1)} μg/m³${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
+                    <Tooltip maxWidth={200} content={`±σ: ${(record.pm25_avg - record.pm25_stddev).toFixed(1)} - ${(record.pm25_avg + record.pm25_stddev).toFixed(1)} μg/m³${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
                       <span className="help-cursor">{record.pm25_avg.toFixed(1)}</span>
-                    </ValueTooltip>
+                    </Tooltip>
                   )}
                 </td>
               </tr>

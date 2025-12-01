@@ -64,6 +64,12 @@ const metricConfig = {
 
 export type MetricKey = keyof typeof metricConfig
 
+// Helper to safely get rangeFloor with fallback to 0
+export const getRangeFloor = (metric: MetricKey): number => {
+  const config = metricConfig[metric]
+  return ('rangeFloor' in config) ? config.rangeFloor : 0
+}
+
 export function ChartControls({
   metrics: _metrics,
   deviceRenderStrategy,

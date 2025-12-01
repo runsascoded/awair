@@ -1,7 +1,7 @@
 import { useUrlParam } from '@rdub/use-url-params'
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
-import { ChartControls, metricConfig } from './ChartControls'
+import { ChartControls, metricConfig, getRangeFloor } from './ChartControls'
 import { CustomLegend } from './CustomLegend'
 import { DataTable } from './DataTable'
 import { TIME_WINDOWS } from '../hooks/useDataAggregation'
@@ -28,12 +28,6 @@ export type LegendHoverState =
   | { type: 'trace', deviceIndex: number, metric: 'primary' | 'secondary' }
   | { type: 'metric', metric: 'primary' | 'secondary' }
   | null
-
-// Helper to safely get rangeFloor with fallback to 0
-const getRangeFloor = (metric: Metric): number => {
-  const config = metricConfig[metric]
-  return ('rangeFloor' in config) ? config.rangeFloor! : 0
-}
 
 interface Props {
   deviceDataResults: DeviceDataResult[]
@@ -219,7 +213,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
 
   const {
     autoUpdateRange,
-    checkUserPanAway: _checkUserPanAway,
     jumpToLatest,
     setIgnoreNextPanCheck
   } = useLatestMode(data, xAxisRange, formatForPlotly, latestModeIntended, setLatestModeIntended)

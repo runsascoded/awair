@@ -16,9 +16,10 @@ import React, { useState } from 'react'
 interface TooltipProps {
   children: React.ReactElement
   content: string
+  maxWidth?: number
 }
 
-export function Tooltip({ children, content }: TooltipProps) {
+export function Tooltip({ children, content, maxWidth = 300 }: TooltipProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   const { refs, floatingStyles, context } = useFloating({
@@ -59,7 +60,7 @@ export function Tooltip({ children, content }: TooltipProps) {
               padding: '6px 10px',
               borderRadius: '4px',
               fontSize: '13px',
-              maxWidth: '300px',
+              maxWidth,
               zIndex: 1000,
             }}
             {...getFloatingProps()}
