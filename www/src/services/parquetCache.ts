@@ -143,10 +143,15 @@ export class ParquetCache {
       return false
     }
 
+    const oldRgCount = this.rowGroupInfos.length
+    const oldFileSize = this.fileSize
+
     // Fetch from last RG start to EOF
     // This fetches ~90-160KB (last RG + footer), which is > metadataFetchSize (64KB)
     const lastRgInfo = this.rowGroupInfos[this.rowGroupInfos.length - 1]
     const fetchStart = lastRgInfo.startByte
+
+    console.log(`🔄 Refresh: file size ${oldFileSize} → ${newFileSize}, fetching from byte ${fetchStart}`)
 
     const res = await this.fetchFn(this.url, {
       headers: { Range: `bytes=${fetchStart}-` }, // Open-ended!
@@ -170,6 +175,19 @@ export class ParquetCache {
 
     // Re-index row groups (may have new RGs)
     this.indexRowGroups()
+
+    const newRgCount = this.rowGroupInfos.length
+
+    // Detect major structural change (RG count changed significantly)
+    if (Math.abs(newRgCount - oldRgCount) > 5 || newFileSize < oldFileSize * 0.8) {
+      console.warn(`⚠️ Major file restructure detected: ${oldRgCount} → ${newRgCount} RGs, clearing cache and reinitializing`)
+      this.blobCache.clear()
+      this.tailCache = null
+      await this.initialize()
+      return true
+    }
+
+    console.log(`✅ Refresh complete: ${oldRgCount} → ${newRgCount} RGs, tail cache ${this.tailCache.byteLength} bytes`)
 
     // Promote newly-completed RGs to blob cache
     this.promoteCompletedRowGroups()
