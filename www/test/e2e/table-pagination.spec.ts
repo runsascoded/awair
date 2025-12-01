@@ -204,14 +204,24 @@ test.describe('Table Pagination Navigation', () => {
   })
 
   test('cannot navigate forward past Latest', async ({ page }) => {
+    // Explicitly jump to Latest to ensure we're at the right position
+    // (works with both mocked and live data)
+    const jumpLatestBtn = page.locator('.pagination button[aria-label="Jump to Latest"]')
+
+    // If already at latest, button will be disabled; if not, click it
+    const isDisabled = await jumpLatestBtn.isDisabled()
+    if (!isDisabled) {
+      await jumpLatestBtn.click()
+      await page.waitForTimeout(500)
+    }
+
     // At latest, > and >> buttons should be disabled
     const forwardPage = page.locator('.pagination button[aria-label="Pan forward by one page"]')
     const forwardPlot = page.locator('.pagination button[aria-label="Pan forward by plot width"]')
-    const jumpLatest = page.locator('.pagination button[aria-label="Jump to Latest"]')
 
     await expect(forwardPage).toBeDisabled()
     await expect(forwardPlot).toBeDisabled()
-    await expect(jumpLatest).toBeDisabled()
+    await expect(jumpLatestBtn).toBeDisabled()
   })
 
   test('cannot navigate backward past earliest', async ({ page }) => {
