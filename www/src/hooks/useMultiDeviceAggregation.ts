@@ -25,7 +25,7 @@ export function useMultiDeviceAggregation(
   deviceDataResults: DeviceDataResult[],
   devices: { deviceId: number; name: string }[],
   xAxisRange: [string, string] | null,
-  options: UseDataAggregationOptions = {}
+  options: UseDataAggregationOptions,
 ): MultiDeviceAggregationResult {
   // Combine all data to determine optimal window
   const allData = useMemo(() => {

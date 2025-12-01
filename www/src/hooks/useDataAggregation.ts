@@ -213,15 +213,31 @@ export function findOptimalWindow(
 }
 
 export interface UseDataAggregationOptions {
-  containerWidth?: number
+  containerWidth: number
   overrideWindow?: TimeWindow
   targetPx?: number | null  // Target pixels per point (null = use overrideWindow)
+}
+
+/**
+ * Get the optimal window for a given duration and options.
+ * Useful for computing window size before full aggregation.
+ */
+export function getWindowForDuration(
+  durationMs: number,
+  options: UseDataAggregationOptions,
+): TimeWindow {
+  const { containerWidth, overrideWindow, targetPx } = options
+  const targetPoints = (targetPx && containerWidth)
+    ? Math.floor(containerWidth / targetPx)
+    : getTargetPoints(containerWidth)
+  const timeRangeMinutes = durationMs / (1000 * 60)
+  return findOptimalWindow(timeRangeMinutes, undefined, targetPoints, overrideWindow)
 }
 
 export function useDataAggregation(
   data: AwairRecord[],
   xAxisRange: [string, string] | null,
-  options: UseDataAggregationOptions = {}
+  options: UseDataAggregationOptions,
 ) {
   const { containerWidth, overrideWindow, targetPx } = options
   const rangeKey = xAxisRange ? `${xAxisRange[0]}-${xAxisRange[1]}` : 'null'

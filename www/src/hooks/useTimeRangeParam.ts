@@ -2,24 +2,27 @@ import { useCallback, useState, useRef, useEffect } from 'react'
 import type { AwairRecord } from '../types/awair'
 
 /**
- * Compute xAxisRange from data and timeRange
+ * Compute xAxisRange from data and timeRange.
+ * Adds a buffer (half the window size) so edge points are hoverable.
  */
-// Buffer to add after the latest data point so it's hoverable (not at edge)
-const LATEST_MODE_BUFFER_MS = 60 * 1000 // 1 minute
-
 function computeRange(
   data: AwairRecord[],
   timeRange: { timestamp: Date | null; duration: number },
-  formatForPlotly: (date: Date) => string
+  formatForPlotly: (date: Date) => string,
+  windowMinutes: number
 ): [string, string] | null {
   if (data.length === 0) return null
+
+  // Buffer = half the aggregation window, so rightmost bar/point isn't at edge
+  const bufferMs = (windowMinutes * 60 * 1000) / 2
 
   let endTime: Date
   if (timeRange.timestamp === null) {
     // In Latest mode, use current time (not data timestamp which may be cached/stale)
-    endTime = new Date(new Date().getTime() + LATEST_MODE_BUFFER_MS)
+    endTime = new Date(new Date().getTime() + bufferMs)
   } else {
-    endTime = timeRange.timestamp
+    // Non-Latest mode: add buffer after the specified timestamp
+    endTime = new Date(timeRange.timestamp.getTime() + bufferMs)
   }
   const startTime = new Date(endTime.getTime() - timeRange.duration)
   return [formatForPlotly(startTime), formatForPlotly(endTime)]
@@ -34,11 +37,15 @@ export function useTimeRangeParam(
   data: AwairRecord[],
   formatForPlotly: (date: Date) => string,
   timeRange: { timestamp: Date | null; duration: number },
-  setTimeRange: (range: { timestamp: Date | null; duration: number }) => void
+  setTimeRange: (range: { timestamp: Date | null; duration: number }) => void,
+  windowMinutes: number,
 ) {
+  // Buffer = half the aggregation window
+  const bufferMs = (windowMinutes * 60 * 1000) / 2
+
   // Compute initial range synchronously to avoid null -> range transition
   const [xAxisRange, setXAxisRangeState] = useState<[string, string] | null>(
-    () => computeRange(data, timeRange, formatForPlotly)
+    () => computeRange(data, timeRange, formatForPlotly, windowMinutes)
   )
 
   // Track if we've initialized (to handle case where data wasn't ready on first render)
@@ -46,7 +53,7 @@ export function useTimeRangeParam(
 
   // If we didn't have data on first render, initialize now
   if (!initializedRef.current && data.length > 0) {
-    const range = computeRange(data, timeRange, formatForPlotly)
+    const range = computeRange(data, timeRange, formatForPlotly, windowMinutes)
     if (range) {
       initializedRef.current = true
       setXAxisRangeState(range)
@@ -59,12 +66,12 @@ export function useTimeRangeParam(
   // Sync xAxisRange when timeRange changes (from URL or external updates)
   useEffect(() => {
     if (data.length > 0 && initializedRef.current) {
-      const range = computeRange(data, timeRange, formatForPlotly)
+      const range = computeRange(data, timeRange, formatForPlotly, windowMinutes)
       if (range) {
         setXAxisRangeState(range)
       }
     }
-  }, [timeRange, data, formatForPlotly])
+  }, [timeRange, data, formatForPlotly, windowMinutes])
 
   // Simple setXAxisRange - only updates URL param, xAxisRange syncs via useEffect
   const setXAxisRange = useCallback((
@@ -100,7 +107,7 @@ export function useTimeRangeParam(
 
     if (enabled) {
       // Add buffer so latest point isn't at edge (use current time, not cached data)
-      const endTime = new Date(new Date().getTime() + LATEST_MODE_BUFFER_MS)
+      const endTime = new Date(new Date().getTime() + bufferMs)
       const startTime = new Date(endTime.getTime() - currentDuration)
       setXAxisRangeState([formatForPlotly(startTime), formatForPlotly(endTime)])
       setTimeRange({ timestamp: null, duration: currentDuration })
@@ -108,7 +115,7 @@ export function useTimeRangeParam(
       const endTime = new Date(xAxisRange[1])
       setTimeRange({ timestamp: endTime, duration: currentDuration })
     }
-  }, [xAxisRange, timeRange.duration, setTimeRange, formatForPlotly])
+  }, [xAxisRange, timeRange.duration, setTimeRange, formatForPlotly, bufferMs])
 
   // Update duration - keeps end time fixed, adjusts start time
   const setDuration = useCallback((duration: number) => {
@@ -123,7 +130,7 @@ export function useTimeRangeParam(
       stayInLatestMode = timeDiffMinutes < 10
     } else if (timeRange.timestamp === null) {
       // Add buffer so latest point isn't at edge (use current time, not cached data)
-      endTime = new Date(new Date().getTime() + LATEST_MODE_BUFFER_MS)
+      endTime = new Date(new Date().getTime() + bufferMs)
       stayInLatestMode = true
     } else {
       endTime = timeRange.timestamp
@@ -132,7 +139,7 @@ export function useTimeRangeParam(
     const startTime = new Date(endTime.getTime() - duration)
     setXAxisRangeState([formatForPlotly(startTime), formatForPlotly(endTime)])
     setTimeRange({ timestamp: stayInLatestMode ? null : endTime, duration })
-  }, [xAxisRange, timeRange.timestamp, setTimeRange, formatForPlotly])
+  }, [xAxisRange, timeRange.timestamp, setTimeRange, formatForPlotly, bufferMs])
 
   return {
     timeRange,

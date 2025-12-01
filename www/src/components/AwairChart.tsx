@@ -4,18 +4,19 @@ import Plot from 'react-plotly.js'
 import { ChartControls, metricConfig, getRangeFloor } from './ChartControls'
 import { CustomLegend } from './CustomLegend'
 import { DataTable } from './DataTable'
-import { TIME_WINDOWS } from '../hooks/useDataAggregation'
+import { TIME_WINDOWS, getWindowForDuration } from '../hooks/useDataAggregation'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
 import { deviceRenderStrategyParam, hsvConfigParam, intFromList, xGroupingParam } from '../lib/urlParams'
-import type { Metric } from '../lib/urlParams'
 import { getFileBounds } from '../services/awairService'
+import { formatForPlotly, formatCompactDate, formatFullDate } from '../utils/dateFormat'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { PxOption } from './AggregationControl'
 import type { DeviceDataResult } from '../hooks/useMultiDeviceData'
+import type { Metric } from '../lib/urlParams'
 import type { Device } from '../services/awairService'
 import type { DataSummary } from '../types/awair'
 import type { Data, PlotRelayoutEvent } from 'plotly.js'
@@ -88,16 +89,14 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   // Refs for handling programmatic updates
   const ignoreNextRelayoutRef = useRef(false)
 
-  // Date formatting utilities - consistent local time format
-  const formatForPlotly = useCallback((date: Date) => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    const seconds = String(date.getSeconds()).padStart(2, '0')
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
-  }, [])
+  // Compute window size for buffer calculation (before useTimeRangeParam)
+  const windowMinutes = useMemo(() => {
+    return getWindowForDuration(timeRangeFromProps.duration, {
+      containerWidth: viewportWidth,
+      overrideWindow,
+      targetPx,
+    }).minutes
+  }, [timeRangeFromProps.duration, viewportWidth, overrideWindow, targetPx])
 
   // Time range management - use props instead of internal hook
   const {
@@ -106,47 +105,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     setXAxisRange,
     setLatestModeIntended,
     setDuration
-  } = useTimeRangeParam(data, formatForPlotly, timeRangeFromProps, setTimeRangeFromProps)
-
-  const formatCompactDate = useCallback((date: Date) => {
-    const currentYear = new Date().getFullYear()
-    const dateYear = date.getFullYear()
-    const month = String(date.getMonth() + 1)
-    const day = String(date.getDate())
-    const hours = date.getHours()
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
-    const ampm = hours < 12 ? 'a' : 'p'
-    const yearPart = dateYear !== currentYear ? `/${String(dateYear).slice(-2)}` : ''
-    return `${month}/${day}${yearPart} ${hour12}:${minutes}${ampm}`
-  }, [])
-
-  const formatFullDate = useCallback((date: Date) => {
-    const currentYear = new Date().getFullYear()
-    const dateYear = date.getFullYear()
-    const month = String(date.getMonth() + 1)
-    const day = String(date.getDate())
-    const hours = date.getHours()
-    const minutes = date.getMinutes()
-    const seconds = date.getSeconds()
-    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
-    const ampm = hours < 12 ? 'am' : 'pm'
-
-    // Build time string, omitting :00 seconds and :00 minutes
-    let timeStr = `${hour12}`
-    if (minutes !== 0 || seconds !== 0) {
-      timeStr += `:${String(minutes).padStart(2, '0')}`
-    }
-    if (seconds !== 0) {
-      timeStr += `:${String(seconds).padStart(2, '0')}`
-    }
-    timeStr += ampm
-
-    // Build date string, omitting year if current year
-    const dateStr = dateYear === currentYear ? `${month}/${day}` : `${month}/${day}/${String(dateYear).slice(-2)}`
-
-    return `${dateStr} ${timeStr}`
-  }, [])
+  } = useTimeRangeParam(data, formatForPlotly, timeRangeFromProps, setTimeRangeFromProps, windowMinutes)
 
   // Metrics and Y-axis mode now persisted in URL params (via useUrlParam above)
 

@@ -188,7 +188,7 @@ test.describe('Table Pagination Navigation', () => {
     await page.waitForTimeout(500)
 
     // Verify we're at earliest
-    let tableText = await page.locator('.pagination span').textContent()
+    const tableText = await page.locator('.pagination span').textContent()
     expect(tableText).toBe('253,419-253,438 of 254,859 × 1m')
 
     // NOTE: Cannot test ">| Latest" with stale test data.
