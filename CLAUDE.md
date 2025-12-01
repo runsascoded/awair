@@ -67,7 +67,7 @@ aws logs tail /aws/lambda/awair-updater-137496 --follow  # BR
 ```bash
 cd www
 pnpm install                  # Install dependencies
-pnpm run dev                  # Start dev server (http://localhost:5173)
+pnpm run dev                  # Start dev server (http://localhost:5173); don't try to run this yourself, user will have an instance running
 pnpm run build                # Build for production
 pnpm run lint                 # Lint code
 pnpm run test                 # Run tests
@@ -329,3 +329,7 @@ The frontend uses a `DataSource` interface (`www/src/services/dataSource.ts`) to
 - CloudFlare Workers: ~5ms cold start
 - AWS Lambda + SnapStart: ~276ms cold start (Python 3.12+)
 - DuckDB-WASM: SQL queries, fast aggregation
+
+### ROADMAP Conventions
+
+`www/ROADMAP.md` tracks planned work. Remove completed items (don't leave them checked off); history is in git.

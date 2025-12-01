@@ -12,9 +12,7 @@
 
 ## 1. UI Polish & Improvements
 
-### Mobile Accessibility
-- [ ] Tooltips on clickable controls don't work on mobile
-- [ ] Options: move tooltip content to adjacent title text, or add info icons
+(No current items)
 
 ---
 
