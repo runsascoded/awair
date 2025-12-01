@@ -116,9 +116,9 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
     <div className="data-table">
       <div className="header">
         <h3>{isRawData ? 'Raw Data' : 'Aggregated Data'}</h3>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {deviceAggregations.length > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div className="table-controls">
+          <div className="selects-row">
+            {deviceAggregations.length > 1 && (
               <select
                 id="device-select"
                 value={selectedDeviceId}
@@ -130,25 +130,25 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                   </option>
                 ))}
               </select>
+            )}
+            <div className="rows-picker">
+              <label htmlFor="rows-per-page">Rows:</label>
+              <select
+                id="rows-per-page"
+                value={pageSize}
+                onChange={(e) => {
+                  const newSize = parseInt(e.target.value)
+                  onPageSizeChange(newSize)
+                  setPage(0)
+                }}
+              >
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+              </select>
             </div>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <label htmlFor="rows-per-page">Rows:</label>
-            <select
-              id="rows-per-page"
-              value={pageSize}
-              onChange={(e) => {
-                const newSize = parseInt(e.target.value)
-                onPageSizeChange(newSize)
-                setPage(0) // Reset to first page when changing page size
-              }}
-            >
-              <option value="10">10</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-              <option value="200">200</option>
-            </select>
           </div>
           <div className="pagination">
             <Tooltip
@@ -228,8 +228,10 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                 <i className="fas fa-angle-left"></i>
               </button>
             </Tooltip>
-            <span>
-              {globalStartIdx.toLocaleString()}-{globalEndIdx.toLocaleString()} of {totalDataCount.toLocaleString()} × {windowLabel}
+            <span className="page-info">
+              <span className="range">{globalStartIdx.toLocaleString()}-{globalEndIdx.toLocaleString()}</span>
+              {' of '}
+              <span className="total">{totalDataCount.toLocaleString()} × {windowLabel}</span>
             </span>
             <Tooltip
               content={
