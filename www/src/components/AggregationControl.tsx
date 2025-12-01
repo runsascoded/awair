@@ -45,7 +45,11 @@ export function AggregationControl({
     <div className="control-group aggregation-section">
       <div className="header">
         <label className="unselectable">X grouping:</label>
-        <Tooltip content="Raw data arrives ≈1/min. Points are grouped into time windows for visualization. Smaller windows show more detail but may slow rendering.">
+        <Tooltip content={<div><ul>
+          <li>Raw data arrives 1/min.</li>
+          <li>Points are grouped into time windows for visualization.</li>
+          <li>Smaller windows show more detail, but may be noisier visually.</li>
+        </ul></div>}>
           <span className="info-icon">?</span>
         </Tooltip>
       </div>

@@ -743,6 +743,10 @@ footer {
       &.checked {
         background: var(--accent-tertiary);
         border-color: var(--accent-primary);
+
+        .name {
+          color: var(--text-primary);
+        }
       }
 
       &.disabled {
@@ -757,7 +761,7 @@ footer {
       }
 
       .name {
-        color: var(--text-primary);
+        color: var(--text-secondary);
         font-weight: 500;
       }
     }
@@ -856,6 +860,23 @@ footer {
 
 .info-icon {
   @extend %info-icon-base;
+}
+
+// Tooltip content styling
+.tooltip-content {
+  ul {
+    margin: 0;
+    padding-left: 1.25em;
+  }
+  p {
+    margin: 0.25em 0;
+    &:first-child {
+      margin-top: 0;
+    }
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
 }
 
 // Range control

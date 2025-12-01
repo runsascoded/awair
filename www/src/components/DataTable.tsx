@@ -29,6 +29,7 @@ interface Props {
   formatFullDate: (date: Date) => string;
   isRawData: boolean;
   totalDataCount: number;
+  rawDataCount: number;
   windowLabel: string;
   fullDataStartTime?: Date;
   fullDataEndTime?: Date;
@@ -43,7 +44,7 @@ interface Props {
   onPageSizeChange: (size: number) => void;
 }
 
-export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, windowLabel, fullDataStartTime, fullDataEndTime, windowMinutes, deviceAggregations, selectedDeviceId, onDeviceChange, timeRange, setTimeRange, formatForPlotly: _formatForPlotly, pageSize, onPageSizeChange }: Props) {
+export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, rawDataCount, windowLabel, fullDataStartTime, fullDataEndTime, windowMinutes, deviceAggregations, selectedDeviceId, onDeviceChange, timeRange, setTimeRange, formatForPlotly: _formatForPlotly, pageSize, onPageSizeChange }: Props) {
   const [page, setPage] = useState(0)
 
   // Reverse the data to show most recent first (reverse chronological)
@@ -204,7 +205,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
             <Tooltip
               content={
                 timeRange.timestamp || fullDataEndTime
-                  ? `Rewind by ${pageSize} time points, to ${formatFullDate(new Date(((timeRange.timestamp || fullDataEndTime)!).getTime() - pageSize * windowMinutes * 60 * 1000))}`
+                  ? `Rewind by ${pageSize} time points (by one table page), to ${formatFullDate(new Date(((timeRange.timestamp || fullDataEndTime)!).getTime() - pageSize * windowMinutes * 60 * 1000))}`
                   : "Pan backward by one table page"
               }
             >
@@ -228,11 +229,21 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                 <i className="fas fa-angle-left"></i>
               </button>
             </Tooltip>
-            <span className="page-info">
-              <span className="range">{globalStartIdx.toLocaleString()}-{globalEndIdx.toLocaleString()}</span>
-              {' of '}
-              <span className="total">{totalDataCount.toLocaleString()} × {windowLabel}</span>
-            </span>
+            <Tooltip content={
+              fullDataStartTime && fullDataEndTime
+                ? <div>
+                  <p>{rawDataCount.toLocaleString()} underlying data points</p>
+                  <p>Earliest: {formatFullDate(fullDataStartTime)}</p>
+                  <p>Latest: {formatFullDate(fullDataEndTime)}</p>
+                </div>
+                : `${rawDataCount.toLocaleString()} data points`
+            }>
+              <span className="page-info">
+                <span className="range">{globalStartIdx.toLocaleString()}-{globalEndIdx.toLocaleString()}</span>
+                {' of '}
+                <span className="total">{totalDataCount.toLocaleString()} × {windowLabel}</span>
+              </span>
+            </Tooltip>
             <Tooltip
               content={
                 timeRange.timestamp && fullDataEndTime

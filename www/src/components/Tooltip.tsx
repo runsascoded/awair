@@ -11,11 +11,11 @@ import {
   useInteractions,
   FloatingPortal
 } from '@floating-ui/react'
-import React, { useState } from 'react'
+import React, { type ReactElement, type ReactNode, useState } from 'react'
 
 interface TooltipProps {
-  children: React.ReactElement
-  content: string
+  children: ReactElement
+  content: ReactNode
   maxWidth?: number
 }
 
@@ -53,6 +53,7 @@ export function Tooltip({ children, content, maxWidth = 300 }: TooltipProps) {
         <FloatingPortal>
           <div
             ref={refs.setFloating}
+            className="tooltip-content"
             style={{
               ...floatingStyles,
               backgroundColor: 'rgba(0, 0, 0, 0.9)',

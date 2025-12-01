@@ -631,17 +631,18 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   // Consolidate table metadata calculations
   const tableMetadata = useMemo(() => {
     if (!selectedDeviceIdForTable) {
-      return { totalDataCount: 0, fullDataStartTime: undefined, fullDataEndTime: undefined }
+      return { totalDataCount: 0, rawDataCount: 0, fullDataStartTime: undefined, fullDataEndTime: undefined }
     }
 
     const bounds = getFileBounds(selectedDeviceIdForTable)
     if (!bounds) {
-      return { totalDataCount: 0, fullDataStartTime: undefined, fullDataEndTime: undefined }
+      return { totalDataCount: 0, rawDataCount: 0, fullDataStartTime: undefined, fullDataEndTime: undefined }
     }
 
     const totalMinutes = (bounds.latest.getTime() - bounds.earliest.getTime()) / (1000 * 60)
     return {
       totalDataCount: Math.ceil(totalMinutes / selectedWindow.minutes),
+      rawDataCount: Math.ceil(totalMinutes),  // ~1 data point per minute
       fullDataStartTime: bounds.earliest,
       fullDataEndTime: bounds.latest,
     }
@@ -839,6 +840,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           formatFullDate={formatFullDate}
           isRawData={isRawData}
           totalDataCount={tableMetadata.totalDataCount}
+          rawDataCount={tableMetadata.rawDataCount}
           windowLabel={selectedWindow.label}
           fullDataStartTime={tableMetadata.fullDataStartTime}
           fullDataEndTime={tableMetadata.fullDataEndTime}

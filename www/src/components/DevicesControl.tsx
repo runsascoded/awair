@@ -54,14 +54,14 @@ export function DevicesControl({
         <Tooltip content={tooltipContent}>
           <span className="info-icon">?</span>
         </Tooltip>
-        <details
-          ref={detailsRef}
-          className={`render-settings-details ${!isMultiDevice ? 'disabled' : ''}`}
-        >
-          <summary>
-            <span className="settings-icon">🎨</span>
-          </summary>
-          {isMultiDevice && (
+        {isMultiDevice && (
+          <details
+            ref={detailsRef}
+            className="render-settings-details"
+          >
+            <summary>
+              <span className="settings-icon">🎨</span>
+            </summary>
             <div className="render-settings-panel">
               <div className="setting-row">
                 <label>Strategy:</label>
@@ -129,8 +129,8 @@ export function DevicesControl({
                 </>
               )}
             </div>
-          )}
-        </details>
+          </details>
+        )}
       </div>
 
       <div className="body device-checkboxes">

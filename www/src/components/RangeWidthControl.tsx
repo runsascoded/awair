@@ -41,11 +41,11 @@ export function RangeWidthControl({
     ? `${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`
     : 'All data'
 
-  const tooltipContent = <div>
-    <p>Current: {rangeText}</p>
-    <p>Duration dropdown hotkeys: 1=12h, 2=1d, 3=3d, 4=7d, 5=14d, 6=30d, 0=All</p>
-    <p>▶|: "Latest" mode; auto-follow newest data (hotkey: l)</p>
-  </div>
+  const tooltipContent = <div><ul>
+    <li><b>Current:</b> {rangeText}</li>
+    <li><b>▶|:</b> "Latest" mode; auto-follow newest data (hotkey: l)</li>
+    <li><b>Hotkeys:</b> 1=12h, 2=1d, 3=3d, 4=7d, 5=14d, 6=30d, 0=All</li>
+  </ul></div>
 
   return (
     <div className="control-group range-width-section no-footer">
