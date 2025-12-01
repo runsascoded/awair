@@ -6,6 +6,12 @@ import type { LegendHoverState } from './AwairChart'
 import type { MetricsState } from "../hooks/useMetrics"
 import type { Metric } from "../lib/urlParams"
 
+// Helper to safely get rangeFloor with fallback to 0
+const getRangeFloor = (metric: Metric): number => {
+  const config = metricConfig[metric]
+  return ('rangeFloor' in config) ? config.rangeFloor! : 0
+}
+
 interface CustomLegendProps {
   metrics: MetricsState
   isMobile: boolean
@@ -100,9 +106,9 @@ export function CustomLegend({
                 onChange={(active) => l.setAutoRange(!active)}
                 onDisplayChange={(display) => onLeftAutoRangeDisplayChange(!display)}
                 className="range-mode-btn"
-                title={l.autoRange ? `Click for range ≥${metricConfig[l.val].rangeFloor ?? 0}` : `Range starts at ${metricConfig[l.val].rangeFloor ?? 0} (click for auto-range)`}
+                title={l.autoRange ? `Click for range ≥${getRangeFloor(l.val)}` : `Range starts at ${getRangeFloor(l.val)} (click for auto-range)`}
               >
-                ≥{metricConfig[l.val].rangeFloor ?? 0}
+                ≥{getRangeFloor(l.val)}
               </HoverableToggleButton>
             </>
           ) : (
@@ -119,14 +125,14 @@ export function CustomLegend({
                   ))}
                 </select>
               </Tooltip>
-              <Tooltip content={l.autoRange ? 'Auto-range (a to toggle)' : `Range ≥${metricConfig[l.val].rangeFloor ?? 0} (a to toggle)`}>
+              <Tooltip content={l.autoRange ? 'Auto-range (a to toggle)' : `Range ≥${getRangeFloor(l.val)} (a to toggle)`}>
                 <HoverableToggleButton
                   value={!l.autoRange}
                   onChange={(active) => l.setAutoRange(!active)}
                   onDisplayChange={(display) => onLeftAutoRangeDisplayChange(!display)}
                   className="range-mode-btn"
                 >
-                  ≥{metricConfig[l.val].rangeFloor ?? 0}
+                  ≥{getRangeFloor(l.val)}
                 </HoverableToggleButton>
               </Tooltip>
             </>
@@ -169,9 +175,9 @@ export function CustomLegend({
                   onChange={(active) => r.setAutoRange(!active)}
                   onDisplayChange={(display) => onRightAutoRangeDisplayChange(!display)}
                   className="range-mode-btn"
-                  title={r.autoRange ? `Click for range ≥${metricConfig[r.val as Metric].rangeFloor ?? 0}` : `Range starts at ${metricConfig[r.val as Metric].rangeFloor ?? 0} (click for auto-range)`}
+                  title={r.autoRange ? `Click for range ≥${getRangeFloor(r.val as Metric)}` : `Range starts at ${getRangeFloor(r.val as Metric)} (click for auto-range)`}
                 >
-                  ≥{metricConfig[r.val as Metric].rangeFloor ?? 0}
+                  ≥{getRangeFloor(r.val as Metric)}
                 </HoverableToggleButton>
                 <select
                   value={r.val}
@@ -189,14 +195,14 @@ export function CustomLegend({
               </>
             ) : (
               <>
-                <Tooltip content={r.autoRange ? 'Auto-range (Shift+A to toggle)' : `Range ≥${metricConfig[r.val as Metric].rangeFloor ?? 0} (Shift+A to toggle)`}>
+                <Tooltip content={r.autoRange ? 'Auto-range (Shift+A to toggle)' : `Range ≥${getRangeFloor(r.val as Metric)} (Shift+A to toggle)`}>
                   <HoverableToggleButton
                     value={!r.autoRange}
                     onChange={(active) => r.setAutoRange(!active)}
                     onDisplayChange={(display) => onRightAutoRangeDisplayChange(!display)}
                     className="range-mode-btn"
                   >
-                    ≥{metricConfig[r.val as Metric].rangeFloor ?? 0}
+                    ≥{getRangeFloor(r.val as Metric)}
                   </HoverableToggleButton>
                 </Tooltip>
                 <Tooltip content="Right Y-axis metric (Keyboard: Shift+T, Shift+C, Shift+H, Shift+P, Shift+V, Shift+N=None)">

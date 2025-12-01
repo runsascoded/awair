@@ -11,6 +11,7 @@ import { useMetrics } from '../hooks/useMetrics'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
 import { deviceRenderStrategyParam, hsvConfigParam, intFromList, xGroupingParam } from '../lib/urlParams'
+import type { Metric } from '../lib/urlParams'
 import { getFileBounds } from '../services/awairService'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { PxOption } from './AggregationControl'
@@ -27,6 +28,12 @@ export type LegendHoverState =
   | { type: 'trace', deviceIndex: number, metric: 'primary' | 'secondary' }
   | { type: 'metric', metric: 'primary' | 'secondary' }
   | null
+
+// Helper to safely get rangeFloor with fallback to 0
+const getRangeFloor = (metric: Metric): number => {
+  const config = metricConfig[metric]
+  return ('rangeFloor' in config) ? config.rangeFloor! : 0
+}
 
 interface Props {
   deviceDataResults: DeviceDataResult[]
@@ -663,7 +670,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     tickformat: '.3~s',
     // If not auto-ranging: use floor as minimum (default 0 with rangemode tozero)
     ...(!autoRange && floor === 0 && { rangemode: 'tozero' as const }),
-    ...(!autoRange && floor > 0 && { rangemode: 'nonnegative' as const, range: [floor, null] as const }),
+    ...(!autoRange && floor > 0 && { rangemode: 'nonnegative' as const, range: [floor, null] }),
     ...(side === 'right' && { overlaying: 'y' as const }),
   })
   // OG mode: fill viewport height (625px to leave room for bottom margin in 630px viewport)
@@ -689,29 +696,16 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
   }, [selectedDeviceIdForTable, selectedWindow, deviceDataResults])
 
   return (
-    <div className="awair-chart" style={isOgMode ? { position: 'relative', height: '100vh', overflow: 'hidden' } : undefined}>
+    <div className={`awair-chart${isOgMode ? ' og-mode' : ''}`}>
       {/* OG mode title overlay */}
       {isOgMode && (
-        <div style={{
-          position: 'absolute',
-          top: 8,
-          left: 0,
-          right: 0,
-          zIndex: 10,
-          textAlign: 'center',
-          fontSize: 32,
-          fontWeight: 700,
-          color: plotColors.textColor,
-          textShadow: '0 2px 8px rgba(0,0,0,0.5)',
-          pointerEvents: 'none',
-        }}>
+        <div className="og-title" style={{ color: plotColors.textColor }}>
           <span>Air Quality Dashboard</span>
-          <span style={{ fontFamily: '"Noto Color Emoji", sans-serif', marginLeft: '0.5em', letterSpacing: '-0.5em' }}>🌡️ 💨 💦 🏭 🧪</span>
+          <span className="emojis">🌡️ 💨 💦 🏭 🧪</span>
         </div>
       )}
       <div
         className="plot-container"
-        style={isOgMode ? { height: '100%' } : { position: 'relative' }}
         onMouseEnter={() => setHoverState(null)}
       >
         {!isOgMode && totalDevices > 1 && (() => {
@@ -755,6 +749,7 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           )
         })()}
         <Plot
+          className="plot-react"
           data={plotTraces}
           layout={{
             autosize: true,
@@ -792,8 +787,8 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
                 tickmode: 'array'
               })
             },
-            yaxis: createYAxisConfig('left', leftAutoRangeDisplay, metricConfig[l.val].rangeFloor ?? 0),
-            ...(secondaryConfig && { yaxis2: createYAxisConfig('right', rightAutoRangeDisplay, metricConfig[r.val].rangeFloor ?? 0) }),
+            yaxis: createYAxisConfig('left', leftAutoRangeDisplay, getRangeFloor(l.val)),
+            ...(secondaryConfig && r.val !== 'none' && { yaxis2: createYAxisConfig('right', rightAutoRangeDisplay, getRangeFloor(r.val as Metric)) }),
             margin: isOgMode
               ? { l: 50, r: 50, t: 55, b: 70 }  // Just enough for axis labels, no border
               : { l: 35, r: secondaryConfig ? 35 : 10, t: totalDevices > 1 ? (isMobile ? 55 : 65) : 0, b: 45 },
@@ -829,7 +824,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
             }
           }}
           useResizeHandler={true}
-          style={{ width: '100%', height: '100%' }}
           onRelayout={handleRelayout}
           onDoubleClick={handleDoubleClick}
           onAfterPlot={() => {

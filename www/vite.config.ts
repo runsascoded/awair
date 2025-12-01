@@ -4,6 +4,10 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    // Allow Docker container to access dev server
+    allowedHosts: ['host.docker.internal'],
+  },
   resolve: {
     alias: {
       // Use plotly-basic (smaller bundle) from fixed GitHub branch

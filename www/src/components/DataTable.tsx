@@ -184,23 +184,13 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
     <div className="data-table">
       <div className="header">
         <h3>{isRawData ? 'Raw Data' : 'Aggregated Data'}</h3>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {deviceAggregations.length > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <label htmlFor="device-select" style={{ fontSize: '14px' }}>Device:</label>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
               <select
                 id="device-select"
                 value={selectedDeviceId}
                 onChange={(e) => onDeviceChange(parseInt(e.target.value))}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '14px',
-                  borderRadius: '4px',
-                  border: '1px solid var(--border-primary)',
-                  backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer'
-                }}
               >
                 {deviceAggregations.map(device => (
                   <option key={device.deviceId} value={device.deviceId}>
@@ -210,8 +200,8 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               </select>
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <label htmlFor="rows-per-page" style={{ fontSize: '14px' }}>Rows:</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <label htmlFor="rows-per-page">Rows:</label>
             <select
               id="rows-per-page"
               value={pageSize}
@@ -219,15 +209,6 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                 const newSize = parseInt(e.target.value)
                 onPageSizeChange(newSize)
                 setPage(0) // Reset to first page when changing page size
-              }}
-              style={{
-                padding: '4px 8px',
-                fontSize: '14px',
-                borderRadius: '4px',
-                border: '1px solid var(--border-primary)',
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer'
               }}
             >
               <option value="10">10</option>
@@ -274,7 +255,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                   // Pan backward by plot width
                   // Clamp currentTimestamp to not exceed fullDataEndTime
                   const currentTimestamp = timeRange.timestamp
-                    ? new Date(Math.min(timeRange.timestamp.getTime(), fullDataEndTime.getTime()))
+                    ? new Date(Math.min(timeRange.timestamp.getTime(), fullDataEndTime?.getTime() ?? Infinity))
                     : fullDataEndTime
                   if (!currentTimestamp) return
                   const newTimestamp = new Date(currentTimestamp.getTime() - timeRange.duration)
@@ -300,7 +281,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                   // Pan backward by one table page
                   // Clamp currentTimestamp to not exceed fullDataEndTime
                   const currentTimestamp = timeRange.timestamp
-                    ? new Date(Math.min(timeRange.timestamp.getTime(), fullDataEndTime.getTime()))
+                    ? new Date(Math.min(timeRange.timestamp.getTime(), fullDataEndTime?.getTime() ?? Infinity))
                     : fullDataEndTime
                   if (!currentTimestamp) return
                   const pageShiftMs = pageSize * windowMinutes * 60 * 1000
@@ -409,7 +390,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                 <td>
                   {isRawData ? (
                     <ValueTooltip content={formatFullDate(record.timestamp)}>
-                      <span style={{ cursor: 'help' }}>{formatCompactDate(record.timestamp)}</span>
+                      <span className="help-cursor">{formatCompactDate(record.timestamp)}</span>
                     </ValueTooltip>
                   ) : (
                     formatCompactDate(record.timestamp)
@@ -420,7 +401,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                     record.temp_avg.toFixed(1)
                   ) : (
                     <ValueTooltip content={`±σ: ${(record.temp_avg - record.temp_stddev).toFixed(1)} - ${(record.temp_avg + record.temp_stddev).toFixed(1)} °F${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
-                      <span style={{ cursor: 'help' }}>{record.temp_avg.toFixed(1)}</span>
+                      <span className="help-cursor">{record.temp_avg.toFixed(1)}</span>
                     </ValueTooltip>
                   )}
                 </td>
@@ -429,7 +410,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                     record.humid_avg.toFixed(1)
                   ) : (
                     <ValueTooltip content={`±σ: ${(record.humid_avg - record.humid_stddev).toFixed(1)} - ${(record.humid_avg + record.humid_stddev).toFixed(1)} %${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
-                      <span style={{ cursor: 'help' }}>{record.humid_avg.toFixed(1)}</span>
+                      <span className="help-cursor">{record.humid_avg.toFixed(1)}</span>
                     </ValueTooltip>
                   )}
                 </td>
@@ -438,7 +419,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                     Math.round(record.co2_avg)
                   ) : (
                     <ValueTooltip content={`±σ: ${Math.round(record.co2_avg - record.co2_stddev)} - ${Math.round(record.co2_avg + record.co2_stddev)} ppm${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
-                      <span style={{ cursor: 'help' }}>{Math.round(record.co2_avg)}</span>
+                      <span className="help-cursor">{Math.round(record.co2_avg)}</span>
                     </ValueTooltip>
                   )}
                 </td>
@@ -447,7 +428,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                     Math.round(record.voc_avg)
                   ) : (
                     <ValueTooltip content={`±σ: ${Math.round(record.voc_avg - record.voc_stddev)} - ${Math.round(record.voc_avg + record.voc_stddev)} ppb${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
-                      <span style={{ cursor: 'help' }}>{Math.round(record.voc_avg)}</span>
+                      <span className="help-cursor">{Math.round(record.voc_avg)}</span>
                     </ValueTooltip>
                   )}
                 </td>
@@ -456,7 +437,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
                     record.pm25_avg.toFixed(1)
                   ) : (
                     <ValueTooltip content={`±σ: ${(record.pm25_avg - record.pm25_stddev).toFixed(1)} - ${(record.pm25_avg + record.pm25_stddev).toFixed(1)} μg/m³${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
-                      <span style={{ cursor: 'help' }}>{record.pm25_avg.toFixed(1)}</span>
+                      <span className="help-cursor">{record.pm25_avg.toFixed(1)}</span>
                     </ValueTooltip>
                   )}
                 </td>
