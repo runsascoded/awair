@@ -12,10 +12,6 @@
 
 ## 1. UI Polish & Improvements
 
-### X Range Controls
-- [x] Convert buttons to dropdown (add 12h option, reduce width)
-- [x] Keep hotkey support for direct selection
-
 ### Mobile Accessibility
 - [ ] Tooltips on clickable controls don't work on mobile
 - [ ] Options: move tooltip content to adjacent title text, or add info icons

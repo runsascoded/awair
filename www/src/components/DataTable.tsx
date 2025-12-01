@@ -272,7 +272,10 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               <button
                 onClick={() => {
                   // Pan backward by plot width
-                  const currentTimestamp = timeRange.timestamp || fullDataEndTime
+                  // Clamp currentTimestamp to not exceed fullDataEndTime
+                  const currentTimestamp = timeRange.timestamp
+                    ? new Date(Math.min(timeRange.timestamp.getTime(), fullDataEndTime.getTime()))
+                    : fullDataEndTime
                   if (!currentTimestamp) return
                   const newTimestamp = new Date(currentTimestamp.getTime() - timeRange.duration)
                   setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
@@ -295,7 +298,10 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               <button
                 onClick={() => {
                   // Pan backward by one table page
-                  const currentTimestamp = timeRange.timestamp || fullDataEndTime
+                  // Clamp currentTimestamp to not exceed fullDataEndTime
+                  const currentTimestamp = timeRange.timestamp
+                    ? new Date(Math.min(timeRange.timestamp.getTime(), fullDataEndTime.getTime()))
+                    : fullDataEndTime
                   if (!currentTimestamp) return
                   const pageShiftMs = pageSize * windowMinutes * 60 * 1000
                   const newTimestamp = new Date(currentTimestamp.getTime() - pageShiftMs)
