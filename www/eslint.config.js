@@ -1,4 +1,5 @@
 import config from '@rdub/eslint-config'
+import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default [
@@ -6,6 +7,15 @@ export default [
   ...tseslint.configs.recommended,
   {
     ignores: ['test-*.mjs', 'test-*.html'],
+  },
+  // Node.js scripts
+  {
+    files: ['har-test/**/*.mjs', 'test/**/*.mjs', 'tmp/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
   },
   {
     rules: {
