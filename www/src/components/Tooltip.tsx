@@ -11,7 +11,7 @@ import {
   useInteractions,
   FloatingPortal
 } from '@floating-ui/react'
-import React, { type ReactElement, type ReactNode, useState } from 'react'
+import React, { cloneElement, type ReactElement, type ReactNode, useState } from 'react'
 
 interface TooltipProps {
   children: ReactElement
@@ -48,7 +48,7 @@ export function Tooltip({ children, content, maxWidth = 300 }: TooltipProps) {
 
   return (
     <>
-      {React.cloneElement(children, getReferenceProps({ ref: refs.setReference, ...(children.props as Record<string, unknown>) }))}
+      {cloneElement(children, getReferenceProps({ ref: refs.setReference, ...(children.props as Record<string, unknown>) }))}
       {isOpen && (
         <FloatingPortal>
           <div

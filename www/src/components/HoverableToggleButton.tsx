@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, type ReactNode } from 'react'
 
 interface HoverableToggleButtonProps {
   value: boolean
@@ -6,7 +6,7 @@ interface HoverableToggleButtonProps {
   onDisplayChange?: (displayValue: boolean) => void
   activeLabel?: string
   inactiveLabel?: string
-  children: React.ReactNode
+  children: ReactNode
   className?: string
   title?: string
 }
