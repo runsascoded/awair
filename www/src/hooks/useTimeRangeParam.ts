@@ -79,8 +79,8 @@ function computeRange(
 ): [string, string] | null {
   if (data.length === 0) return null
 
-  // Buffer = half the aggregation window, so rightmost bar/point isn't at edge
-  const bufferMs = (windowMinutes * 60 * 1000) / 2
+  // Buffer = full aggregation window, so rightmost bar/point isn't at edge
+  const bufferMs = windowMinutes * 60 * 1000
 
   let endTime: Date
   if (timeRange.timestamp === null) {
@@ -106,8 +106,8 @@ export function useTimeRangeParam(
   setTimeRange: (range: { timestamp: Date | null; duration: number }) => void,
   windowMinutes: number,
 ) {
-  // Buffer = half the aggregation window
-  const bufferMs = (windowMinutes * 60 * 1000) / 2
+  // Buffer = full aggregation window, so rightmost bar/point isn't at edge
+  const bufferMs = windowMinutes * 60 * 1000
 
   // Compute initial range synchronously to avoid null -> range transition
   const [xAxisRange, setXAxisRangeState] = useState<[string, string] | null>(
