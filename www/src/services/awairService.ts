@@ -120,8 +120,6 @@ export async function fetchAwairData(
     deviceId = devices[0].deviceId
   }
 
-  console.log(`[${deviceId}] 🔄 Fetching data...`)
-
   // Calculate time range
   const to = timeRange.timestamp || new Date()
   const from = new Date(to.getTime() - timeRange.duration)
@@ -163,16 +161,6 @@ export async function fetchAwairData(
     earliest: fileEarliest,
     latest: fileLatest,
     dateRange,
-  }
-
-  // Calculate e2e latency (how old is the newest data point?)
-  if (fileLatest) {
-    const latestTimestamp = new Date(fileLatest).getTime()
-    const e2eLatencyMs = Date.now() - latestTimestamp
-    const e2eLatencySec = (e2eLatencyMs / 1000).toFixed(1)
-    console.log(`[${deviceId}] ✅ Fetched ${result.records.length} records (file spans ${fileEarliest} to ${fileLatest}, e2e latency: ${e2eLatencySec}s)`)
-  } else {
-    console.log(`[${deviceId}] ✅ Fetched ${result.records.length} records`)
   }
 
   return { records: result.records, summary, lastModified: result.lastModified }

@@ -59,6 +59,25 @@ export function DevicePoller({
   const summary = currentSummary || previousDataRef.current?.summary || null
   const lastModified = currentLastModified || previousDataRef.current?.lastModified || null
 
+  // Log latency only when new data arrives (lastModified changed)
+  const prevLastModifiedRef = useRef<Date | null>(null)
+  useEffect(() => {
+    const prevTime = prevLastModifiedRef.current?.getTime()
+    const currTime = currentLastModified?.getTime()
+    if (currTime && currTime !== prevTime) {
+      prevLastModifiedRef.current = currentLastModified
+      // Only log if this isn't the initial load
+      if (prevTime !== undefined) {
+        const latestTimestamp = currentSummary?.latest ? new Date(currentSummary.latest).getTime() : null
+        if (latestTimestamp) {
+          const e2eLatencyMs = Date.now() - latestTimestamp
+          const e2eLatencySec = (e2eLatencyMs / 1000).toFixed(1)
+          console.log(`[${deviceId}] ✅ New data, e2e latency: ${e2eLatencySec}s`)
+        }
+      }
+    }
+  }, [currentLastModified, currentSummary, deviceId])
+
   // Update previous data ref when we have new data
   if (currentData && currentData.length > 0) {
     previousDataRef.current = { records: currentData, summary: currentSummary, lastModified: currentLastModified }
