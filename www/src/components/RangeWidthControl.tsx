@@ -111,14 +111,12 @@ export function RangeWidthControl({
         </select>
 
         <Tooltip content="Latest mode: auto-follow newest data (l)">
-          <label className="checkbox-label latest-checkbox">
-            <input
-              type="checkbox"
-              checked={latestModeIntended}
-              onChange={handleLatestButtonClick}
-            />
+          <button
+            className={`latest-btn${latestModeIntended ? ' active' : ''}`}
+            onClick={handleLatestButtonClick}
+          >
             <i className="fas fa-forward-step"></i>
-          </label>
+          </button>
         </Tooltip>
       </div>
     </div>

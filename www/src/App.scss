@@ -890,22 +890,25 @@ footer {
   .time-range-select {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.25rem;
 
-    .latest-checkbox {
-      display: flex;
-      align-items: center;
-      gap: 0.3rem;
-      cursor: pointer;
+    .latest-btn {
       user-select: none;
-      margin-bottom: 0; // Override default label margin
+      padding: 0.15rem 0.5rem;
 
-      input[type="checkbox"] {
-        cursor: pointer;
+      &.active {
+        background: var(--accent-primary);
+        border-color: var(--accent-primary);
+        color: white;
+
+        &:hover {
+          background: var(--accent-secondary);
+          border-color: var(--accent-secondary);
+        }
       }
 
       i {
-        color: var(--text-primary);
+        font-size: 0.8rem;
       }
     }
   }
