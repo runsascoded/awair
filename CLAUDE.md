@@ -200,10 +200,11 @@ React + TypeScript + Vite application:
   - `DataTable.tsx`: Paginated data table
   - `ThemeToggle.tsx`: Dark/light mode switcher
   - `Tooltip.tsx`: Reusable tooltip component
+  - `DevicePoller.tsx`: Headless component for per-device smart polling
 
 - **Hooks**:
   - `useDevices.ts`: Fetches device list from S3
-  - `useMultiDeviceData.ts`: React Query integration for multi-device data fetching
+  - `useSmartPolling.ts`: Burst retry + exponential backoff polling synced to Lambda updates
   - `useMultiDeviceAggregation.ts`: Aggregation across multiple devices
   - `useDataAggregation.ts`: Adaptive aggregation based on zoom level and container width
   - `useTimeRangeParam.ts`: URL-persisted time range state

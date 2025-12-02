@@ -103,13 +103,13 @@ Footer: ~24KB (now using 128KB initial fetch instead of 512KB default)
   - Now uses `HyparquetSource` with caching
   - `refreshDeviceData()` for manual cache refresh
 
-- TanStack Query polling (`www/src/hooks/useMultiDeviceData.ts`)
-  - `refetchInterval` and `refetchIntervalInBackground` options
-  - 60-second polling enabled by default (only when tab active)
+- Smart polling (`www/src/hooks/useSmartPolling.ts` + `DevicePoller.tsx`)
+  - Burst retry at mtime+61s, +62s, +63s, then exponential backoff (10s→5min)
+  - Tab visibility handling (suspends when inactive)
+  - Independent polling per device (synced to each Lambda's write time)
 
 **Next steps:**
 - [ ] IndexedDB persistence (currently in-memory only)
-- [ ] Phase-shifted polling (poll ~5-10s after Lambda updates)
 - [ ] CI integration for HAR performance testing
 
 **Potential optimizations (lower priority):**
