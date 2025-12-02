@@ -62,7 +62,7 @@ export function Tooltip({ children, content, maxWidth = 300 }: TooltipProps) {
               borderRadius: '4px',
               fontSize: '13px',
               maxWidth,
-              zIndex: 1000,
+              zIndex: 10000,
             }}
             {...getFloatingProps()}
           >

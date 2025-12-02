@@ -1,0 +1,106 @@
+// Keyboard shortcuts modal
+
+.shortcuts-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.shortcuts-modal {
+  background-color: var(--bg-primary);
+  border-radius: 8px;
+  padding: 20px 24px;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  color: var(--text-primary);
+
+  .shortcuts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+
+    h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    button {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      color: var(--text-secondary);
+
+      &:hover {
+        color: var(--text-primary);
+      }
+    }
+  }
+
+  h3 {
+    margin: 16px 0 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    letter-spacing: 0.05em;
+  }
+}
+
+.shortcuts-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th, td {
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  th {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+
+  td:not(:first-child) {
+    text-align: center;
+  }
+
+  kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    padding: 2px 6px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    min-width: 24px;
+    text-align: center;
+
+    .modifier-icon {
+      width: 0.9em;
+      height: 0.9em;
+      margin-right: 1px;
+      vertical-align: middle;
+    }
+  }
+
+  .tooltip-trigger {
+    cursor: help;
+    border-bottom: 1px dotted var(--text-secondary);
+  }
+}

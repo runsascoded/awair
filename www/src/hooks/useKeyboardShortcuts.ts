@@ -18,32 +18,30 @@ interface UseKeyboardShortcutsProps {
 type Metric = 'temp' | 'co2' | 'humid' | 'pm25' | 'voc'
 
 // Hotkey map: key combination -> action name
-const HOTKEY_MAP = {
-  // Primary metrics (lowercase)
-  't': 'metric:temp',
-  'c': 'metric:co2',
-  'h': 'metric:humid',
-  'p': 'metric:pm25',
-  'v': 'metric:voc',
-  // Secondary metrics (shift)
-  'shift+t': 'metric:temp:secondary',
-  'shift+c': 'metric:co2:secondary',
-  'shift+h': 'metric:humid:secondary',
-  'shift+p': 'metric:pm25:secondary',
-  'shift+v': 'metric:voc:secondary',
-  'shift+n': 'metric:none:secondary',
-  // Auto-range
-  'a': 'autorange:left',
-  'shift+a': 'autorange:right',
-  // Time ranges
-  '1': 'range:1d',
-  '3': 'range:3d',
-  '7': 'range:7d',
-  '2': 'range:14d',
-  'm': 'range:30d',
-  // Other
-  'l': 'latest',
-  'x': 'all',
+export const HOTKEY_MAP = {
+  // Left Y-axis metrics
+  't': 'left:temp',
+  'c': 'left:co2',
+  'h': 'left:humid',
+  'p': 'left:pm25',
+  'v': 'left:voc',
+  'a': 'left:autorange',
+  // Right Y-axis metrics
+  'shift+t': 'right:temp',
+  'shift+c': 'right:co2',
+  'shift+h': 'right:humid',
+  'shift+p': 'right:pm25',
+  'shift+v': 'right:voc',
+  'shift+n': 'right:none',
+  'shift+a': 'right:autorange',
+  // Time ranges (ordered by duration for display)
+  '1': 'time:01-1d',
+  '3': 'time:02-3d',
+  '7': 'time:03-7d',
+  '2': 'time:04-14d',
+  'm': 'time:05-30d',
+  'x': 'time:06-all',
+  'l': 'time:07-latest',
 }
 
 export function useKeyboardShortcuts({
@@ -81,34 +79,44 @@ export function useKeyboardShortcuts({
     }
 
     return {
-      // Primary metrics
-      'metric:temp': () => setMetricPrimary('temp'),
-      'metric:co2': () => setMetricPrimary('co2'),
-      'metric:humid': () => setMetricPrimary('humid'),
-      'metric:pm25': () => setMetricPrimary('pm25'),
-      'metric:voc': () => setMetricPrimary('voc'),
-      // Secondary metrics
-      'metric:temp:secondary': () => setMetricSecondary('temp'),
-      'metric:co2:secondary': () => setMetricSecondary('co2'),
-      'metric:humid:secondary': () => setMetricSecondary('humid'),
-      'metric:pm25:secondary': () => setMetricSecondary('pm25'),
-      'metric:voc:secondary': () => setMetricSecondary('voc'),
-      'metric:none:secondary': () => r.set('none'),
-      // Auto-range
-      'autorange:left': () => l.setAutoRange(!l.autoRange),
-      'autorange:right': () => {
+      // Left Y-axis
+      'left:temp': () => setMetricPrimary('temp'),
+      'left:co2': () => setMetricPrimary('co2'),
+      'left:humid': () => setMetricPrimary('humid'),
+      'left:pm25': () => setMetricPrimary('pm25'),
+      'left:voc': () => setMetricPrimary('voc'),
+      'left:autorange': () => l.setAutoRange(!l.autoRange),
+      // Right Y-axis
+      'right:temp': () => setMetricSecondary('temp'),
+      'right:co2': () => setMetricSecondary('co2'),
+      'right:humid': () => setMetricSecondary('humid'),
+      'right:pm25': () => setMetricSecondary('pm25'),
+      'right:voc': () => setMetricSecondary('voc'),
+      'right:none': () => r.set('none'),
+      'right:autorange': () => {
         if (r.val !== 'none') {
           r.setAutoRange(!r.autoRange)
         }
       },
       // Time ranges
-      'range:1d': () => handleTimeRangeClick(24),
-      'range:3d': () => handleTimeRangeClick(24 * 3),
-      'range:7d': () => handleTimeRangeClick(24 * 7),
-      'range:14d': () => handleTimeRangeClick(24 * 14),
-      'range:30d': () => handleTimeRangeClick(24 * 30),
-      // Latest mode
-      'latest': () => {
+      'time:01-1d': () => handleTimeRangeClick(24),
+      'time:02-3d': () => handleTimeRangeClick(24 * 3),
+      'time:03-7d': () => handleTimeRangeClick(24 * 7),
+      'time:04-14d': () => handleTimeRangeClick(24 * 14),
+      'time:05-30d': () => handleTimeRangeClick(24 * 30),
+      'time:06-all': () => {
+        if (data.length > 0) {
+          const fullRange: [string, string] = [
+            formatForPlotly(new Date(data[data.length - 1].timestamp)),
+            formatForPlotly(new Date(data[0].timestamp)),
+          ]
+          setXAxisRange(fullRange)
+          setLatestModeIntended(true)
+        } else {
+          setXAxisRange(null)
+        }
+      },
+      'time:07-latest': () => {
         if (latestModeIntended) {
           setLatestModeIntended(false)
         } else if (xAxisRange && data.length > 0) {
@@ -121,19 +129,6 @@ export function useKeyboardShortcuts({
           setIgnoreNextPanCheck()
           setXAxisRange(newRange)
           setLatestModeIntended(true)
-        }
-      },
-      // All data
-      'all': () => {
-        if (data.length > 0) {
-          const fullRange: [string, string] = [
-            formatForPlotly(new Date(data[data.length - 1].timestamp)),
-            formatForPlotly(new Date(data[0].timestamp)),
-          ]
-          setXAxisRange(fullRange)
-          setLatestModeIntended(true)
-        } else {
-          setXAxisRange(null)
         }
       },
     }

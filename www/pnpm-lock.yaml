@@ -18,8 +18,8 @@ importers:
         specifier: ^0.6.17
         version: 0.6.17
       '@rdub/use-hotkeys':
-        specifier: github:runsascoded/use-hotkeys#7261bfe9189c438eeae83527511d0b26e120f564
-        version: https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/7261bfe9189c438eeae83527511d0b26e120f564(react@19.2.0)
+        specifier: github:runsascoded/use-hotkeys#79dfcfeb6721981e8a4ba20a04d56bb9a990b624
+        version: https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/79dfcfeb6721981e8a4ba20a04d56bb9a990b624(react@19.2.0)
       '@rdub/use-url-params':
         specifier: 0.1.1
         version: 0.1.1(react@19.2.0)
@@ -845,8 +845,8 @@ packages:
     peerDependencies:
       '@aws-sdk/client-s3': ^3.0.0
 
-  '@rdub/use-hotkeys@https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/7261bfe9189c438eeae83527511d0b26e120f564':
-    resolution: {tarball: https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/7261bfe9189c438eeae83527511d0b26e120f564}
+  '@rdub/use-hotkeys@https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/79dfcfeb6721981e8a4ba20a04d56bb9a990b624':
+    resolution: {tarball: https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/79dfcfeb6721981e8a4ba20a04d56bb9a990b624}
     version: 0.0.1
     peerDependencies:
       react: '>=18.0.0'
@@ -5108,7 +5108,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@rdub/use-hotkeys@https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/7261bfe9189c438eeae83527511d0b26e120f564(react@19.2.0)':
+  '@rdub/use-hotkeys@https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/79dfcfeb6721981e8a4ba20a04d56bb9a990b624(react@19.2.0)':
     dependencies:
       react: 19.2.0
 

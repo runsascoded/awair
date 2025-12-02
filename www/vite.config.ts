@@ -17,7 +17,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    // Exclude local file: dependencies from pre-bundling for easier development
-    exclude: ['use-url-params'],
+    // Exclude local link: dependencies from pre-bundling for easier development
+    exclude: ['@rdub/use-hotkeys'],
   },
 })
