@@ -1,0 +1,16 @@
+// Tooltip content styling
+.tooltip-content {
+  ul {
+    margin: 0;
+    padding-left: 1.25em;
+  }
+  p {
+    margin: 0.25em 0;
+    &:first-child {
+      margin-top: 0;
+    }
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}

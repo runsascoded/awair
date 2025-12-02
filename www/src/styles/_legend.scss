@@ -1,0 +1,123 @@
+// Custom legend controls - positioned above Plotly legend
+.custom-legend-controls {
+  margin: 0 1rem; // Plot left/right margin is 35px; we want to align with the outside of the y-ticks that live in that margin.
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  z-index: 10;
+
+  .legend-metric-control {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+
+    .legend-controls-row {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .legend-labels-row {
+      display: flex;
+      align-items: center;
+      gap: 0; // No gap - padding extends hover areas to prevent flicker
+
+      > .legend-line-sample {
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0 0.25rem; // Extend hover area horizontally
+      }
+    }
+
+    .range-mode-btn {
+      user-select: none;
+
+      &.active {
+        background: var(--accent-primary);
+        border-color: var(--accent-primary);
+        color: white;
+
+        &:hover {
+          background: var(--accent-secondary);
+          border-color: var(--accent-secondary);
+        }
+
+        &.preview {
+          // Preview active: reduced opacity to distinguish from actual clicked state
+          opacity: 0.6;
+        }
+      }
+
+      &.preview:not(.active) {
+        // Preview inactive: reduced opacity to distinguish from actual non-active state
+        opacity: 0.6;
+      }
+    }
+
+    .metric-unit {
+      font-size: 0.85rem;
+      color: var(--text-primary); // Match y-tick color
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .left-unit {
+      padding-right: 0.75rem; // Extend hover area toward legend items
+    }
+
+    .right-unit {
+      padding-left: 0.75rem; // Extend hover area toward legend items
+    }
+
+    .legend-devices {
+      display: flex;
+      align-items: center;
+
+      .legend-device-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0 0.375rem;
+
+        &:first-child {
+          padding-left: 0;
+        }
+
+        &:last-child {
+          padding-right: 0;
+        }
+      }
+
+      .legend-line-sample {
+        font-weight: bold;
+        letter-spacing: -0.1em;
+        cursor: pointer;
+      }
+
+      .legend-device-name {
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+    }
+
+    &.legend-metric-left {
+      align-items: flex-start;
+    }
+
+    &.legend-metric-right {
+      align-items: flex-end;
+
+      .legend-labels-row {
+        flex-direction: row-reverse;
+      }
+    }
+  }
+
+  // Mobile: keep horizontal but allow wrapping if needed
+  @media (max-width: 768px) {
+    left: 10px;
+    right: 10px;
+  }
+}

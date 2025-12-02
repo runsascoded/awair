@@ -1,0 +1,46 @@
+// CSS Variables for theming
+:root {
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f8f9fa;
+  --bg-control: #f8f9fa;
+  --text-primary: #333333;
+  --text-secondary: #7f8c8d;
+  --text-tertiary: #2c3e50;
+  --text-control: #495057;
+  --border-primary: #ecf0f1;
+  --border-secondary: #dee2e6;
+  --border-tertiary: #e9ecef;
+  --accent-primary: #3498db;
+  --accent-secondary: #2980b9;
+  --accent-tertiary: #e7f3ff;
+  --accent-quaternary: #f1f8ff;
+  --disabled-bg: #bdc3c7;
+  --disabled-text: #e9ecef;
+  --shadow: rgba(0, 0, 0, 0.1);
+  --plot-bg: white;
+  --plot-grid: #ddd;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #3a3a3a;
+  --bg-control: #e8e8e8;
+  --text-primary: #e0e0e0;
+  --text-secondary: #b0b0b0;
+  --text-tertiary: #ffffff;
+  --text-control: #333333;
+  --border-primary: #404040;
+  --border-secondary: #505050;
+  --border-tertiary: #606060;
+  --accent-primary: #4aa3df;
+  --accent-secondary: #3498db;
+  --accent-tertiary: #2a4a5a;
+  --accent-quaternary: #1e3a4a;
+  --disabled-bg: #505050;
+  --disabled-text: #404040;
+  --shadow: rgba(0, 0, 0, 0.3);
+  --plot-bg: #2d2d2d;
+  --plot-grid: #505050;
+}

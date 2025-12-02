@@ -1,0 +1,92 @@
+.awair-chart {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px var(--shadow);
+  margin-bottom: 2rem;
+  overflow: hidden;
+  transition: background-color 0.3s ease;
+
+  > .plot-container {
+    min-height: 300px;
+    position: relative;
+  }
+
+  // OG mode styles (for screenshot generation)
+  &.og-mode {
+    position: relative;
+    height: 100vh;
+    overflow: hidden;
+
+    .og-title {
+      position: absolute;
+      top: 8px;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      text-align: center;
+      font-size: 32px;
+      font-weight: 700;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+
+      .emojis {
+        font-family: "Noto Color Emoji", sans-serif;
+        margin-left: 0.5em;
+        letter-spacing: -0.5em;
+      }
+    }
+
+    > .plot-container {
+      height: 100%;
+    }
+  }
+
+  .plot-react {
+    width: 100%;
+    height: 100%;
+  }
+
+  > .header {
+    padding: 2rem;
+    border-bottom: 1px solid var(--border-primary);
+
+    h2 {
+      color: var(--text-tertiary);
+      margin-bottom: 0.5rem;
+      font-size: 1.8rem;
+    }
+
+    p {
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+    }
+  }
+
+  > .controls {
+    display: flex;
+    gap: 1rem 1.5rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 0 1rem;
+  }
+
+  > .container {
+    padding: 0.5rem 0.5rem 1rem;
+    display: flex;
+    justify-content: center;
+    // Mobile touch optimization
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+  }
+
+  > .status {
+    padding: 0.5rem 2rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-align: center;
+    cursor: help;
+  }
+}

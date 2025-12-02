@@ -1,0 +1,56 @@
+// Common control height and font size
+@mixin control {
+  height: 1.6rem;
+  font-size: 0.85rem;
+}
+
+// Common chip/button styles used across controls
+@mixin chip {
+  padding: 0.1rem 0.4rem;
+  background: var(--bg-control);
+  border: 1px solid var(--border-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1.5;
+  color: var(--text-control);
+  @include control;
+
+  &:hover:not(.disabled) {
+    filter: brightness(0.95);
+    border-color: var(--text-secondary);
+  }
+
+  &.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+    font-weight: 600;
+
+    &:hover {
+      background: var(--accent-secondary);
+      border-color: var(--accent-secondary);
+    }
+  }
+}
+
+// Shared info icon style (used for help tooltips)
+%info-icon-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+  font-weight: 600;
+  cursor: help;
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--accent-primary);
+    color: white;
+  }
+}
