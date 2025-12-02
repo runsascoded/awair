@@ -88,21 +88,21 @@ export class HyparquetSource implements DataSource {
         // Browser lag = time since S3 was modified (how long browser took to notice)
         const browserLagMs = lastModified ? now - lastModified.getTime() : null
         const browserLagSec = browserLagMs !== null ? (browserLagMs / 1000).toFixed(1) : '?'
-        console.log(`🔄 Cache refreshed with new data (e2e: ${e2eLatencySec}s, browser lag: ${browserLagSec}s)`)
+        console.log(`[${deviceId}] 🔄 Cache refreshed with new data (e2e: ${e2eLatencySec}s, browser lag: ${browserLagSec}s)`)
       } else {
-        console.log(`🔄 Cache refreshed with new data`)
+        console.log(`[${deviceId}] 🔄 Cache refreshed with new data`)
       }
     }
 
     const totalRows = Number(metadata.num_rows)
     const numRowGroups = rgInfos.length
 
-    console.log(`📦 File has ${numRowGroups} row groups, ${totalRows} total rows`)
+    console.log(`[${deviceId}] 📦 File has ${numRowGroups} row groups, ${totalRows} total rows`)
 
     // Use timestamp stats to find row groups that overlap the requested range
     const neededRGs = cache.getRowGroupsForRange(range.from, range.to)
-    console.log(`⏱️  Time range: ${range.from.toISOString()} to ${range.to.toISOString()}`)
-    console.log(`📥 Need ${neededRGs.length}/${numRowGroups} row groups based on timestamp stats`)
+    console.log(`[${deviceId}] ⏱️  Time range: ${range.from.toISOString()} to ${range.to.toISOString()}`)
+    console.log(`[${deviceId}] 📥 Need ${neededRGs.length}/${numRowGroups} row groups based on timestamp stats`)
 
     if (neededRGs.length === 0) {
       // No data in range
@@ -174,7 +174,7 @@ export class HyparquetSource implements DataSource {
 
     const endTime = performance.now()
 
-    console.log(`✅ Fetched ${records.length} records matching time range (from ${rows.length} rows read)`)
+    console.log(`[${deviceId}] ✅ Fetched ${records.length} records matching time range (from ${rows.length} rows read)`)
 
     const timing: FetchTiming = {
       totalMs: endTime - startTime,
@@ -199,7 +199,7 @@ export class HyparquetSource implements DataSource {
     const hadNewData = await cache.refresh()
     if (hadNewData) {
       const stats = cache.getStats()
-      console.log(`🔄 Refreshed cache: ${stats.totalRowGroups} RGs, ${(stats.cacheSize / 1024).toFixed(0)}KB cached`)
+      console.log(`[${deviceId}] 🔄 Refreshed cache: ${stats.totalRowGroups} RGs, ${(stats.cacheSize / 1024).toFixed(0)}KB cached`)
     }
     return hadNewData
   }
