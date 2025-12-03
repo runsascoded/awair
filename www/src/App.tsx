@@ -1,18 +1,26 @@
+import { ShortcutsModal } from '@rdub/use-hotkeys'
 import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
+import { HOTKEY_DESCRIPTIONS, HOTKEY_GROUPS, ShortcutsModalContent } from './components/ShortcutsModalContent'
 import { ThemeToggle } from './components/ThemeToggle'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
 import { queryClient } from './lib/queryClient'
 import { boolParam, deviceIdsParam, timeRangeParam, refetchIntervalParam } from './lib/urlParams'
+import type { KeyboardShortcutsState } from './hooks/useKeyboardShortcuts'
 import './App.scss'
 
 function AppContent() {
   const [isOgMode] = useUrlParam('og', boolParam)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const openShortcuts = useCallback(() => setShortcutsOpen(true), [])
+  const closeShortcuts = useCallback(() => setShortcutsOpen(false), [])
+
+  // Ref to receive shortcuts state from AwairChart (for modal rendering without re-rendering chart)
+  const shortcutsStateRef = useRef<KeyboardShortcutsState | null>(null)
 
   // Add og-mode class to body for CSS overrides
   useEffect(() => {
@@ -170,12 +178,31 @@ function AppContent() {
             timeRange={timeRange}
             setTimeRange={setTimeRange}
             isOgMode={isOgMode}
-            shortcutsOpen={shortcutsOpen}
-            onCloseShortcuts={() => setShortcutsOpen(false)}
+            onOpenShortcuts={openShortcuts}
+            shortcutsStateRef={shortcutsStateRef}
           />
         )}
       </main>
-      {!isOgMode && <ThemeToggle onOpenShortcuts={() => setShortcutsOpen(true)} />}
+      {!isOgMode && <ThemeToggle onOpenShortcuts={openShortcuts} />}
+      {/* Modal rendered at App level to avoid re-rendering AwairChart on open/close */}
+      {!isOgMode && shortcutsStateRef.current && (
+        <ShortcutsModal
+          keymap={shortcutsStateRef.current.keymap}
+          descriptions={HOTKEY_DESCRIPTIONS}
+          groups={HOTKEY_GROUPS}
+          isOpen={shortcutsOpen}
+          onClose={closeShortcuts}
+          autoRegisterOpen={false}
+        >
+          {({ groups, close }) => (
+            <ShortcutsModalContent
+              groups={groups}
+              close={close}
+              shortcutsState={shortcutsStateRef.current!}
+            />
+          )}
+        </ShortcutsModal>
+      )}
     </div>
   )
 }

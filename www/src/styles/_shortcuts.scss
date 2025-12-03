@@ -24,7 +24,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: 8px;
 
     h2 {
       margin: 0;
@@ -32,7 +32,29 @@
       font-weight: 600;
     }
 
-    button {
+    .shortcuts-header-buttons {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .reset-button {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+
+      &:hover {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        border-color: var(--text-secondary);
+      }
+    }
+
+    button:not(.reset-button) {
       background: none;
       border: none;
       font-size: 1.5rem;
@@ -45,6 +67,13 @@
         color: var(--text-primary);
       }
     }
+  }
+
+  .shortcuts-hint {
+    margin: 0 0 12px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-style: italic;
   }
 
   h3 {
@@ -90,6 +119,7 @@
     border-radius: 4px;
     min-width: 24px;
     text-align: center;
+    transition: all 0.15s ease;
 
     .modifier-icon {
       width: 0.9em;
@@ -97,10 +127,30 @@
       margin-right: 1px;
       vertical-align: middle;
     }
+
+    &.editable {
+      cursor: pointer;
+
+      &:hover {
+        border-color: var(--text-secondary);
+        background-color: var(--bg-primary);
+      }
+    }
+
+    &.editing {
+      border-color: #2196f3;
+      background-color: #e3f2fd;
+      color: #1565c0;
+      animation: pulse 1s infinite;
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
   }
 
   .tooltip-trigger {
     cursor: help;
-    border-bottom: 1px dotted var(--text-secondary);
   }
 }

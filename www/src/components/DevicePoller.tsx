@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import { encodeTimeRange } from '../lib/timeRangeCodec'
 import { fetchAwairData } from '../services/awairService'
@@ -42,10 +42,15 @@ export function DevicePoller({
     enabled: deviceId !== undefined,
   })
 
+  // Memoize refetch to prevent useSmartPolling from re-running on every render
+  const refetch = useCallback(async () => {
+    await query.refetch()
+  }, [query.refetch])
+
   // Independent smart polling for this device
   useSmartPolling({
     lastModified: query.data?.lastModified ?? null,
-    refetch: async () => { await query.refetch() },
+    refetch,
     enabled: smartPolling,
     deviceId,
   })

@@ -271,7 +271,7 @@ export { encodeTimeRange, decodeTimeRange }
 
 export const timeRangeParam: Param<import('./timeRangeCodec').TimeRange> = {
   encode: encodeTimeRange,
-  decode: decodeTimeRange
+  decode: decodeTimeRange,
 }
 
 /**

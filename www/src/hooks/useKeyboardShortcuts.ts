@@ -1,4 +1,4 @@
-import { useHotkeys } from '@rdub/use-hotkeys'
+import { useEditableHotkeys, type HotkeyMap } from '@rdub/use-hotkeys'
 import { useMemo } from 'react'
 import type { MetricsState } from "./useMetrics"
 import type { AwairRecord } from '../types/awair'
@@ -6,19 +6,32 @@ import type { AwairRecord } from '../types/awair'
 interface UseKeyboardShortcutsProps {
   metrics: MetricsState
   xAxisRange: [string, string] | null
-  setXAxisRange: (range: [string, string] | null) => void
+  setXAxisRange: (range: [string, string] | null, options?: { duration?: number }) => void
   data: AwairRecord[]
   formatForPlotly: (date: Date) => string
   latestModeIntended: boolean
   setLatestModeIntended: (value: boolean) => void
   handleTimeRangeClick: (hours: number) => void
+  handleAllClick: () => void
   setIgnoreNextPanCheck: () => void
+  openShortcutsModal: () => void
+}
+
+export interface KeyboardShortcutsState {
+  /** Current keymap (defaults + user overrides) */
+  keymap: HotkeyMap
+  /** Default keymap */
+  defaults: HotkeyMap
+  /** Update a single keybinding */
+  setBinding: (action: string, key: string) => void
+  /** Reset all to defaults */
+  reset: () => void
 }
 
 type Metric = 'temp' | 'co2' | 'humid' | 'pm25' | 'voc'
 
-// Hotkey map: key combination -> action name
-export const HOTKEY_MAP = {
+// Default hotkey map: key combination -> action name
+export const DEFAULT_HOTKEY_MAP: HotkeyMap = {
   // Left Y-axis metrics
   't': 'left:temp',
   'c': 'left:co2',
@@ -42,7 +55,12 @@ export const HOTKEY_MAP = {
   'm': 'time:05-30d',
   'x': 'time:06-all',
   'l': 'time:07-latest',
-}
+  // Modal
+  '?': 'modal:shortcuts',
+} as const
+
+// Re-export for backward compatibility
+export const HOTKEY_MAP = DEFAULT_HOTKEY_MAP
 
 export function useKeyboardShortcuts({
   metrics,
@@ -53,7 +71,9 @@ export function useKeyboardShortcuts({
   latestModeIntended,
   setLatestModeIntended,
   handleTimeRangeClick,
+  handleAllClick,
   setIgnoreNextPanCheck,
+  openShortcutsModal,
 }: UseKeyboardShortcutsProps) {
   const { l, r } = metrics
 
@@ -104,18 +124,7 @@ export function useKeyboardShortcuts({
       'time:03-7d': () => handleTimeRangeClick(24 * 7),
       'time:04-14d': () => handleTimeRangeClick(24 * 14),
       'time:05-30d': () => handleTimeRangeClick(24 * 30),
-      'time:06-all': () => {
-        if (data.length > 0) {
-          const fullRange: [string, string] = [
-            formatForPlotly(new Date(data[data.length - 1].timestamp)),
-            formatForPlotly(new Date(data[0].timestamp)),
-          ]
-          setXAxisRange(fullRange)
-          setLatestModeIntended(true)
-        } else {
-          setXAxisRange(null)
-        }
-      },
+      'time:06-all': handleAllClick,
       'time:07-latest': () => {
         if (latestModeIntended) {
           setLatestModeIntended(false)
@@ -131,8 +140,22 @@ export function useKeyboardShortcuts({
           setLatestModeIntended(true)
         }
       },
+      // Modal
+      'modal:shortcuts': openShortcutsModal,
     }
-  }, [l, r, handleTimeRangeClick, latestModeIntended, setLatestModeIntended, xAxisRange, data, formatForPlotly, setXAxisRange, setIgnoreNextPanCheck])
+  }, [l, r, handleTimeRangeClick, handleAllClick, latestModeIntended, setLatestModeIntended, xAxisRange, data, formatForPlotly, setXAxisRange, setIgnoreNextPanCheck, openShortcutsModal])
 
-  useHotkeys(HOTKEY_MAP, handlers)
+  const { keymap, setBinding, reset } = useEditableHotkeys(
+    DEFAULT_HOTKEY_MAP,
+    handlers,
+    { storageKey: 'awair-hotkeys' }
+  )
+
+  // Memoize return value to prevent unnecessary re-renders
+  return useMemo(() => ({
+    keymap,
+    defaults: DEFAULT_HOTKEY_MAP,
+    setBinding,
+    reset,
+  } satisfies KeyboardShortcutsState), [keymap, setBinding, reset])
 }

@@ -1,13 +1,11 @@
-import { ShortcutsModal } from '@rdub/use-hotkeys'
 import { useUrlParam } from '@rdub/use-url-params'
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Plot from 'react-plotly.js'
 import { ChartControls, metricConfig, getRangeFloor } from './ChartControls'
 import { CustomLegend } from './CustomLegend'
 import { DataTable } from './DataTable'
-import { Tooltip } from './Tooltip'
 import { TIME_WINDOWS, getWindowForDuration } from '../hooks/useDataAggregation'
-import { HOTKEY_MAP, useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
@@ -18,6 +16,7 @@ import { formatForPlotly, formatCompactDate, formatFullDate } from '../utils/dat
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { PxOption } from './AggregationControl'
 import type { DeviceDataResult } from './DevicePoller'
+import type { KeyboardShortcutsState } from '../hooks/useKeyboardShortcuts'
 import type { Metric } from '../lib/urlParams'
 import type { Device } from '../services/awairService'
 import type { DataSummary } from '../types/awair'
@@ -26,39 +25,8 @@ import type { Data, PlotRelayoutEvent } from 'plotly.js'
 // Extend Data type to include zorder (supported by plotly.js but not in @types/plotly.js); https://github.com/DefinitelyTyped/DefinitelyTyped/pull/74155 will fix
 type DataWithZorder = Data & { zorder?: number }
 
-// Descriptions for keyboard shortcuts modal
-const HOTKEY_DESCRIPTIONS: Record<string, string> = {
-  // Left Y-axis
-  'left:temp': 'Temperature',
-  'left:co2': 'CO₂',
-  'left:humid': 'Humidity',
-  'left:pm25': 'PM2.5',
-  'left:voc': 'VOC',
-  'left:autorange': 'Toggle auto-range',
-  // Right Y-axis
-  'right:temp': 'Temperature',
-  'right:co2': 'CO₂',
-  'right:humid': 'Humidity',
-  'right:pm25': 'PM2.5',
-  'right:voc': 'VOC',
-  'right:none': 'Clear',
-  'right:autorange': 'Toggle auto-range',
-  // Time ranges
-  'time:01-1d': '1 day',
-  'time:02-3d': '3 days',
-  'time:03-7d': '7 days',
-  'time:04-14d': '14 days',
-  'time:05-30d': '30 days',
-  'time:06-all': 'Full history',
-  'time:07-latest': 'Latest',
-}
-
-// Group names for shortcuts modal
-const HOTKEY_GROUPS: Record<string, string> = {
-  'left': 'Left Y-Axis',
-  'right': 'Right Y-Axis',
-  'time': 'Time Range',
-}
+// Stable noop function to avoid re-renders
+const noop = () => {}
 
 export type HasDeviceIdx = { deviceIdx: number }
 export type HasMetric = { metric: 'primary' | 'secondary' }
@@ -78,11 +46,12 @@ interface Props {
   timeRange: { timestamp: Date | null; duration: number }
   setTimeRange: (range: { timestamp: Date | null; duration: number }) => void
   isOgMode?: boolean
-  shortcutsOpen?: boolean
-  onCloseShortcuts?: () => void
+  onOpenShortcuts?: () => void
+  /** Ref to expose shortcuts state to parent for modal rendering */
+  shortcutsStateRef?: React.MutableRefObject<KeyboardShortcutsState | null>
 }
 
-export function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps, isOgMode = false, shortcutsOpen, onCloseShortcuts }: Props) {
+export const AwairChart = React.memo(function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps, isOgMode = false, onOpenShortcuts, shortcutsStateRef }: Props) {
 
   // Combine data from all devices for time range calculations and bounds checking
   // Sorted newest-first for efficient latest record access
@@ -265,6 +234,26 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     }
   }, [data, formatForPlotly])
 
+  // "All" handler - show full data extent from file bounds
+  const handleAllClick = useCallback(() => {
+    const allBounds = getAllDeviceBounds()
+    if (allBounds.length === 0) return
+
+    // Find overall earliest and latest across all devices
+    const earliest = allBounds.reduce((min, b) => b.earliest < min ? b.earliest : min, allBounds[0].earliest)
+    const latest = allBounds.reduce((max, b) => b.latest > max ? b.latest : max, allBounds[0].latest)
+    const durationMs = latest.getTime() - earliest.getTime()
+
+    // Set the visual range (anchored to current time in Latest mode)
+    const BUFFER_MS = 60 * 1000 // 1 minute buffer
+    const endTime = new Date(new Date().getTime() + BUFFER_MS)
+    const startTime = new Date(endTime.getTime() - durationMs)
+    setXAxisRange([formatForPlotly(startTime), formatForPlotly(endTime)])
+
+    // Use Latest mode (timestamp=null) so it auto-follows new data, but with full duration
+    setTimeRangeFromProps({ timestamp: null, duration: durationMs })
+  }, [getAllDeviceBounds, formatForPlotly, setXAxisRange, setTimeRangeFromProps])
+
   // Relayout handler
   const handleRelayout = useCallback((eventData: PlotRelayoutEvent) => {
     const x0 = eventData['xaxis.range[0]']
@@ -293,8 +282,8 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     }
   }, [setXAxisRange, getAllDeviceBounds, formatForPlotly])
 
-  // Keyboard shortcuts
-  useKeyboardShortcuts({
+  // Keyboard shortcuts (editable, persisted to localStorage)
+  const shortcutsState = useKeyboardShortcuts({
     metrics,
     xAxisRange,
     setXAxisRange,
@@ -303,8 +292,17 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
     latestModeIntended,
     setLatestModeIntended,
     handleTimeRangeClick,
-    setIgnoreNextPanCheck
+    handleAllClick,
+    setIgnoreNextPanCheck,
+    openShortcutsModal: onOpenShortcuts || noop,
   })
+
+  // Expose shortcuts state to parent for modal rendering (avoids re-rendering chart on modal open/close)
+  useEffect(() => {
+    if (shortcutsStateRef) {
+      shortcutsStateRef.current = shortcutsState
+    }
+  }, [shortcutsStateRef, shortcutsState])
 
   // Handle responsive plot height and viewport width using matchMedia
   useEffect(() => {
@@ -892,131 +890,6 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
         />
       )}
 
-      {!isOgMode && (
-        <ShortcutsModal
-          keymap={HOTKEY_MAP}
-          descriptions={HOTKEY_DESCRIPTIONS}
-          groups={HOTKEY_GROUPS}
-          isOpen={shortcutsOpen}
-          onClose={onCloseShortcuts}
-        >
-          {({ groups, close }) => {
-            // Extract shortcuts by group
-            const leftGroup = groups.find(g => g.name === 'Left Y-Axis')
-            const rightGroup = groups.find(g => g.name === 'Right Y-Axis')
-            const timeGroup = groups.find(g => g.name === 'Time Range')
-
-            // Build metric rows: pair left and right shortcuts
-            const metricNames = ['temp', 'co2', 'humid', 'pm25', 'voc', 'autorange']
-            const metricLabels: Record<string, React.ReactNode> = {
-              temp: 'Temperature',
-              co2: 'CO₂',
-              humid: 'Humidity',
-              pm25: 'PM2.5',
-              voc: 'VOC',
-              autorange: (
-                <Tooltip content="Scale Y-axis to fit data in view (vs. fixed floor at 0 or metric minimum)">
-                  <span className="tooltip-trigger">Auto-range ⓘ</span>
-                </Tooltip>
-              ),
-            }
-
-            // Tooltips for time range items
-            const timeTooltips: Record<string, string> = {
-              'time:06-all': 'Show entire data history from first to last record',
-              'time:07-latest': 'Jump to most recent data and auto-update as new data arrives',
-            }
-
-            const getShortcut = (group: typeof leftGroup, metric: string) => {
-              return group?.shortcuts.find(s => s.action.endsWith(`:${metric}`))
-            }
-
-            // Shift arrow SVG - consistent across all browsers/platforms
-            const ShiftIcon = () => (
-              <svg className="modifier-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 4l-8 8h5v8h6v-8h5z"/>
-              </svg>
-            )
-
-            // Render a key with nice modifier symbols
-            const renderKey = (key: string) => {
-              const upper = key.toUpperCase()
-              if (upper.startsWith('SHIFT+')) {
-                const mainKey = upper.replace('SHIFT+', '')
-                return <><ShiftIcon />{mainKey}</>
-              }
-              return upper
-            }
-
-            return (
-              <div
-                className="shortcuts-modal-backdrop"
-                onClick={(e) => e.target === e.currentTarget && close()}
-              >
-                <div className="shortcuts-modal" role="dialog" aria-modal="true">
-                  <div className="shortcuts-header">
-                    <h2>Keyboard Shortcuts</h2>
-                    <button onClick={close} aria-label="Close">×</button>
-                  </div>
-
-                  <h3>Y-Axis Metrics</h3>
-                  <table className="shortcuts-table">
-                    <thead>
-                      <tr>
-                        <th>Metric</th>
-                        <th>Left</th>
-                        <th>Right</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {metricNames.map(metric => {
-                        const left = getShortcut(leftGroup, metric)
-                        const right = getShortcut(rightGroup, metric)
-                        return (
-                          <tr key={metric}>
-                            <td>{metricLabels[metric]}</td>
-                            <td><kbd>{left?.key.toUpperCase() || '-'}</kbd></td>
-                            <td><kbd>{renderKey(right?.key || '')}</kbd></td>
-                          </tr>
-                        )
-                      })}
-                      <tr>
-                        <td>None</td>
-                        <td>-</td>
-                        <td><kbd>{renderKey('shift+n')}</kbd></td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-                  <h3>Time Range</h3>
-                  <table className="shortcuts-table">
-                    <tbody>
-                      {timeGroup?.shortcuts
-                        .slice()
-                        .sort((a, b) => a.action.localeCompare(b.action))
-                        .map(s => {
-                          const tooltip = timeTooltips[s.action]
-                          return (
-                            <tr key={s.action}>
-                              <td>
-                                {tooltip ? (
-                                  <Tooltip content={tooltip}>
-                                    <span className="tooltip-trigger">{s.description} ⓘ</span>
-                                  </Tooltip>
-                                ) : s.description}
-                              </td>
-                              <td><kbd>{s.key.toUpperCase()}</kbd></td>
-                            </tr>
-                          )
-                        })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )
-          }}
-        </ShortcutsModal>
-      )}
     </div>
   )
-}
+})
