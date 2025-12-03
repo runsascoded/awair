@@ -64,7 +64,10 @@ function findDeviceByPattern(pattern: string, devices: Device[]): number | null 
     console.warn(`Ambiguous device pattern "${pattern}" matches: ${nameMatches.map(d => d.name).join(', ')}`)
     return null
   } else {
-    console.warn(`Unknown device: ${pattern}`)
+    // Only warn if devices have loaded (not during initial empty state)
+    if (devices.length > 0) {
+      console.warn(`Unknown device: ${pattern}`)
+    }
     return null
   }
 }

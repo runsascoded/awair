@@ -21,8 +21,8 @@ importers:
         specifier: github:runsascoded/use-hotkeys#79dfcfeb6721981e8a4ba20a04d56bb9a990b624
         version: https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/79dfcfeb6721981e8a4ba20a04d56bb9a990b624(react@19.2.0)
       '@rdub/use-url-params':
-        specifier: github:runsascoded/use-url-params#79ff66b3acaedd5064f4dc39e2e4d8ede41496c7
-        version: https://codeload.github.com/runsascoded/use-url-params/tar.gz/79ff66b3acaedd5064f4dc39e2e4d8ede41496c7(react@19.2.0)
+        specifier: github:runsascoded/use-url-params#b2fd5e270c7b369ec8e674b8264fc81476f8b70b
+        version: https://codeload.github.com/runsascoded/use-url-params/tar.gz/b2fd5e270c7b369ec8e674b8264fc81476f8b70b(react@19.2.0)
       '@tanstack/react-query':
         specifier: ^5.83.0
         version: 5.90.11(react@19.2.0)
@@ -851,8 +851,8 @@ packages:
     peerDependencies:
       react: '>=18.0.0'
 
-  '@rdub/use-url-params@https://codeload.github.com/runsascoded/use-url-params/tar.gz/79ff66b3acaedd5064f4dc39e2e4d8ede41496c7':
-    resolution: {tarball: https://codeload.github.com/runsascoded/use-url-params/tar.gz/79ff66b3acaedd5064f4dc39e2e4d8ede41496c7}
+  '@rdub/use-url-params@https://codeload.github.com/runsascoded/use-url-params/tar.gz/b2fd5e270c7b369ec8e674b8264fc81476f8b70b':
+    resolution: {tarball: https://codeload.github.com/runsascoded/use-url-params/tar.gz/b2fd5e270c7b369ec8e674b8264fc81476f8b70b}
     version: 0.1.0
     peerDependencies:
       react: ^18.0.0
@@ -5104,7 +5104,7 @@ snapshots:
     dependencies:
       react: 19.2.0
 
-  '@rdub/use-url-params@https://codeload.github.com/runsascoded/use-url-params/tar.gz/79ff66b3acaedd5064f4dc39e2e4d8ede41496c7(react@19.2.0)':
+  '@rdub/use-url-params@https://codeload.github.com/runsascoded/use-url-params/tar.gz/b2fd5e270c7b369ec8e674b8264fc81476f8b70b(react@19.2.0)':
     dependencies:
       react: 19.2.0
 
