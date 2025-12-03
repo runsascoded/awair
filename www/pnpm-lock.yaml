@@ -18,11 +18,11 @@ importers:
         specifier: ^0.6.17
         version: 0.6.17
       '@rdub/use-hotkeys':
-        specifier: github:runsascoded/use-hotkeys#79dfcfeb6721981e8a4ba20a04d56bb9a990b624
-        version: https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/79dfcfeb6721981e8a4ba20a04d56bb9a990b624(react@19.2.0)
+        specifier: ^0.0.1
+        version: 0.0.1(react@19.2.0)
       '@rdub/use-url-params':
-        specifier: github:runsascoded/use-url-params#b2fd5e270c7b369ec8e674b8264fc81476f8b70b
-        version: https://codeload.github.com/runsascoded/use-url-params/tar.gz/b2fd5e270c7b369ec8e674b8264fc81476f8b70b(react@19.2.0)
+        specifier: ^0.1.2
+        version: 0.1.2(react@19.2.0)
       '@tanstack/react-query':
         specifier: ^5.83.0
         version: 5.90.11(react@19.2.0)
@@ -845,17 +845,18 @@ packages:
     peerDependencies:
       '@aws-sdk/client-s3': ^3.0.0
 
-  '@rdub/use-hotkeys@https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/79dfcfeb6721981e8a4ba20a04d56bb9a990b624':
-    resolution: {tarball: https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/79dfcfeb6721981e8a4ba20a04d56bb9a990b624}
-    version: 0.0.1
+  '@rdub/use-hotkeys@0.0.1':
+    resolution: {integrity: sha512-8GRLaKP80lTfPJP9gNPTVh+zwypI75rVb8KUt5wN3D2mwDeG/8zfAoC2Bos+xzwYvnDlZHvt7pALqaMHKNfYaw==}
     peerDependencies:
       react: '>=18.0.0'
 
-  '@rdub/use-url-params@https://codeload.github.com/runsascoded/use-url-params/tar.gz/b2fd5e270c7b369ec8e674b8264fc81476f8b70b':
-    resolution: {tarball: https://codeload.github.com/runsascoded/use-url-params/tar.gz/b2fd5e270c7b369ec8e674b8264fc81476f8b70b}
-    version: 0.1.0
+  '@rdub/use-url-params@0.1.2':
+    resolution: {integrity: sha512-iFH21uvN6VpX2NitgqnIeyqdVCQ96x+LaolXJBspb1ABYJBhnUa0XWZf0zmJ7C7cUvZtpDrNkHj+9PthXKF6lg==}
     peerDependencies:
       react: ^18.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   '@reduxjs/toolkit@2.11.0':
     resolution: {integrity: sha512-hBjYg0aaRL1O2Z0IqWhnTLytnjDIxekmRxm1snsHjHaKVmIF1HiImWqsq+PuEbn6zdMlkIj9WofK1vR8jjx+Xw==}
@@ -5100,12 +5101,12 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@rdub/use-hotkeys@https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/79dfcfeb6721981e8a4ba20a04d56bb9a990b624(react@19.2.0)':
+  '@rdub/use-hotkeys@0.0.1(react@19.2.0)':
     dependencies:
       react: 19.2.0
 
-  '@rdub/use-url-params@https://codeload.github.com/runsascoded/use-url-params/tar.gz/b2fd5e270c7b369ec8e674b8264fc81476f8b70b(react@19.2.0)':
-    dependencies:
+  '@rdub/use-url-params@0.1.2(react@19.2.0)':
+    optionalDependencies:
       react: 19.2.0
 
   '@reduxjs/toolkit@2.11.0(react-redux@9.2.0(@types/react@19.2.7)(react@19.2.0)(redux@5.0.1))(react@19.2.0)':
