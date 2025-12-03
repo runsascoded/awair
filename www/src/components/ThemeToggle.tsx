@@ -1,11 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
-import { FaGithub } from 'react-icons/fa'
+import { FaGithub, FaKeyboard } from 'react-icons/fa'
 import { MdBrightnessAuto } from 'react-icons/md'
 import { useTheme } from '../contexts/ThemeContext'
 
-export function ThemeToggle() {
+interface ThemeToggleProps {
+  onOpenShortcuts?: () => void
+}
+
+export function ThemeToggle({ onOpenShortcuts }: ThemeToggleProps) {
   const { theme, setTheme } = useTheme()
   const [isVisible, setIsVisible] = useState(false)
+  const [isHovering, setIsHovering] = useState(false)
   const lastScrollY = useRef(0)
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -63,26 +68,44 @@ export function ThemeToggle() {
     }
   }
 
+  const showControls = isVisible || isHovering
+
   return (
-    <div className={`theme-controls ${isVisible ? 'visible' : ''}`}>
-      <a
-        href="https://github.com/runsascoded/awair"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="github-link"
-        title="View on GitHub"
-        aria-label="View project on GitHub"
-      >
-        <FaGithub />
-      </a>
-      <button
-        className="theme-toggle"
-        onClick={cycleTheme}
-        title={`Theme: ${getThemeLabel()}`}
-        aria-label={`Current theme: ${getThemeLabel()}. Click to cycle themes.`}
-      >
-        <span className="theme-icon">{getThemeIcon()}</span>
-      </button>
+    <div
+      className={`theme-controls-container`}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+    >
+      <div className={`theme-controls ${showControls ? 'visible' : ''}`}>
+        <a
+          href="https://github.com/runsascoded/awair"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="github-link"
+          title="View on GitHub"
+          aria-label="View project on GitHub"
+        >
+          <FaGithub />
+        </a>
+        {onOpenShortcuts && (
+          <button
+            className="shortcuts-button"
+            onClick={onOpenShortcuts}
+            title="Keyboard shortcuts (?)"
+            aria-label="Show keyboard shortcuts"
+          >
+            <FaKeyboard />
+          </button>
+        )}
+        <button
+          className="theme-toggle"
+          onClick={cycleTheme}
+          title={`Theme: ${getThemeLabel()}`}
+          aria-label={`Current theme: ${getThemeLabel()}. Click to cycle themes.`}
+        >
+          <span className="theme-icon">{getThemeIcon()}</span>
+        </button>
+      </div>
     </div>
   )
 }

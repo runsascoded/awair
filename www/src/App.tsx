@@ -12,6 +12,7 @@ import './App.scss'
 
 function AppContent() {
   const [isOgMode] = useUrlParam('og', boolParam)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   // Add og-mode class to body for CSS overrides
   useEffect(() => {
@@ -169,10 +170,12 @@ function AppContent() {
             timeRange={timeRange}
             setTimeRange={setTimeRange}
             isOgMode={isOgMode}
+            shortcutsOpen={shortcutsOpen}
+            onCloseShortcuts={() => setShortcutsOpen(false)}
           />
         )}
       </main>
-      {!isOgMode && <ThemeToggle />}
+      {!isOgMode && <ThemeToggle onOpenShortcuts={() => setShortcutsOpen(true)} />}
     </div>
   )
 }

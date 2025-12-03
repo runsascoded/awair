@@ -78,9 +78,11 @@ interface Props {
   timeRange: { timestamp: Date | null; duration: number }
   setTimeRange: (range: { timestamp: Date | null; duration: number }) => void
   isOgMode?: boolean
+  shortcutsOpen?: boolean
+  onCloseShortcuts?: () => void
 }
 
-export function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps, isOgMode = false }: Props) {
+export function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps, isOgMode = false, shortcutsOpen, onCloseShortcuts }: Props) {
 
   // Combine data from all devices for time range calculations and bounds checking
   // Sorted newest-first for efficient latest record access
@@ -895,6 +897,8 @@ export function AwairChart({ deviceDataResults, summary, devices, selectedDevice
           keymap={HOTKEY_MAP}
           descriptions={HOTKEY_DESCRIPTIONS}
           groups={HOTKEY_GROUPS}
+          isOpen={shortcutsOpen}
+          onClose={onCloseShortcuts}
         >
           {({ groups, close }) => {
             // Extract shortcuts by group

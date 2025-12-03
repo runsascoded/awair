@@ -1,11 +1,20 @@
-.theme-controls {
+// Invisible hover zone in lower-right corner
+.theme-controls-container {
   position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 200px;
+  height: 150px;
+  z-index: 1000;
+}
+
+.theme-controls {
+  position: absolute;
   bottom: 2rem;
   right: 2rem;
   display: flex;
   gap: 1rem;
   align-items: center;
-  z-index: 1000;
   opacity: 0;
   transform: translateY(100px);
   pointer-events: none;
@@ -18,6 +27,7 @@
   }
 
   .github-link,
+  .shortcuts-button,
   .theme-toggle {
     width: 3rem;
     height: 3rem;
@@ -38,7 +48,8 @@
     }
   }
 
-  .github-link {
+  .github-link,
+  .shortcuts-button {
     color: var(--text-primary);
     text-decoration: none;
 
@@ -63,10 +74,18 @@
     gap: 0.5rem;
 
     .github-link,
+    .shortcuts-button,
     .theme-toggle {
       width: 2.5rem;
       height: 2.5rem;
       font-size: 1rem;
     }
+  }
+}
+
+@media (max-width: 768px) {
+  .theme-controls-container {
+    width: 150px;
+    height: 100px;
   }
 }
