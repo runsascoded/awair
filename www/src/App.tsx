@@ -1,16 +1,16 @@
-import { ShortcutsModal } from '@rdub/use-hotkeys'
+import { KeyboardShortcutsProvider, ShortcutsModal, useKeyboardShortcutsContext } from '@rdub/use-hotkeys'
 import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
 import { HOTKEY_DESCRIPTIONS, HOTKEY_GROUPS, ShortcutsModalContent } from './components/ShortcutsModalContent'
 import { ThemeToggle } from './components/ThemeToggle'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
+import { DEFAULT_HOTKEY_MAP } from './hooks/useKeyboardShortcuts'
 import { queryClient } from './lib/queryClient'
 import { boolParam, deviceIdsParam, timeRangeParam, refetchIntervalParam } from './lib/urlParams'
-import type { KeyboardShortcutsState } from './hooks/useKeyboardShortcuts'
 import './App.scss'
 
 function AppContent() {
@@ -19,11 +19,8 @@ function AppContent() {
   const openShortcuts = useCallback(() => setShortcutsOpen(true), [])
   const closeShortcuts = useCallback(() => setShortcutsOpen(false), [])
 
-  // Ref to receive shortcuts state from AwairChart (for modal rendering without re-rendering chart)
-  const shortcutsStateRef = useRef<KeyboardShortcutsState | null>(null)
-  // Counter to force re-render when shortcuts change (refs don't trigger re-renders)
-  const [, setShortcutsVersion] = useState(0)
-  const onShortcutsChange = useCallback(() => setShortcutsVersion(v => v + 1), [])
+  // Access keyboard shortcuts from context (state lives in KeyboardShortcutsProvider)
+  const shortcutsState = useKeyboardShortcutsContext()
 
   // Add og-mode class to body for CSS overrides
   useEffect(() => {
@@ -182,16 +179,14 @@ function AppContent() {
             setTimeRange={setTimeRange}
             isOgMode={isOgMode}
             onOpenShortcuts={openShortcuts}
-            shortcutsStateRef={shortcutsStateRef}
-            onShortcutsChange={onShortcutsChange}
           />
         )}
       </main>
       {!isOgMode && <ThemeToggle onOpenShortcuts={openShortcuts} />}
       {/* Modal rendered at App level to avoid re-rendering AwairChart on open/close */}
-      {!isOgMode && shortcutsStateRef.current && (
+      {!isOgMode && (
         <ShortcutsModal
-          keymap={shortcutsStateRef.current.keymap}
+          keymap={shortcutsState.keymap}
           descriptions={HOTKEY_DESCRIPTIONS}
           groups={HOTKEY_GROUPS}
           isOpen={shortcutsOpen}
@@ -202,7 +197,6 @@ function AppContent() {
             <ShortcutsModalContent
               groups={groups}
               close={close}
-              shortcutsState={shortcutsStateRef.current!}
             />
           )}
         </ShortcutsModal>
@@ -215,7 +209,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AppContent />
+        <KeyboardShortcutsProvider
+          defaults={DEFAULT_HOTKEY_MAP}
+          storageKey="awair-hotkeys"
+        >
+          <AppContent />
+        </KeyboardShortcutsProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )

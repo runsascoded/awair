@@ -1,7 +1,6 @@
-import { useRecordHotkey } from '@rdub/use-hotkeys'
+import { useRecordHotkey, useKeyboardShortcutsContext } from '@rdub/use-hotkeys'
 import React, { useState, useCallback } from 'react'
 import { Tooltip } from './Tooltip'
-import type { KeyboardShortcutsState } from '../hooks/useKeyboardShortcuts'
 import type { KeyCombination, KeyCombinationDisplay, ShortcutGroup } from '@rdub/use-hotkeys'
 
 // Descriptions for keyboard shortcuts modal
@@ -44,11 +43,13 @@ export const HOTKEY_GROUPS: Record<string, string> = {
 export interface ShortcutsModalContentProps {
   groups: ShortcutGroup[]
   close: () => void
-  shortcutsState: KeyboardShortcutsState
 }
 
-export function ShortcutsModalContent({ groups, close, shortcutsState }: ShortcutsModalContentProps) {
+export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentProps) {
   const [editingAction, setEditingAction] = useState<string | null>(null)
+
+  // Access shortcuts state from context
+  const shortcutsState = useKeyboardShortcutsContext()
 
   const { isRecording, startRecording, cancel, activeKeys } = useRecordHotkey({
     onCapture: useCallback(

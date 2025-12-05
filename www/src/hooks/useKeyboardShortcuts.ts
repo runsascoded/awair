@@ -1,4 +1,4 @@
-import { useEditableHotkeys, type HotkeyMap } from '@rdub/use-hotkeys'
+import { useRegisteredHotkeys, type HotkeyMap } from '@rdub/use-hotkeys'
 import { useMemo } from 'react'
 import type { MetricsState } from "./useMetrics"
 import type { AwairRecord } from '../types/awair'
@@ -15,21 +15,6 @@ interface UseKeyboardShortcutsProps {
   handleAllClick: () => void
   setIgnoreNextPanCheck: () => void
   openShortcutsModal: () => void
-}
-
-export interface KeyboardShortcutsState {
-  /** Current keymap (defaults + user overrides) */
-  keymap: HotkeyMap
-  /** Default keymap */
-  defaults: HotkeyMap
-  /** Update a single keybinding */
-  setBinding: (action: string, key: string) => void
-  /** Reset all to defaults */
-  reset: () => void
-  /** Map of key -> actions[] for keys with multiple actions bound */
-  conflicts: Map<string, string[]>
-  /** Whether there are any conflicts in the current keymap */
-  hasConflicts: boolean
 }
 
 type Metric = 'temp' | 'co2' | 'humid' | 'pm25' | 'voc'
@@ -149,19 +134,6 @@ export function useKeyboardShortcuts({
     }
   }, [l, r, handleTimeRangeClick, handleAllClick, latestModeIntended, setLatestModeIntended, xAxisRange, data, formatForPlotly, setXAxisRange, setIgnoreNextPanCheck, openShortcutsModal])
 
-  const { keymap, setBinding, reset, conflicts, hasConflicts } = useEditableHotkeys(
-    DEFAULT_HOTKEY_MAP,
-    handlers,
-    { storageKey: 'awair-hotkeys' }
-  )
-
-  // Memoize return value to prevent unnecessary re-renders
-  return useMemo(() => ({
-    keymap,
-    defaults: DEFAULT_HOTKEY_MAP,
-    setBinding,
-    reset,
-    conflicts,
-    hasConflicts,
-  } satisfies KeyboardShortcutsState), [keymap, setBinding, reset, conflicts, hasConflicts])
+  // Register handlers with keymap from context
+  useRegisteredHotkeys(handlers)
 }

@@ -16,7 +16,6 @@ import { formatForPlotly, formatCompactDate, formatFullDate } from '../utils/dat
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { PxOption } from './AggregationControl'
 import type { DeviceDataResult } from './DevicePoller'
-import type { KeyboardShortcutsState } from '../hooks/useKeyboardShortcuts'
 import type { Metric } from '../lib/urlParams'
 import type { Device } from '../services/awairService'
 import type { DataSummary } from '../types/awair'
@@ -47,13 +46,9 @@ interface Props {
   setTimeRange: (range: { timestamp: Date | null; duration: number }) => void
   isOgMode?: boolean
   onOpenShortcuts?: () => void
-  /** Ref to expose shortcuts state to parent for modal rendering */
-  shortcutsStateRef?: React.MutableRefObject<KeyboardShortcutsState | null>
-  /** Called when shortcuts state changes (to trigger parent re-render) */
-  onShortcutsChange?: () => void
 }
 
-export const AwairChart = React.memo(function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps, isOgMode = false, onOpenShortcuts, shortcutsStateRef, onShortcutsChange }: Props) {
+export const AwairChart = React.memo(function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps, isOgMode = false, onOpenShortcuts }: Props) {
 
   // Combine data from all devices for time range calculations and bounds checking
   // Sorted newest-first for efficient latest record access
@@ -284,8 +279,8 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     }
   }, [setXAxisRange, getAllDeviceBounds, formatForPlotly])
 
-  // Keyboard shortcuts (editable, persisted to localStorage)
-  const shortcutsState = useKeyboardShortcuts({
+  // Register keyboard shortcuts (keymap managed by context, handlers defined here)
+  useKeyboardShortcuts({
     metrics,
     xAxisRange,
     setXAxisRange,
@@ -298,15 +293,6 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     setIgnoreNextPanCheck,
     openShortcutsModal: onOpenShortcuts || noop,
   })
-
-  // Expose shortcuts state to parent for modal rendering (avoids re-rendering chart on modal open/close)
-  useEffect(() => {
-    if (shortcutsStateRef) {
-      shortcutsStateRef.current = shortcutsState
-    }
-    // Notify parent to re-render and pick up the new ref value
-    onShortcutsChange?.()
-  }, [shortcutsStateRef, shortcutsState, onShortcutsChange])
 
   // Handle responsive plot height and viewport width using matchMedia
   useEffect(() => {
