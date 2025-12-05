@@ -21,6 +21,9 @@ function AppContent() {
 
   // Ref to receive shortcuts state from AwairChart (for modal rendering without re-rendering chart)
   const shortcutsStateRef = useRef<KeyboardShortcutsState | null>(null)
+  // Counter to force re-render when shortcuts change (refs don't trigger re-renders)
+  const [, setShortcutsVersion] = useState(0)
+  const onShortcutsChange = useCallback(() => setShortcutsVersion(v => v + 1), [])
 
   // Add og-mode class to body for CSS overrides
   useEffect(() => {
@@ -180,6 +183,7 @@ function AppContent() {
             isOgMode={isOgMode}
             onOpenShortcuts={openShortcuts}
             shortcutsStateRef={shortcutsStateRef}
+            onShortcutsChange={onShortcutsChange}
           />
         )}
       </main>

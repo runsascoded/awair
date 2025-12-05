@@ -76,6 +76,30 @@
     font-style: italic;
   }
 
+  .shortcuts-conflict-warning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    background-color: #fee2e2;
+    border: 1px solid #fca5a5;
+    border-radius: 6px;
+    color: #991b1b;
+    font-size: 0.85rem;
+
+    .warning-icon {
+      font-size: 1rem;
+    }
+
+    // Dark mode
+    :root[data-theme="dark"] & {
+      background-color: rgba(185, 28, 28, 0.2);
+      border-color: rgba(248, 113, 113, 0.4);
+      color: #fca5a5;
+    }
+  }
+
   h3 {
     margin: 16px 0 8px;
     font-size: 0.8rem;
@@ -142,6 +166,29 @@
       background-color: #e3f2fd;
       color: #1565c0;
       animation: pulse 1s infinite;
+    }
+
+    &.conflict {
+      border-color: #f87171;
+      background-color: #fee2e2;
+      color: #991b1b;
+
+      &:hover {
+        border-color: #ef4444;
+        background-color: #fecaca;
+      }
+
+      // Dark mode
+      :root[data-theme="dark"] & {
+        border-color: rgba(248, 113, 113, 0.6);
+        background-color: rgba(185, 28, 28, 0.3);
+        color: #fca5a5;
+
+        &:hover {
+          border-color: #f87171;
+          background-color: rgba(185, 28, 28, 0.4);
+        }
+      }
     }
   }
 

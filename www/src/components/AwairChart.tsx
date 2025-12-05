@@ -49,9 +49,11 @@ interface Props {
   onOpenShortcuts?: () => void
   /** Ref to expose shortcuts state to parent for modal rendering */
   shortcutsStateRef?: React.MutableRefObject<KeyboardShortcutsState | null>
+  /** Called when shortcuts state changes (to trigger parent re-render) */
+  onShortcutsChange?: () => void
 }
 
-export const AwairChart = React.memo(function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps, isOgMode = false, onOpenShortcuts, shortcutsStateRef }: Props) {
+export const AwairChart = React.memo(function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps, isOgMode = false, onOpenShortcuts, shortcutsStateRef, onShortcutsChange }: Props) {
 
   // Combine data from all devices for time range calculations and bounds checking
   // Sorted newest-first for efficient latest record access
@@ -302,7 +304,9 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     if (shortcutsStateRef) {
       shortcutsStateRef.current = shortcutsState
     }
-  }, [shortcutsStateRef, shortcutsState])
+    // Notify parent to re-render and pick up the new ref value
+    onShortcutsChange?.()
+  }, [shortcutsStateRef, shortcutsState, onShortcutsChange])
 
   // Handle responsive plot height and viewport width using matchMedia
   useEffect(() => {

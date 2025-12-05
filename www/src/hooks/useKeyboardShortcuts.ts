@@ -26,6 +26,10 @@ export interface KeyboardShortcutsState {
   setBinding: (action: string, key: string) => void
   /** Reset all to defaults */
   reset: () => void
+  /** Map of key -> actions[] for keys with multiple actions bound */
+  conflicts: Map<string, string[]>
+  /** Whether there are any conflicts in the current keymap */
+  hasConflicts: boolean
 }
 
 type Metric = 'temp' | 'co2' | 'humid' | 'pm25' | 'voc'
@@ -145,7 +149,7 @@ export function useKeyboardShortcuts({
     }
   }, [l, r, handleTimeRangeClick, handleAllClick, latestModeIntended, setLatestModeIntended, xAxisRange, data, formatForPlotly, setXAxisRange, setIgnoreNextPanCheck, openShortcutsModal])
 
-  const { keymap, setBinding, reset } = useEditableHotkeys(
+  const { keymap, setBinding, reset, conflicts, hasConflicts } = useEditableHotkeys(
     DEFAULT_HOTKEY_MAP,
     handlers,
     { storageKey: 'awair-hotkeys' }
@@ -157,5 +161,7 @@ export function useKeyboardShortcuts({
     defaults: DEFAULT_HOTKEY_MAP,
     setBinding,
     reset,
-  } satisfies KeyboardShortcutsState), [keymap, setBinding, reset])
+    conflicts,
+    hasConflicts,
+  } satisfies KeyboardShortcutsState), [keymap, setBinding, reset, conflicts, hasConflicts])
 }

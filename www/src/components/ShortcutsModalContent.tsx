@@ -121,10 +121,14 @@ export function ShortcutsModalContent({ groups, close, shortcutsState }: Shortcu
     return upper
   }
 
+  // Check if a key has a conflict
+  const hasConflict = (key: string) => shortcutsState.conflicts.has(key.toLowerCase())
+
   // Render an editable kbd element
-  const renderEditableKbd = (action: string, key: string, useShiftIcon = false) => {
+  const renderEditableKbd = (action: string, key: string) => {
     const isEditing = editingAction === action
-    const displayKey = useShiftIcon ? renderKey(key) : key.toUpperCase()
+    const displayKey = renderKey(key)
+    const isConflict = key && hasConflict(key)
 
     if (isEditing) {
       return (
@@ -134,11 +138,16 @@ export function ShortcutsModalContent({ groups, close, shortcutsState }: Shortcu
       )
     }
 
+    const classes = ['editable', isConflict && 'conflict'].filter(Boolean).join(' ')
+    const title = isConflict
+      ? `Conflict! This key is bound to multiple actions. Click to change.`
+      : 'Click to change'
+
     return (
       <kbd
-        className="editable"
+        className={classes}
         onClick={() => startEditing(action)}
-        title="Click to change"
+        title={title}
       >
         {displayKey || '-'}
       </kbd>
@@ -170,6 +179,13 @@ export function ShortcutsModalContent({ groups, close, shortcutsState }: Shortcu
           </div>
         </div>
 
+        {shortcutsState.hasConflicts && (
+          <div className="shortcuts-conflict-warning">
+            <span className="warning-icon">⚠</span>
+            Some shortcuts have conflicts and are disabled. Click to reassign.
+          </div>
+        )}
+
         <p className="shortcuts-hint">Click any key to customize</p>
 
         <h3>Y-Axis Metrics</h3>
@@ -189,14 +205,14 @@ export function ShortcutsModalContent({ groups, close, shortcutsState }: Shortcu
                 <tr key={metric}>
                   <td>{metricLabels[metric]}</td>
                   <td>{renderEditableKbd(left?.action || `left:${metric}`, left?.key || '')}</td>
-                  <td>{renderEditableKbd(right?.action || `right:${metric}`, right?.key || '', true)}</td>
+                  <td>{renderEditableKbd(right?.action || `right:${metric}`, right?.key || '')}</td>
                 </tr>
               )
             })}
             <tr>
               <td>None</td>
               <td>-</td>
-              <td>{renderEditableKbd('right:none', getShortcut(rightGroup, 'none')?.key || 'shift+n', true)}</td>
+              <td>{renderEditableKbd('right:none', getShortcut(rightGroup, 'none')?.key || 'shift+n')}</td>
             </tr>
           </tbody>
         </table>
