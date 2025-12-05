@@ -30,8 +30,8 @@ importers:
         specifier: ^7.9.0
         version: 7.9.0
       hyparquet:
-        specifier: github:runsascoded/hyparquet#531d1f19f6c3224271418f6d73efb3d3fdb2f613
-        version: https://codeload.github.com/runsascoded/hyparquet/tar.gz/531d1f19f6c3224271418f6d73efb3d3fdb2f613
+        specifier: github:runsascoded/hyparquet#6d0c51c423776ef04b21fab9f469fdc05a5dc4dd
+        version: https://codeload.github.com/runsascoded/hyparquet/tar.gz/6d0c51c423776ef04b21fab9f469fdc05a5dc4dd
       plotly.js:
         specifier: github:runsascoded/plotly.js#bd318fb4776eb5b8eaa3bcfd02657d90bdef75cf
         version: https://codeload.github.com/runsascoded/plotly.js/tar.gz/bd318fb4776eb5b8eaa3bcfd02657d90bdef75cf(mapbox-gl@1.13.3)
@@ -2628,8 +2628,8 @@ packages:
     resolution: {integrity: sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw==}
     engines: {node: '>= 14'}
 
-  hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/531d1f19f6c3224271418f6d73efb3d3fdb2f613:
-    resolution: {tarball: https://codeload.github.com/runsascoded/hyparquet/tar.gz/531d1f19f6c3224271418f6d73efb3d3fdb2f613}
+  hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/6d0c51c423776ef04b21fab9f469fdc05a5dc4dd:
+    resolution: {tarball: https://codeload.github.com/runsascoded/hyparquet/tar.gz/6d0c51c423776ef04b21fab9f469fdc05a5dc4dd}
     version: 1.22.1
 
   iconv-lite@0.4.24:
@@ -7240,7 +7240,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/531d1f19f6c3224271418f6d73efb3d3fdb2f613: {}
+  hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/6d0c51c423776ef04b21fab9f469fdc05a5dc4dd: {}
 
   iconv-lite@0.4.24:
     dependencies:
