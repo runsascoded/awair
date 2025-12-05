@@ -655,7 +655,8 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     tickformat: '.3~s',
     // If not auto-ranging: use floor as minimum (default 0 with rangemode tozero)
     ...(!autoRange && floor === 0 && { rangemode: 'tozero' as const }),
-    ...(!autoRange && floor > 0 && { rangemode: 'nonnegative' as const, range: [floor, null] }),
+    // For metrics with floor > 0 (e.g., CO2 at 400ppm), use autorange:'max' to auto-scale upper bound
+    ...(!autoRange && floor > 0 && { autorange: 'max' as const, range: [floor, null] }),
     ...(side === 'right' && { overlaying: 'y' as const }),
   })
   // OG mode: fill viewport height (625px to leave room for bottom margin in 630px viewport)
