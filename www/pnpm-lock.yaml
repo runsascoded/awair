@@ -18,8 +18,8 @@ importers:
         specifier: ^0.6.17
         version: 0.6.17
       '@rdub/use-hotkeys':
-        specifier: workspace:*
-        version: link:../../js/use-hotkeys
+        specifier: github:runsascoded/use-hotkeys#c62903e7efc6aa123a9da6b18e429ca32da31c43
+        version: https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/c62903e7efc6aa123a9da6b18e429ca32da31c43(react@19.2.1)
       '@rdub/use-url-params':
         specifier: ^0.1.2
         version: 0.1.2(react@19.2.1)
@@ -1156,6 +1156,12 @@ packages:
     hasBin: true
     peerDependencies:
       '@aws-sdk/client-s3': ^3.0.0
+
+  '@rdub/use-hotkeys@https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/c62903e7efc6aa123a9da6b18e429ca32da31c43':
+    resolution: {tarball: https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/c62903e7efc6aa123a9da6b18e429ca32da31c43}
+    version: 0.0.1
+    peerDependencies:
+      react: '>=18.0.0'
 
   '@rdub/use-url-params@0.1.2':
     resolution: {integrity: sha512-iFH21uvN6VpX2NitgqnIeyqdVCQ96x+LaolXJBspb1ABYJBhnUa0XWZf0zmJ7C7cUvZtpDrNkHj+9PthXKF6lg==}
@@ -5790,6 +5796,10 @@ snapshots:
       - react-native-b4a
       - supports-color
       - utf-8-validate
+
+  '@rdub/use-hotkeys@https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/c62903e7efc6aa123a9da6b18e429ca32da31c43(react@19.2.1)':
+    dependencies:
+      react: 19.2.1
 
   '@rdub/use-url-params@0.1.2(react@19.2.1)':
     optionalDependencies:
