@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { FaGithub, FaKeyboard } from 'react-icons/fa'
-import { MdBrightnessAuto } from 'react-icons/md'
+import { MdBrightnessAuto, MdLightMode, MdDarkMode } from 'react-icons/md'
 import { useTheme } from '../contexts/ThemeContext'
 
 interface ThemeToggleProps {
@@ -54,8 +54,8 @@ export function ThemeToggle({ onOpenShortcuts }: ThemeToggleProps) {
 
   const getThemeIcon = () => {
     switch (theme) {
-      case 'light': return '☀️'
-      case 'dark': return '🌙'
+      case 'light': return <MdLightMode />
+      case 'dark': return <MdDarkMode />
       case 'system': return <MdBrightnessAuto />
     }
   }
