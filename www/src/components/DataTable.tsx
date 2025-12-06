@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Tooltip } from './Tooltip'
 
 interface AggregatedData {
@@ -23,6 +23,15 @@ interface DeviceAggregatedData {
   isRawData: boolean;
 }
 
+export interface TableNavigationHandlers {
+  prevPage: () => void;
+  nextPage: () => void;
+  prevPlotPage: () => void;
+  nextPlotPage: () => void;
+  firstPage: () => void;
+  lastPage: () => void;
+}
+
 interface Props {
   data: AggregatedData[];
   formatCompactDate: (date: Date) => string;
@@ -42,9 +51,10 @@ interface Props {
   formatForPlotly: (date: Date) => string;
   pageSize: number;
   onPageSizeChange: (size: number) => void;
+  onNavigationReady?: (handlers: TableNavigationHandlers) => void;
 }
 
-export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, rawDataCount, windowLabel, fullDataStartTime, fullDataEndTime, windowMinutes, deviceAggregations, selectedDeviceId, onDeviceChange, timeRange, setTimeRange, formatForPlotly: _formatForPlotly, pageSize, onPageSizeChange }: Props) {
+export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, rawDataCount, windowLabel, fullDataStartTime, fullDataEndTime, windowMinutes, deviceAggregations, selectedDeviceId, onDeviceChange, timeRange, setTimeRange, formatForPlotly: _formatForPlotly, pageSize, onPageSizeChange, onNavigationReady }: Props) {
   const [page, setPage] = useState(0)
 
   // Reverse the data to show most recent first (reverse chronological)
@@ -55,7 +65,8 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
   const pageData = reversedData.slice(startIdx, endIdx)
 
   // Calculate position within total dataset (reverse chronological)
-  // Based on timeRange.timestamp (from URL ?t= param)
+  // Derived purely from timeRange and metadata - NOT from actual data rows
+  // This ensures indices update immediately on navigation without waiting for data fetch
   const { globalStartIdx, globalEndIdx } = useMemo(() => {
     if (!fullDataEndTime) {
       return { globalStartIdx: 1, globalEndIdx: pageSize }
@@ -63,9 +74,6 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
 
     const windowMs = windowMinutes * 60 * 1000
     const fullEnd = fullDataEndTime.getTime()
-
-    // timeRange.timestamp = null means Latest mode (at index 1)
-    // Otherwise, calculate index based on how far back from fullEnd we are
     const isLatestMode = timeRange.timestamp === null
 
     let firstVisibleIndex: number
@@ -74,26 +82,12 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
     } else {
       const rangeEnd = timeRange.timestamp!.getTime()
       const windowsFromEnd = (fullEnd - rangeEnd) / windowMs
-      // Round to handle millisecond precision mismatch between Parquet metadata and URL encoding
-      firstVisibleIndex = Math.round(windowsFromEnd + 1)
+      firstVisibleIndex = Math.max(1, Math.round(windowsFromEnd + 1))
     }
 
-    const globalStart = Math.max(1, firstVisibleIndex)
-    const globalEnd = globalStart + pageSize - 1
+    const globalEnd = firstVisibleIndex + pageSize - 1
 
-    console.log('📊 Table index calc:', {
-      isLatestMode,
-      rangeEnd: timeRange.timestamp ? new Date(timeRange.timestamp).toISOString() : 'null (latest)',
-      fullEnd: new Date(fullEnd).toISOString(),
-      diffMs: timeRange.timestamp ? fullEnd - timeRange.timestamp.getTime() : 0,
-      diffMin: timeRange.timestamp ? (fullEnd - timeRange.timestamp.getTime()) / 60000 : 0,
-      windowMs,
-      windows: timeRange.timestamp ? (fullEnd - timeRange.timestamp.getTime()) / windowMs : 0,
-      firstVisibleIndex,
-      range: `${globalStart}-${globalEnd}`
-    })
-
-    return { globalStartIdx: globalStart, globalEndIdx: globalEnd }
+    return { globalStartIdx: firstVisibleIndex, globalEndIdx: globalEnd }
   }, [fullDataEndTime, windowMinutes, pageSize, timeRange])
 
   // Check if we're at earliest data boundary
@@ -112,6 +106,65 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
     // At or past the latest data - don't allow any forward movement
     return timeRange.timestamp.getTime() >= fullDataEndTime.getTime()
   }, [timeRange.timestamp, fullDataEndTime])
+
+  // Navigation functions for keyboard shortcuts
+  const firstPage = useCallback(() => {
+    if (!fullDataStartTime || isAtEarliest) return
+    const timestamp = new Date(fullDataStartTime.getTime() + timeRange.duration)
+    setTimeRange({ timestamp, duration: timeRange.duration })
+    setPage(0)
+  }, [fullDataStartTime, isAtEarliest, timeRange.duration, setTimeRange])
+
+  const prevPlotPage = useCallback(() => {
+    if (isAtEarliest) return
+    const currentTimestamp = timeRange.timestamp
+      ? new Date(Math.min(timeRange.timestamp.getTime(), fullDataEndTime?.getTime() ?? Infinity))
+      : fullDataEndTime
+    if (!currentTimestamp) return
+    const newTimestamp = new Date(currentTimestamp.getTime() - timeRange.duration)
+    setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
+    setPage(0)
+  }, [isAtEarliest, timeRange.timestamp, timeRange.duration, fullDataEndTime, setTimeRange])
+
+  const prevPage = useCallback(() => {
+    if (isAtEarliest) return
+    const currentTimestamp = timeRange.timestamp
+      ? new Date(Math.min(timeRange.timestamp.getTime(), fullDataEndTime?.getTime() ?? Infinity))
+      : fullDataEndTime
+    if (!currentTimestamp) return
+    const pageShiftMs = pageSize * windowMinutes * 60 * 1000
+    const newTimestamp = new Date(currentTimestamp.getTime() - pageShiftMs)
+    setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
+    setPage(0)
+  }, [isAtEarliest, timeRange.timestamp, timeRange.duration, fullDataEndTime, pageSize, windowMinutes, setTimeRange])
+
+  const nextPage = useCallback(() => {
+    if (isAtLatest || !timeRange.timestamp || !fullDataEndTime) return
+    const pageShiftMs = pageSize * windowMinutes * 60 * 1000
+    const newTime = timeRange.timestamp.getTime() + pageShiftMs
+    const newTimestamp = newTime >= fullDataEndTime.getTime() ? null : new Date(newTime)
+    setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
+    setPage(0)
+  }, [isAtLatest, timeRange.timestamp, timeRange.duration, fullDataEndTime, pageSize, windowMinutes, setTimeRange])
+
+  const nextPlotPage = useCallback(() => {
+    if (isAtLatest || !timeRange.timestamp || !fullDataEndTime) return
+    const newTime = timeRange.timestamp.getTime() + timeRange.duration
+    const newTimestamp = newTime >= fullDataEndTime.getTime() ? null : new Date(newTime)
+    setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
+    setPage(0)
+  }, [isAtLatest, timeRange.timestamp, timeRange.duration, fullDataEndTime, setTimeRange])
+
+  const lastPage = useCallback(() => {
+    if (isAtLatest) return
+    setTimeRange({ timestamp: null, duration: timeRange.duration })
+    setPage(0)
+  }, [isAtLatest, timeRange.duration, setTimeRange])
+
+  // Notify parent of navigation handlers
+  useEffect(() => {
+    onNavigationReady?.({ prevPage, nextPage, prevPlotPage, nextPlotPage, firstPage, lastPage })
+  }, [onNavigationReady, prevPage, nextPage, prevPlotPage, nextPlotPage, firstPage, lastPage])
 
   return (
     <div className="data-table">
@@ -160,15 +213,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               }
             >
               <button
-                onClick={() => {
-                  if (!fullDataStartTime) return
-                  // Jump to earliest: position plot to show full duration starting from earliest
-                  // Range will be [fullDataStartTime, fullDataStartTime + duration]
-                  // Table shows first pageSize windows, leaving (duration_in_windows - pageSize) gap to end
-                  const timestamp = new Date(fullDataStartTime.getTime() + timeRange.duration)
-                  setTimeRange({ timestamp, duration: timeRange.duration })
-                  setPage(0)
-                }}
+                onClick={firstPage}
                 disabled={isAtEarliest}
                 aria-label="Jump to earliest data"
                 className="btn"
@@ -184,17 +229,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               }
             >
               <button
-                onClick={() => {
-                  // Pan backward by plot width
-                  // Clamp currentTimestamp to not exceed fullDataEndTime
-                  const currentTimestamp = timeRange.timestamp
-                    ? new Date(Math.min(timeRange.timestamp.getTime(), fullDataEndTime?.getTime() ?? Infinity))
-                    : fullDataEndTime
-                  if (!currentTimestamp) return
-                  const newTimestamp = new Date(currentTimestamp.getTime() - timeRange.duration)
-                  setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
-                  setPage(0)
-                }}
+                onClick={prevPlotPage}
                 disabled={isAtEarliest}
                 aria-label="Pan backward by one plot width"
                 className="btn"
@@ -210,18 +245,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               }
             >
               <button
-                onClick={() => {
-                  // Pan backward by one table page
-                  // Clamp currentTimestamp to not exceed fullDataEndTime
-                  const currentTimestamp = timeRange.timestamp
-                    ? new Date(Math.min(timeRange.timestamp.getTime(), fullDataEndTime?.getTime() ?? Infinity))
-                    : fullDataEndTime
-                  if (!currentTimestamp) return
-                  const pageShiftMs = pageSize * windowMinutes * 60 * 1000
-                  const newTimestamp = new Date(currentTimestamp.getTime() - pageShiftMs)
-                  setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
-                  setPage(0)
-                }}
+                onClick={prevPage}
                 disabled={isAtEarliest}
                 aria-label="Pan backward by one table page"
                 className="btn"
@@ -252,16 +276,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               }
             >
               <button
-                onClick={() => {
-                  if (!timeRange.timestamp || !fullDataEndTime) return
-                  // Pan forward by one table page - clamp to not exceed latest
-                  const pageShiftMs = pageSize * windowMinutes * 60 * 1000
-                  const newTime = timeRange.timestamp.getTime() + pageShiftMs
-                  // If would exceed latest, go to Latest mode instead
-                  const newTimestamp = newTime >= fullDataEndTime.getTime() ? null : new Date(newTime)
-                  setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
-                  setPage(0)
-                }}
+                onClick={nextPage}
                 disabled={isAtLatest}
                 aria-label="Pan forward by one table page"
                 className="btn"
@@ -277,15 +292,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               }
             >
               <button
-                onClick={() => {
-                  if (!timeRange.timestamp || !fullDataEndTime) return
-                  // Pan forward by one plot width - clamp to not exceed latest
-                  const newTime = timeRange.timestamp.getTime() + timeRange.duration
-                  // If would exceed latest, go to Latest mode instead
-                  const newTimestamp = newTime >= fullDataEndTime.getTime() ? null : new Date(newTime)
-                  setTimeRange({ timestamp: newTimestamp, duration: timeRange.duration })
-                  setPage(0)
-                }}
+                onClick={nextPlotPage}
                 disabled={isAtLatest}
                 aria-label="Pan forward by one plot width"
                 className="btn"
@@ -301,11 +308,7 @@ export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, 
               }
             >
               <button
-                onClick={() => {
-                  // Jump to latest: set timestamp to null
-                  setTimeRange({ timestamp: null, duration: timeRange.duration })
-                  setPage(0)
-                }}
+                onClick={lastPage}
                 disabled={isAtLatest}
                 aria-label="Jump to Latest"
                 className="btn"

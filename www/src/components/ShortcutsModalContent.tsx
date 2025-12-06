@@ -1,7 +1,7 @@
 import { useRecordHotkey, useKeyboardShortcutsContext } from '@rdub/use-hotkeys'
 import React, { useState, useCallback } from 'react'
 import { Tooltip } from './Tooltip'
-import type { KeyCombination, KeyCombinationDisplay, ShortcutGroup } from '@rdub/use-hotkeys'
+import type { HotkeySequence, KeyCombinationDisplay, ShortcutGroup } from '@rdub/use-hotkeys'
 
 // Descriptions for keyboard shortcuts modal
 export const HOTKEY_DESCRIPTIONS: Record<string, string> = {
@@ -23,11 +23,21 @@ export const HOTKEY_DESCRIPTIONS: Record<string, string> = {
   // Time ranges
   'time:01-1d': '1 day',
   'time:02-3d': '3 days',
-  'time:03-7d': '7 days',
-  'time:04-14d': '14 days',
-  'time:05-30d': '30 days',
+  'time:03-7d': '1 week',
+  'time:04-14d': '2 weeks',
+  'time:05-30d': '1 month',
   'time:06-all': 'Full history',
   'time:07-latest': 'Latest',
+  // Devices
+  'device:gym': 'Toggle Gym',
+  'device:br': 'Toggle BR',
+  // Table pagination
+  'table:prev-page': 'Prev table page',
+  'table:next-page': 'Next table page',
+  'table:prev-plot-page': 'Prev plot page',
+  'table:next-plot-page': 'Next plot page',
+  'table:first-page': 'First page',
+  'table:last-page': 'Last page',
   // Modal
   'modal:shortcuts': 'This dialog',
 }
@@ -37,6 +47,8 @@ export const HOTKEY_GROUPS: Record<string, string> = {
   'left': 'Left Y-Axis',
   'right': 'Right Y-Axis',
   'time': 'Time Range',
+  'device': 'Devices',
+  'table': 'Table Navigation',
   'modal': 'Other',
 }
 
@@ -47,37 +59,63 @@ export interface ShortcutsModalContentProps {
 
 export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentProps) {
   const [editingAction, setEditingAction] = useState<string | null>(null)
+  const [addingAction, setAddingAction] = useState<string | null>(null)
 
   // Access shortcuts state from context
   const shortcutsState = useKeyboardShortcutsContext()
 
-  const { isRecording, startRecording, cancel, activeKeys } = useRecordHotkey({
+  const { isRecording, startRecording, cancel, sequence, pendingKeys } = useRecordHotkey({
     onCapture: useCallback(
-      (_combo: KeyCombination, display: KeyCombinationDisplay) => {
-        if (editingAction) {
+      (_sequence: HotkeySequence, display: KeyCombinationDisplay) => {
+        if (addingAction) {
+          // Adding a new key for an action
+          shortcutsState.addBinding(addingAction, display.id)
+          setAddingAction(null)
+        } else if (editingAction) {
+          // Editing/replacing an existing key
           shortcutsState.setBinding(editingAction, display.id)
           setEditingAction(null)
         }
       },
-      [editingAction, shortcutsState],
+      [editingAction, addingAction, shortcutsState],
     ),
     onCancel: useCallback(() => {
       setEditingAction(null)
+      setAddingAction(null)
     }, []),
   })
 
   const startEditing = useCallback(
     (action: string) => {
+      setAddingAction(null)
       setEditingAction(action)
       startRecording()
     },
     [startRecording],
   )
 
+  const startAdding = useCallback(
+    (action: string) => {
+      setEditingAction(null)
+      setAddingAction(action)
+      startRecording()
+    },
+    [startRecording],
+  )
+
+  const handleRemoveKey = useCallback(
+    (key: string) => {
+      shortcutsState.removeBinding(key)
+    },
+    [shortcutsState],
+  )
+
   // Extract shortcuts by group
   const leftGroup = groups.find(g => g.name === 'Left Y-Axis')
   const rightGroup = groups.find(g => g.name === 'Right Y-Axis')
   const timeGroup = groups.find(g => g.name === 'Time Range')
+  const deviceGroup = groups.find(g => g.name === 'Devices')
+  const tableGroup = groups.find(g => g.name === 'Table Navigation')
   const modalGroup = groups.find(g => g.name === 'Other')
 
   // Build metric rows: pair left and right shortcuts
@@ -112,29 +150,73 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     </svg>
   )
 
-  // Render a key with nice modifier symbols
-  const renderKey = (key: string) => {
+  // Render a single key combination with nice modifier symbols
+  const renderSingleKey = (key: string) => {
     const upper = key.toUpperCase()
+    if (upper.startsWith('META+')) {
+      const mainKey = upper.replace('META+', '')
+      return <>⌘{mainKey}</>
+    }
     if (upper.startsWith('SHIFT+')) {
       const mainKey = upper.replace('SHIFT+', '')
+      // Show the shifted character for punctuation
+      if (mainKey === ',') return '<'
+      if (mainKey === '.') return '>'
       return <><ShiftIcon />{mainKey}</>
     }
     return upper
   }
 
+  // Render a key or sequence (space-separated keys)
+  const renderKey = (key: string) => {
+    if (!key) return '-'
+    // Check if it's a sequence (contains space but not in modifier syntax)
+    if (key.includes(' ') && !key.includes('+')) {
+      // It's a sequence like "1 d" or "2 w"
+      const parts = key.split(' ')
+      return (
+        <>
+          {parts.map((part, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && ' '}
+              {renderSingleKey(part)}
+            </React.Fragment>
+          ))}
+        </>
+      )
+    }
+    return renderSingleKey(key)
+  }
+
   // Check if a key has a conflict
   const hasConflict = (key: string) => shortcutsState.conflicts.has(key.toLowerCase())
 
-  // Render an editable kbd element
-  const renderEditableKbd = (action: string, key: string) => {
-    const isEditing = editingAction === action
+  // Format a sequence for display during recording
+  const formatRecordingSequence = () => {
+    if (!sequence || sequence.length === 0) return '...'
+    // Format each key in the sequence
+    const parts = sequence.map(combo => {
+      let key = combo.key.toUpperCase()
+      if (combo.modifiers.shift) key = `SHIFT+${key}`
+      if (combo.modifiers.ctrl) key = `CTRL+${key}`
+      if (combo.modifiers.alt) key = `ALT+${key}`
+      if (combo.modifiers.meta) key = `META+${key}`
+      return key
+    })
+    // Show pending indicator if sequence is incomplete
+    return parts.join(' → ') + (pendingKeys && pendingKeys.length > 0 ? ' → ...' : '')
+  }
+
+  // Render an editable kbd element with optional remove button
+  const renderEditableKbd = (action: string, key: string, showRemove = false) => {
+    const isEditing = editingAction === action && !addingAction
     const displayKey = renderKey(key)
     const isConflict = key && hasConflict(key)
 
     if (isEditing) {
       return (
         <kbd className="editing">
-          {activeKeys ? renderKey(activeKeys.key) : '...'}
+          {formatRecordingSequence()}
         </kbd>
       )
     }
@@ -145,13 +227,50 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
       : 'Click to change'
 
     return (
-      <kbd
-        className={classes}
-        onClick={() => startEditing(action)}
-        title={title}
+      <span className="key-with-remove">
+        <kbd
+          className={classes}
+          onClick={() => startEditing(action)}
+          title={title}
+        >
+          {displayKey || '-'}
+        </kbd>
+        {showRemove && key && (
+          <button
+            className="remove-key-btn"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleRemoveKey(key)
+            }}
+            title="Remove this shortcut"
+          >
+            ×
+          </button>
+        )}
+      </span>
+    )
+  }
+
+  // Render add button for an action
+  const renderAddButton = (action: string) => {
+    const isAdding = addingAction === action
+
+    if (isAdding) {
+      return (
+        <kbd className="editing adding">
+          {formatRecordingSequence() || '...'}
+        </kbd>
+      )
+    }
+
+    return (
+      <button
+        className="add-key-btn"
+        onClick={() => startAdding(action)}
+        title="Add another shortcut"
       >
-        {displayKey || '-'}
-      </kbd>
+        +
+      </button>
     )
   }
 
@@ -221,26 +340,99 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
         <h3>Time Range</h3>
         <table className="shortcuts-table">
           <tbody>
-            {timeGroup?.shortcuts
-              .slice()
-              .sort((a, b) => a.action.localeCompare(b.action))
-              .map(s => {
-                const tooltip = timeTooltips[s.action]
-                return (
-                  <tr key={s.action}>
-                    <td>
-                      {tooltip ? (
-                        <Tooltip content={tooltip}>
-                          <span className="tooltip-trigger">{s.description} ⓘ</span>
-                        </Tooltip>
-                      ) : s.description}
-                    </td>
-                    <td>{renderEditableKbd(s.action, s.key)}</td>
-                  </tr>
-                )
-              })}
+            {(() => {
+              // Group shortcuts by action to handle multiple keys per action
+              const actionMap = new Map<string, { keys: string[]; description?: string }>()
+              timeGroup?.shortcuts.forEach(s => {
+                const existing = actionMap.get(s.action)
+                if (existing) {
+                  existing.keys.push(s.key)
+                } else {
+                  actionMap.set(s.action, { keys: [s.key], description: s.description })
+                }
+              })
+              // Sort by action name and render
+              return Array.from(actionMap.entries())
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([action, { keys, description }]) => {
+                  const tooltip = timeTooltips[action]
+                  return (
+                    <tr key={action}>
+                      <td>
+                        {tooltip ? (
+                          <Tooltip content={tooltip}>
+                            <span className="tooltip-trigger">{description} ⓘ</span>
+                          </Tooltip>
+                        ) : description}
+                      </td>
+                      <td className="multi-keys">
+                        {keys.map(key => (
+                          <React.Fragment key={key}>
+                            {renderEditableKbd(action, key, keys.length > 1)}
+                          </React.Fragment>
+                        ))}
+                        {renderAddButton(action)}
+                      </td>
+                    </tr>
+                  )
+                })
+            })()}
           </tbody>
         </table>
+
+        {deviceGroup && deviceGroup.shortcuts.length > 0 && (
+          <>
+            <h3>Devices</h3>
+            <table className="shortcuts-table">
+              <tbody>
+                {deviceGroup.shortcuts.map(s => (
+                  <tr key={s.action}>
+                    <td>{s.description}</td>
+                    <td>{renderEditableKbd(s.action, s.key)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {tableGroup && tableGroup.shortcuts.length > 0 && (
+          <>
+            <h3>Table Navigation</h3>
+            <table className="shortcuts-table">
+              <thead>
+                <tr>
+                  <th>Navigation</th>
+                  <th>Back</th>
+                  <th>Forward</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  // Pair prev/next shortcuts
+                  const pairs = [
+                    { label: 'Table page', prev: 'table:prev-page', next: 'table:next-page' },
+                    { label: 'Plot page', prev: 'table:prev-plot-page', next: 'table:next-plot-page' },
+                    { label: 'All pages', prev: 'table:first-page', next: 'table:last-page' },
+                  ]
+                  const getShortcutByAction = (action: string) =>
+                    tableGroup.shortcuts.find(s => s.action === action)
+                  return pairs.map(({ label, prev, next }) => {
+                    const prevShortcut = getShortcutByAction(prev)
+                    const nextShortcut = getShortcutByAction(next)
+                    return (
+                      <tr key={label}>
+                        <td>{label}</td>
+                        <td>{renderEditableKbd(prev, prevShortcut?.key || '')}</td>
+                        <td>{renderEditableKbd(next, nextShortcut?.key || '')}</td>
+                      </tr>
+                    )
+                  })
+                })()}
+              </tbody>
+            </table>
+          </>
+        )}
 
         <h3>Other</h3>
         <table className="shortcuts-table">

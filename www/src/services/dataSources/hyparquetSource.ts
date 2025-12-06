@@ -69,40 +69,19 @@ export class HyparquetSource implements DataSource {
     // Get or initialize cache for this URL
     const cache = await getCache(url)
 
-    // Check for new data on S3 (only does HEAD + tail fetch if file grew)
-    const hadNewData = await cache.refresh()
+    // NOTE: We intentionally do NOT call cache.refresh() here.
+    // For append-only files, refreshing (checking S3 for new data) is handled
+    // exclusively by the smart polling infrastructure. User navigation should
+    // only read from cache + fetch missing historical RGs.
 
-    const metadata = cache.getMetadata()!
     const rgInfos = cache.getRowGroupInfos()
-
-    if (hadNewData) {
-      // Calculate e2e latency from latest data point
-      const lastRg = rgInfos[rgInfos.length - 1]
-      const latestTs = lastRg?.maxTimestamp
-      const lastModified = cache.getLastModified()
-      const now = Date.now()
-
-      if (latestTs) {
-        const e2eLatencyMs = now - latestTs.getTime()
-        const e2eLatencySec = (e2eLatencyMs / 1000).toFixed(1)
-        // Browser lag = time since S3 was modified (how long browser took to notice)
-        const browserLagMs = lastModified ? now - lastModified.getTime() : null
-        const browserLagSec = browserLagMs !== null ? (browserLagMs / 1000).toFixed(1) : '?'
-        console.log(`[${deviceId}] 🔄 Cache refreshed with new data (e2e: ${e2eLatencySec}s, browser lag: ${browserLagSec}s)`)
-      } else {
-        console.log(`[${deviceId}] 🔄 Cache refreshed with new data`)
-      }
-    }
-
-    const totalRows = Number(metadata.num_rows)
     const numRowGroups = rgInfos.length
-
-    console.log(`[${deviceId}] 📦 File has ${numRowGroups} row groups, ${totalRows} total rows`)
 
     // Use timestamp stats to find row groups that overlap the requested range
     const neededRGs = cache.getRowGroupsForRange(range.from, range.to)
-    console.log(`[${deviceId}] ⏱️  Time range: ${range.from.toISOString()} to ${range.to.toISOString()}`)
-    console.log(`[${deviceId}] 📥 Need ${neededRGs.length}/${numRowGroups} row groups based on timestamp stats`)
+    const neededIndices = neededRGs.map(rg => rg.index).join(',')
+    console.log(`[${deviceId}] ⏱️ Time range: ${range.from.toISOString()} to ${range.to.toISOString()}`)
+    console.log(`[${deviceId}] 📥 Need RGs [${neededIndices}] (${neededRGs.length}/${numRowGroups})`)
 
     if (neededRGs.length === 0) {
       // No data in range
@@ -135,7 +114,7 @@ export class HyparquetSource implements DataSource {
       rowEnd += rgInfos[i].numRows
     }
 
-    const networkStartTime = performance.now()
+    const readStartTime = performance.now()
 
     // Read rows (cache handles fetching missing RGs)
     let rows: AwairRow[] = []
@@ -143,7 +122,7 @@ export class HyparquetSource implements DataSource {
       rows = data
     })
 
-    const networkEndTime = performance.now()
+    const readEndTime = performance.now()
 
     // Estimate bytes transferred from cache stats
     const stats = cache.getStats()
@@ -178,8 +157,8 @@ export class HyparquetSource implements DataSource {
 
     const timing: FetchTiming = {
       totalMs: endTime - startTime,
-      networkMs: networkEndTime - networkStartTime,
-      parseMs: endTime - networkEndTime,
+      networkMs: readEndTime - readStartTime,
+      parseMs: endTime - readEndTime,
       bytesTransferred,
       source: this.type,
     }

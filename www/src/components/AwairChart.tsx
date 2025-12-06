@@ -15,6 +15,7 @@ import { getFileBounds } from '../services/awairService'
 import { formatForPlotly, formatCompactDate, formatFullDate } from '../utils/dateFormat'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { PxOption } from './AggregationControl'
+import type { TableNavigationHandlers } from './DataTable'
 import type { DeviceDataResult } from './DevicePoller'
 import type { Metric } from '../lib/urlParams'
 import type { Device } from '../services/awairService'
@@ -159,6 +160,9 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
   // Table page size - persisted in URL
   const [tablePageSize, setTablePageSize] = useUrlParam('p', intFromList([10, 20, 50, 100, 200] as const, 20))
 
+  // Table navigation handlers (exposed by DataTable for keyboard shortcuts)
+  const [tableNavHandlers, setTableNavHandlers] = useState<TableNavigationHandlers | null>(null)
+
   // Get the selected device's aggregated data for the table
   const selectedDeviceAggregation = deviceAggregations.find(d => d.deviceId === selectedDeviceIdForTable)
   const aggregatedData = selectedDeviceAggregation?.aggregatedData || []
@@ -280,7 +284,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
   }, [setXAxisRange, getAllDeviceBounds, formatForPlotly])
 
   // Register keyboard shortcuts (keymap managed by context, handlers defined here)
-  useKeyboardShortcuts({
+  const { pendingKeys, isAwaitingSequence, timeoutStartedAt, sequenceTimeout } = useKeyboardShortcuts({
     metrics,
     xAxisRange,
     setXAxisRange,
@@ -292,6 +296,15 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     handleAllClick,
     setIgnoreNextPanCheck,
     openShortcutsModal: onOpenShortcuts || noop,
+    devices,
+    selectedDeviceIds,
+    setSelectedDeviceIds: onDeviceSelectionChange,
+    tablePrevPage: tableNavHandlers?.prevPage,
+    tableNextPage: tableNavHandlers?.nextPage,
+    tablePrevPlotPage: tableNavHandlers?.prevPlotPage,
+    tableNextPlotPage: tableNavHandlers?.nextPlotPage,
+    tableFirstPage: tableNavHandlers?.firstPage,
+    tableLastPage: tableNavHandlers?.lastPage,
   })
 
   // Handle responsive plot height and viewport width using matchMedia
@@ -672,8 +685,36 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     }
   }, [selectedDeviceIdForTable, selectedWindow, deviceDataResults])
 
+  // Format pending keys for display
+  const formatPendingKeys = () => {
+    return pendingKeys.map(combo => {
+      let key = combo.key.toUpperCase()
+      if (combo.modifiers.shift) key = `⇧${key}`
+      if (combo.modifiers.ctrl) key = `⌃${key}`
+      if (combo.modifiers.alt) key = `⌥${key}`
+      if (combo.modifiers.meta) key = `⌘${key}`
+      return key
+    }).join(' ')
+  }
+
   return (
     <div className={`awair-chart${isOgMode ? ' og-mode' : ''}`}>
+      {/* Sequence indicator */}
+      {isAwaitingSequence && pendingKeys.length > 0 && (
+        <div className="sequence-indicator">
+          <kbd>{formatPendingKeys()}</kbd>
+          <span className="sequence-waiting">…</span>
+          {timeoutStartedAt && (
+            <div
+              className="sequence-timeout-bar"
+              style={{
+                animationDuration: `${sequenceTimeout}ms`,
+              }}
+              key={timeoutStartedAt}
+            />
+          )}
+        </div>
+      )}
       {/* OG mode title overlay */}
       {isOgMode && (
         <div className="og-title" style={{ color: plotColors.textColor }}>
@@ -878,6 +919,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
           formatForPlotly={formatForPlotly}
           pageSize={tablePageSize}
           onPageSizeChange={(size) => setTablePageSize(size as 10 | 20 | 50 | 100 | 200)}
+          onNavigationReady={setTableNavHandlers}
         />
       )}
 

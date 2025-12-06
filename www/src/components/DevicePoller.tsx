@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef } from 'react'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import { encodeTimeRange } from '../lib/timeRangeCodec'
-import { fetchAwairData } from '../services/awairService'
+import { fetchAwairData, refreshDeviceData } from '../services/awairService'
 import type { TimeRange } from '../lib/urlParams'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
@@ -42,10 +42,13 @@ export function DevicePoller({
     enabled: deviceId !== undefined,
   })
 
-  // Memoize refetch to prevent useSmartPolling from re-running on every render
+  // Smart polling refetch: first refresh the cache (check S3 for new data),
+  // then re-run the query to read from the updated cache.
+  // This separates "check for new data" (polling) from "read cached data" (navigation).
   const refetch = useCallback(async () => {
+    await refreshDeviceData(deviceId)
     await query.refetch()
-  }, [query.refetch])
+  }, [deviceId, query.refetch])
 
   // Independent smart polling for this device
   useSmartPolling({

@@ -1,6 +1,7 @@
 import { useRegisteredHotkeys, type HotkeyMap } from '@rdub/use-hotkeys'
 import { useMemo } from 'react'
 import type { MetricsState } from "./useMetrics"
+import type { Device } from '../services/awairService'
 import type { AwairRecord } from '../types/awair'
 
 interface UseKeyboardShortcutsProps {
@@ -15,11 +16,24 @@ interface UseKeyboardShortcutsProps {
   handleAllClick: () => void
   setIgnoreNextPanCheck: () => void
   openShortcutsModal: () => void
+  // Device selection
+  devices: Device[]
+  selectedDeviceIds: number[]
+  setSelectedDeviceIds: (ids: number[]) => void
+  // Table pagination
+  tablePrevPage?: () => void
+  tableNextPage?: () => void
+  tablePrevPlotPage?: () => void
+  tableNextPlotPage?: () => void
+  tableFirstPage?: () => void
+  tableLastPage?: () => void
 }
 
 type Metric = 'temp' | 'co2' | 'humid' | 'pm25' | 'voc'
 
 // Default hotkey map: key combination -> action name
+// Supports sequences (space-separated) like "d 1" for 1 day, "w 2" for 2 weeks
+// Multiple keys can map to the same action
 export const DEFAULT_HOTKEY_MAP: HotkeyMap = {
   // Left Y-axis metrics
   't': 'left:temp',
@@ -36,14 +50,32 @@ export const DEFAULT_HOTKEY_MAP: HotkeyMap = {
   'shift+v': 'right:voc',
   'shift+n': 'right:none',
   'shift+a': 'right:autorange',
-  // Time ranges (ordered by duration for display)
+  // Time ranges - both single keys and sequences
+  // Days
   '1': 'time:01-1d',
+  'd 1': 'time:01-1d',
   '3': 'time:02-3d',
+  'd 3': 'time:02-3d',
+  // Weeks
   '7': 'time:03-7d',
+  'w 1': 'time:03-7d',
   '2': 'time:04-14d',
-  'm': 'time:05-30d',
+  'w 2': 'time:04-14d',
+  // Month
+  'm 1': 'time:05-30d',
+  // All and Latest
   'x': 'time:06-all',
   'l': 'time:07-latest',
+  // Devices
+  'g': 'device:gym',
+  'b': 'device:br',
+  // Table pagination
+  ',': 'table:prev-page',
+  '.': 'table:next-page',
+  '<': 'table:prev-plot-page',
+  '>': 'table:next-plot-page',
+  'meta+,': 'table:first-page',
+  'meta+.': 'table:last-page',
   // Modal
   '?': 'modal:shortcuts',
 } as const
@@ -63,8 +95,36 @@ export function useKeyboardShortcuts({
   handleAllClick,
   setIgnoreNextPanCheck,
   openShortcutsModal,
+  devices,
+  selectedDeviceIds,
+  setSelectedDeviceIds,
+  tablePrevPage,
+  tableNextPage,
+  tablePrevPlotPage,
+  tableNextPlotPage,
+  tableFirstPage,
+  tableLastPage,
 }: UseKeyboardShortcutsProps) {
   const { l, r } = metrics
+
+  // Find device ID by name pattern (case-insensitive)
+  const findDeviceIdByName = (pattern: string): number | null => {
+    const regex = new RegExp(pattern, 'i')
+    const device = devices.find(d => regex.test(d.name))
+    return device?.deviceId ?? null
+  }
+
+  // Toggle a device by ID
+  const toggleDevice = (deviceId: number) => {
+    if (selectedDeviceIds.includes(deviceId)) {
+      // Don't allow deselecting if it's the only one
+      if (selectedDeviceIds.length > 1) {
+        setSelectedDeviceIds(selectedDeviceIds.filter(id => id !== deviceId))
+      }
+    } else {
+      setSelectedDeviceIds([...selectedDeviceIds, deviceId])
+    }
+  }
 
   const handlers = useMemo(() => {
     const setMetricPrimary = (metric: Metric) => {
@@ -129,11 +189,27 @@ export function useKeyboardShortcuts({
           setLatestModeIntended(true)
         }
       },
+      // Devices
+      'device:gym': () => {
+        const id = findDeviceIdByName('gym')
+        if (id !== null) toggleDevice(id)
+      },
+      'device:br': () => {
+        const id = findDeviceIdByName('br')
+        if (id !== null) toggleDevice(id)
+      },
+      // Table pagination
+      'table:prev-page': () => tablePrevPage?.(),
+      'table:next-page': () => tableNextPage?.(),
+      'table:prev-plot-page': () => tablePrevPlotPage?.(),
+      'table:next-plot-page': () => tableNextPlotPage?.(),
+      'table:first-page': () => tableFirstPage?.(),
+      'table:last-page': () => tableLastPage?.(),
       // Modal
       'modal:shortcuts': openShortcutsModal,
     }
-  }, [l, r, handleTimeRangeClick, handleAllClick, latestModeIntended, setLatestModeIntended, xAxisRange, data, formatForPlotly, setXAxisRange, setIgnoreNextPanCheck, openShortcutsModal])
+  }, [l, r, handleTimeRangeClick, handleAllClick, latestModeIntended, setLatestModeIntended, xAxisRange, data, formatForPlotly, setXAxisRange, setIgnoreNextPanCheck, openShortcutsModal, findDeviceIdByName, toggleDevice, tablePrevPage, tableNextPage, tablePrevPlotPage, tableNextPlotPage, tableFirstPage, tableLastPage])
 
   // Register handlers with keymap from context
-  useRegisteredHotkeys(handlers)
+  return useRegisteredHotkeys(handlers)
 }
