@@ -151,8 +151,35 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     'time:07-latest': 'Jump to most recent data and auto-update as new data arrives',
   }
 
-  const getShortcut = (group: typeof leftGroup, metric: string) => {
-    return group?.shortcuts.find(s => s.action.endsWith(`:${metric}`))
+  // Get all shortcuts for a given action from a group
+  const getShortcutsForAction = (group: typeof leftGroup, actionSuffix: string): string[] => {
+    if (!group) return []
+    return group.shortcuts
+      .filter(s => s.action.endsWith(`:${actionSuffix}`))
+      .map(s => s.key)
+  }
+
+  // Get action name from group and metric
+  const getActionName = (prefix: string, metric: string) => `${prefix}:${metric}`
+
+  // Render multi-key cell with +/x controls
+  const renderMultiKeyCell = (action: string, keys: string[]) => {
+    return (
+      <span className="multi-keys">
+        {keys.length === 0 ? (
+          <kbd className="editable empty" onClick={() => startEditing(action)} title="Click to add shortcut">
+            -
+          </kbd>
+        ) : (
+          keys.map(key => (
+            <React.Fragment key={key}>
+              {renderEditableKbd(action, key, true)}
+            </React.Fragment>
+          ))
+        )}
+        {renderAddButton(action)}
+      </span>
+    )
   }
 
   // Shift arrow SVG - consistent across all browsers/platforms
@@ -352,20 +379,22 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
           </thead>
           <tbody>
             {metricNames.map(metric => {
-              const left = getShortcut(leftGroup, metric)
-              const right = getShortcut(rightGroup, metric)
+              const leftKeys = getShortcutsForAction(leftGroup, metric)
+              const rightKeys = getShortcutsForAction(rightGroup, metric)
+              const leftAction = getActionName('left', metric)
+              const rightAction = getActionName('right', metric)
               return (
                 <tr key={metric}>
                   <td>{metricLabels[metric]}</td>
-                  <td>{renderEditableKbd(left?.action || `left:${metric}`, left?.key || '')}</td>
-                  <td>{renderEditableKbd(right?.action || `right:${metric}`, right?.key || '')}</td>
+                  <td>{renderMultiKeyCell(leftAction, leftKeys)}</td>
+                  <td>{renderMultiKeyCell(rightAction, rightKeys)}</td>
                 </tr>
               )
             })}
             <tr>
               <td>None</td>
               <td>-</td>
-              <td>{renderEditableKbd('right:none', getShortcut(rightGroup, 'none')?.key || 'shift+n')}</td>
+              <td>{renderMultiKeyCell('right:none', getShortcutsForAction(rightGroup, 'none'))}</td>
             </tr>
           </tbody>
         </table>
@@ -398,14 +427,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
                           </Tooltip>
                         ) : description}
                       </td>
-                      <td className="multi-keys">
-                        {keys.map(key => (
-                          <React.Fragment key={key}>
-                            {renderEditableKbd(action, key, keys.length > 1)}
-                          </React.Fragment>
-                        ))}
-                        {renderAddButton(action)}
-                      </td>
+                      <td>{renderMultiKeyCell(action, keys)}</td>
                     </tr>
                   )
                 })
@@ -418,12 +440,24 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
             <h3>Devices</h3>
             <table className="shortcuts-table">
               <tbody>
-                {deviceGroup.shortcuts.map(s => (
-                  <tr key={s.action}>
-                    <td>{s.description}</td>
-                    <td>{renderEditableKbd(s.action, s.key)}</td>
-                  </tr>
-                ))}
+                {(() => {
+                  // Group shortcuts by action
+                  const actionMap = new Map<string, { keys: string[]; description?: string }>()
+                  deviceGroup.shortcuts.forEach(s => {
+                    const existing = actionMap.get(s.action)
+                    if (existing) {
+                      existing.keys.push(s.key)
+                    } else {
+                      actionMap.set(s.action, { keys: [s.key], description: s.description })
+                    }
+                  })
+                  return Array.from(actionMap.entries()).map(([action, { keys, description }]) => (
+                    <tr key={action}>
+                      <td>{description}</td>
+                      <td>{renderMultiKeyCell(action, keys)}</td>
+                    </tr>
+                  ))
+                })()}
               </tbody>
             </table>
           </>
@@ -448,19 +482,15 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
                     { label: 'Plot page', prev: 'table:prev-plot-page', next: 'table:next-plot-page' },
                     { label: 'All pages', prev: 'table:first-page', next: 'table:last-page' },
                   ]
-                  const getShortcutByAction = (action: string) =>
-                    tableGroup.shortcuts.find(s => s.action === action)
-                  return pairs.map(({ label, prev, next }) => {
-                    const prevShortcut = getShortcutByAction(prev)
-                    const nextShortcut = getShortcutByAction(next)
-                    return (
-                      <tr key={label}>
-                        <td>{label}</td>
-                        <td>{renderEditableKbd(prev, prevShortcut?.key || '')}</td>
-                        <td>{renderEditableKbd(next, nextShortcut?.key || '')}</td>
-                      </tr>
-                    )
-                  })
+                  const getKeysForAction = (action: string) =>
+                    tableGroup.shortcuts.filter(s => s.action === action).map(s => s.key)
+                  return pairs.map(({ label, prev, next }) => (
+                    <tr key={label}>
+                      <td>{label}</td>
+                      <td>{renderMultiKeyCell(prev, getKeysForAction(prev))}</td>
+                      <td>{renderMultiKeyCell(next, getKeysForAction(next))}</td>
+                    </tr>
+                  ))
                 })()}
               </tbody>
             </table>
@@ -470,12 +500,24 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
         <h3>Other</h3>
         <table className="shortcuts-table">
           <tbody>
-            {modalGroup?.shortcuts.map(s => (
-              <tr key={s.action}>
-                <td>{s.description}</td>
-                <td>{renderEditableKbd(s.action, s.key)}</td>
-              </tr>
-            ))}
+            {(() => {
+              // Group shortcuts by action
+              const actionMap = new Map<string, { keys: string[]; description?: string }>()
+              modalGroup?.shortcuts.forEach(s => {
+                const existing = actionMap.get(s.action)
+                if (existing) {
+                  existing.keys.push(s.key)
+                } else {
+                  actionMap.set(s.action, { keys: [s.key], description: s.description })
+                }
+              })
+              return Array.from(actionMap.entries()).map(([action, { keys, description }]) => (
+                <tr key={action}>
+                  <td>{description}</td>
+                  <td>{renderMultiKeyCell(action, keys)}</td>
+                </tr>
+              ))
+            })()}
           </tbody>
         </table>
       </div>
