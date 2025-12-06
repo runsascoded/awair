@@ -1,9 +1,10 @@
 import { KeyboardShortcutsProvider, ShortcutsModal, useKeyboardShortcutsContext } from '@rdub/use-hotkeys'
 import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
+import { Omnibar } from './components/Omnibar'
 import { HOTKEY_DESCRIPTIONS, HOTKEY_GROUPS, ShortcutsModalContent } from './components/ShortcutsModalContent'
 import { ThemeToggle } from './components/ThemeToggle'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -16,8 +17,14 @@ import './App.scss'
 function AppContent() {
   const [isOgMode] = useUrlParam('og', boolParam)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [omnibarOpen, setOmnibarOpen] = useState(false)
   const openShortcuts = useCallback(() => setShortcutsOpen(true), [])
   const closeShortcuts = useCallback(() => setShortcutsOpen(false), [])
+  const toggleOmnibar = useCallback(() => setOmnibarOpen(prev => !prev), [])
+  const closeOmnibar = useCallback(() => setOmnibarOpen(false), [])
+
+  // Ref for executing actions from omnibar
+  const handlersRef = useRef<Record<string, () => void>>({})
 
   // Access keyboard shortcuts from context (state lives in KeyboardShortcutsProvider)
   const shortcutsState = useKeyboardShortcutsContext()
@@ -179,6 +186,8 @@ function AppContent() {
             setTimeRange={setTimeRange}
             isOgMode={isOgMode}
             onOpenShortcuts={openShortcuts}
+            onOpenOmnibar={toggleOmnibar}
+            handlersRef={handlersRef}
           />
         )}
       </main>
@@ -200,6 +209,17 @@ function AppContent() {
             />
           )}
         </ShortcutsModal>
+      )}
+      {/* Omnibar (command palette) */}
+      {!isOgMode && (
+        <Omnibar
+          isOpen={omnibarOpen}
+          onClose={closeOmnibar}
+          onExecute={(actionId) => {
+            const handler = handlersRef.current[actionId]
+            if (handler) handler()
+          }}
+        />
       )}
     </div>
   )

@@ -1,9 +1,10 @@
 import { useUrlParam } from '@rdub/use-url-params'
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import React, { useState, useMemo, useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 import Plot from 'react-plotly.js'
 import { ChartControls, metricConfig, getRangeFloor } from './ChartControls'
 import { CustomLegend } from './CustomLegend'
 import { DataTable } from './DataTable'
+import { SequenceModal } from './SequenceModal'
 import { TIME_WINDOWS, getWindowForDuration } from '../hooks/useDataAggregation'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLatestMode } from '../hooks/useLatestMode'
@@ -47,9 +48,11 @@ interface Props {
   setTimeRange: (range: { timestamp: Date | null; duration: number }) => void
   isOgMode?: boolean
   onOpenShortcuts?: () => void
+  onOpenOmnibar?: () => void
+  handlersRef?: MutableRefObject<Record<string, () => void>>
 }
 
-export const AwairChart = React.memo(function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps, isOgMode = false, onOpenShortcuts }: Props) {
+export const AwairChart = React.memo(function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps, isOgMode = false, onOpenShortcuts, onOpenOmnibar, handlersRef }: Props) {
 
   // Combine data from all devices for time range calculations and bounds checking
   // Sorted newest-first for efficient latest record access
@@ -96,6 +99,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
 
   // Refs for handling programmatic updates
   const ignoreNextRelayoutRef = useRef(false)
+  const plotContainerRef = useRef<HTMLDivElement>(null)
 
   // Compute window size for buffer calculation (before useTimeRangeParam)
   const windowMinutes = useMemo(() => {
@@ -284,7 +288,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
   }, [setXAxisRange, getAllDeviceBounds, formatForPlotly])
 
   // Register keyboard shortcuts (keymap managed by context, handlers defined here)
-  const { pendingKeys, isAwaitingSequence, timeoutStartedAt, sequenceTimeout } = useKeyboardShortcuts({
+  const { pendingKeys, isAwaitingSequence, timeoutStartedAt, sequenceTimeout, handlers } = useKeyboardShortcuts({
     metrics,
     xAxisRange,
     setXAxisRange,
@@ -296,6 +300,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     handleAllClick,
     setIgnoreNextPanCheck,
     openShortcutsModal: onOpenShortcuts || noop,
+    openOmnibar: onOpenOmnibar || noop,
     devices,
     selectedDeviceIds,
     setSelectedDeviceIds: onDeviceSelectionChange,
@@ -306,6 +311,13 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     tableFirstPage: tableNavHandlers?.firstPage,
     tableLastPage: tableNavHandlers?.lastPage,
   })
+
+  // Update handlersRef for omnibar to use
+  useEffect(() => {
+    if (handlersRef) {
+      handlersRef.current = handlers
+    }
+  }, [handlersRef, handlers])
 
   // Handle responsive plot height and viewport width using matchMedia
   useEffect(() => {
@@ -328,6 +340,23 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
       window.removeEventListener('resize', handleResize)
       window.removeEventListener('orientationchange', handleResize)
     }
+  }, [])
+
+  // Gate scroll zoom behind meta+scroll to avoid accidental zooms while scrolling page
+  useEffect(() => {
+    const container = plotContainerRef.current
+    if (!container) return
+
+    const handleWheel = (e: WheelEvent) => {
+      // Only allow scroll zoom if meta key is pressed
+      if (!e.metaKey && !e.ctrlKey) {
+        e.stopPropagation()
+      }
+    }
+
+    // Use capture phase to intercept before plotly sees it
+    container.addEventListener('wheel', handleWheel, { capture: true })
+    return () => container.removeEventListener('wheel', handleWheel, { capture: true })
   }, [])
 
   // Theme-aware plot colors
@@ -685,36 +714,15 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     }
   }, [selectedDeviceIdForTable, selectedWindow, deviceDataResults])
 
-  // Format pending keys for display
-  const formatPendingKeys = () => {
-    return pendingKeys.map(combo => {
-      let key = combo.key.toUpperCase()
-      if (combo.modifiers.shift) key = `⇧${key}`
-      if (combo.modifiers.ctrl) key = `⌃${key}`
-      if (combo.modifiers.alt) key = `⌥${key}`
-      if (combo.modifiers.meta) key = `⌘${key}`
-      return key
-    }).join(' ')
-  }
-
   return (
     <div className={`awair-chart${isOgMode ? ' og-mode' : ''}`}>
-      {/* Sequence indicator */}
-      {isAwaitingSequence && pendingKeys.length > 0 && (
-        <div className="sequence-indicator">
-          <kbd>{formatPendingKeys()}</kbd>
-          <span className="sequence-waiting">…</span>
-          {timeoutStartedAt && (
-            <div
-              className="sequence-timeout-bar"
-              style={{
-                animationDuration: `${sequenceTimeout}ms`,
-              }}
-              key={timeoutStartedAt}
-            />
-          )}
-        </div>
-      )}
+      {/* Sequence modal (omnibar-style with completions) */}
+      <SequenceModal
+        pendingKeys={pendingKeys}
+        isAwaitingSequence={isAwaitingSequence}
+        timeoutStartedAt={timeoutStartedAt}
+        sequenceTimeout={sequenceTimeout}
+      />
       {/* OG mode title overlay */}
       {isOgMode && (
         <div className="og-title" style={{ color: plotColors.textColor }}>
@@ -723,6 +731,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
         </div>
       )}
       <div
+        ref={plotContainerRef}
         className="plot-container"
         onMouseEnter={() => setHoverState(null)}
       >

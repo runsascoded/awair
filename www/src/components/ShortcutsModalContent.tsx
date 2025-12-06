@@ -40,6 +40,7 @@ export const HOTKEY_DESCRIPTIONS: Record<string, string> = {
   'table:last-page': 'Last page',
   // Modal
   'modal:shortcuts': 'This dialog',
+  'omnibar:toggle': 'Command palette',
 }
 
 // Group names for shortcuts modal
@@ -50,6 +51,7 @@ export const HOTKEY_GROUPS: Record<string, string> = {
   'device': 'Devices',
   'table': 'Table Navigation',
   'modal': 'Other',
+  'omnibar': 'Other',
 }
 
 export interface ShortcutsModalContentProps {
@@ -122,13 +124,9 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     [shortcutsState],
   )
 
-  // Extract shortcuts by group
+  // Extract shortcuts by group (only used for Y-axis metrics which have paired columns)
   const leftGroup = groups.find(g => g.name === 'Left Y-Axis')
   const rightGroup = groups.find(g => g.name === 'Right Y-Axis')
-  const timeGroup = groups.find(g => g.name === 'Time Range')
-  const deviceGroup = groups.find(g => g.name === 'Devices')
-  const tableGroup = groups.find(g => g.name === 'Table Navigation')
-  const modalGroup = groups.find(g => g.name === 'Other')
 
   // Build metric rows: pair left and right shortcuts
   const metricNames = ['temp', 'co2', 'humid', 'pm25', 'voc', 'autorange']
@@ -151,12 +149,20 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     'time:07-latest': 'Jump to most recent data and auto-update as new data arrives',
   }
 
-  // Get all shortcuts for a given action from a group
-  const getShortcutsForAction = (group: typeof leftGroup, actionSuffix: string): string[] => {
-    if (!group) return []
-    return group.shortcuts
-      .filter(s => s.action.endsWith(`:${actionSuffix}`))
-      .map(s => s.key)
+  // Get all shortcuts for a given action (using context, not groups, to include unbound actions)
+  const getShortcutsForAction = (_group: typeof leftGroup, actionSuffix: string, prefix: string = ''): string[] => {
+    // Determine the full action name
+    let actionName: string
+    if (prefix) {
+      actionName = `${prefix}:${actionSuffix}`
+    } else if (_group) {
+      // Try to infer from group
+      const sample = _group.shortcuts.find(s => s.action.endsWith(`:${actionSuffix}`))
+      actionName = sample?.action || actionSuffix
+    } else {
+      actionName = actionSuffix
+    }
+    return shortcutsState.getBindingsForAction(actionName)
   }
 
   // Get action name from group and metric
@@ -379,8 +385,8 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
           </thead>
           <tbody>
             {metricNames.map(metric => {
-              const leftKeys = getShortcutsForAction(leftGroup, metric)
-              const rightKeys = getShortcutsForAction(rightGroup, metric)
+              const leftKeys = getShortcutsForAction(leftGroup, metric, 'left')
+              const rightKeys = getShortcutsForAction(rightGroup, metric, 'right')
               const leftAction = getActionName('left', metric)
               const rightAction = getActionName('right', metric)
               return (
@@ -392,9 +398,13 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
               )
             })}
             <tr>
-              <td>None</td>
+              <td>
+                <Tooltip content="Only applies to right Y-axis; left Y-axis always requires a metric">
+                  <span className="tooltip-trigger">None ⓘ</span>
+                </Tooltip>
+              </td>
               <td>-</td>
-              <td>{renderMultiKeyCell('right:none', getShortcutsForAction(rightGroup, 'none'))}</td>
+              <td>{renderMultiKeyCell('right:none', getShortcutsForAction(rightGroup, 'none', 'right'))}</td>
             </tr>
           </tbody>
         </table>
@@ -403,118 +413,99 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
         <table className="shortcuts-table">
           <tbody>
             {(() => {
-              // Group shortcuts by action to handle multiple keys per action
-              const actionMap = new Map<string, { keys: string[]; description?: string }>()
-              timeGroup?.shortcuts.forEach(s => {
-                const existing = actionMap.get(s.action)
-                if (existing) {
-                  existing.keys.push(s.key)
-                } else {
-                  actionMap.set(s.action, { keys: [s.key], description: s.description })
-                }
-              })
-              // Sort by action name and render
-              return Array.from(actionMap.entries())
+              // Include all time actions from HOTKEY_DESCRIPTIONS
+              const timeActions = Object.entries(HOTKEY_DESCRIPTIONS)
+                .filter(([action]) => action.startsWith('time:'))
                 .sort(([a], [b]) => a.localeCompare(b))
-                .map(([action, { keys, description }]) => {
-                  const tooltip = timeTooltips[action]
-                  return (
-                    <tr key={action}>
-                      <td>
-                        {tooltip ? (
-                          <Tooltip content={tooltip}>
-                            <span className="tooltip-trigger">{description} ⓘ</span>
-                          </Tooltip>
-                        ) : description}
-                      </td>
-                      <td>{renderMultiKeyCell(action, keys)}</td>
-                    </tr>
-                  )
-                })
+              return timeActions.map(([action, description]) => {
+                const tooltip = timeTooltips[action]
+                const keys = shortcutsState.getBindingsForAction(action)
+                return (
+                  <tr key={action}>
+                    <td>
+                      {tooltip ? (
+                        <Tooltip content={tooltip}>
+                          <span className="tooltip-trigger">{description} ⓘ</span>
+                        </Tooltip>
+                      ) : description}
+                    </td>
+                    <td>{renderMultiKeyCell(action, keys)}</td>
+                  </tr>
+                )
+              })
             })()}
           </tbody>
         </table>
 
-        {deviceGroup && deviceGroup.shortcuts.length > 0 && (
-          <>
-            <h3>Devices</h3>
-            <table className="shortcuts-table">
-              <tbody>
-                {(() => {
-                  // Group shortcuts by action
-                  const actionMap = new Map<string, { keys: string[]; description?: string }>()
-                  deviceGroup.shortcuts.forEach(s => {
-                    const existing = actionMap.get(s.action)
-                    if (existing) {
-                      existing.keys.push(s.key)
-                    } else {
-                      actionMap.set(s.action, { keys: [s.key], description: s.description })
-                    }
-                  })
-                  return Array.from(actionMap.entries()).map(([action, { keys, description }]) => (
+        {/* Devices section - show if any device actions exist */}
+        {(() => {
+          const deviceActions = Object.entries(HOTKEY_DESCRIPTIONS)
+            .filter(([action]) => action.startsWith('device:'))
+          if (deviceActions.length === 0) return null
+          return (
+            <>
+              <h3>Devices</h3>
+              <table className="shortcuts-table">
+                <tbody>
+                  {deviceActions.map(([action, description]) => (
                     <tr key={action}>
                       <td>{description}</td>
-                      <td>{renderMultiKeyCell(action, keys)}</td>
+                      <td>{renderMultiKeyCell(action, shortcutsState.getBindingsForAction(action))}</td>
                     </tr>
-                  ))
-                })()}
-              </tbody>
-            </table>
-          </>
-        )}
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )
+        })()}
 
-        {tableGroup && tableGroup.shortcuts.length > 0 && (
-          <>
-            <h3>Table Navigation</h3>
-            <table className="shortcuts-table">
-              <thead>
-                <tr>
-                  <th>Navigation</th>
-                  <th>Back</th>
-                  <th>Forward</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  // Pair prev/next shortcuts
-                  const pairs = [
-                    { label: 'Table page', prev: 'table:prev-page', next: 'table:next-page' },
-                    { label: 'Plot page', prev: 'table:prev-plot-page', next: 'table:next-plot-page' },
-                    { label: 'All pages', prev: 'table:first-page', next: 'table:last-page' },
-                  ]
-                  const getKeysForAction = (action: string) =>
-                    tableGroup.shortcuts.filter(s => s.action === action).map(s => s.key)
-                  return pairs.map(({ label, prev, next }) => (
+        {/* Table Navigation - always show if any table actions exist */}
+        {(() => {
+          const tableActions = Object.entries(HOTKEY_DESCRIPTIONS)
+            .filter(([action]) => action.startsWith('table:'))
+          if (tableActions.length === 0) return null
+          // Pair prev/next shortcuts
+          const pairs = [
+            { label: 'Table page', prev: 'table:prev-page', next: 'table:next-page' },
+            { label: 'Plot page', prev: 'table:prev-plot-page', next: 'table:next-plot-page' },
+            { label: 'All pages', prev: 'table:first-page', next: 'table:last-page' },
+          ]
+          return (
+            <>
+              <h3>Table Navigation</h3>
+              <table className="shortcuts-table">
+                <thead>
+                  <tr>
+                    <th>Navigation</th>
+                    <th>Back</th>
+                    <th>Forward</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pairs.map(({ label, prev, next }) => (
                     <tr key={label}>
                       <td>{label}</td>
-                      <td>{renderMultiKeyCell(prev, getKeysForAction(prev))}</td>
-                      <td>{renderMultiKeyCell(next, getKeysForAction(next))}</td>
+                      <td>{renderMultiKeyCell(prev, shortcutsState.getBindingsForAction(prev))}</td>
+                      <td>{renderMultiKeyCell(next, shortcutsState.getBindingsForAction(next))}</td>
                     </tr>
-                  ))
-                })()}
-              </tbody>
-            </table>
-          </>
-        )}
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )
+        })()}
 
         <h3>Other</h3>
         <table className="shortcuts-table">
           <tbody>
             {(() => {
-              // Group shortcuts by action
-              const actionMap = new Map<string, { keys: string[]; description?: string }>()
-              modalGroup?.shortcuts.forEach(s => {
-                const existing = actionMap.get(s.action)
-                if (existing) {
-                  existing.keys.push(s.key)
-                } else {
-                  actionMap.set(s.action, { keys: [s.key], description: s.description })
-                }
-              })
-              return Array.from(actionMap.entries()).map(([action, { keys, description }]) => (
+              // Include all actions from 'modal' and 'omnibar' groups
+              const otherActions = Object.entries(HOTKEY_DESCRIPTIONS)
+                .filter(([action]) => action.startsWith('modal:') || action.startsWith('omnibar:'))
+              return otherActions.map(([action, description]) => (
                 <tr key={action}>
                   <td>{description}</td>
-                  <td>{renderMultiKeyCell(action, keys)}</td>
+                  <td>{renderMultiKeyCell(action, shortcutsState.getBindingsForAction(action))}</td>
                 </tr>
               ))
             })()}

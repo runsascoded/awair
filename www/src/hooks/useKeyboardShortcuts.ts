@@ -16,6 +16,7 @@ interface UseKeyboardShortcutsProps {
   handleAllClick: () => void
   setIgnoreNextPanCheck: () => void
   openShortcutsModal: () => void
+  openOmnibar: () => void
   // Device selection
   devices: Device[]
   selectedDeviceIds: number[]
@@ -78,6 +79,7 @@ export const DEFAULT_HOTKEY_MAP: HotkeyMap = {
   'meta+.': 'table:last-page',
   // Modal
   '?': 'modal:shortcuts',
+  'meta+k': 'omnibar:toggle',
 } as const
 
 // Re-export for backward compatibility
@@ -95,6 +97,7 @@ export function useKeyboardShortcuts({
   handleAllClick,
   setIgnoreNextPanCheck,
   openShortcutsModal,
+  openOmnibar,
   devices,
   selectedDeviceIds,
   setSelectedDeviceIds,
@@ -207,9 +210,13 @@ export function useKeyboardShortcuts({
       'table:last-page': () => tableLastPage?.(),
       // Modal
       'modal:shortcuts': openShortcutsModal,
+      'omnibar:toggle': openOmnibar,
     }
-  }, [l, r, handleTimeRangeClick, handleAllClick, latestModeIntended, setLatestModeIntended, xAxisRange, data, formatForPlotly, setXAxisRange, setIgnoreNextPanCheck, openShortcutsModal, findDeviceIdByName, toggleDevice, tablePrevPage, tableNextPage, tablePrevPlotPage, tableNextPlotPage, tableFirstPage, tableLastPage])
+  }, [l, r, handleTimeRangeClick, handleAllClick, latestModeIntended, setLatestModeIntended, xAxisRange, data, formatForPlotly, setXAxisRange, setIgnoreNextPanCheck, openShortcutsModal, openOmnibar, findDeviceIdByName, toggleDevice, tablePrevPage, tableNextPage, tablePrevPlotPage, tableNextPlotPage, tableFirstPage, tableLastPage])
 
   // Register handlers with keymap from context
-  return useRegisteredHotkeys(handlers)
+  const hotkeysResult = useRegisteredHotkeys(handlers, { sequenceTimeout: 2000 })
+
+  // Return both the hotkeys result and handlers (for omnibar)
+  return { ...hotkeysResult, handlers }
 }
