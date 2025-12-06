@@ -1,5 +1,5 @@
-import { useRecordHotkey, useKeyboardShortcutsContext } from '@rdub/use-hotkeys'
-import React, { useState, useCallback } from 'react'
+import { useRecordHotkey, useKeyboardShortcutsContext, formatCombination } from '@rdub/use-hotkeys'
+import React, { useState, useCallback, useEffect } from 'react'
 import { Tooltip } from './Tooltip'
 import type { HotkeySequence, KeyCombinationDisplay, ShortcutGroup } from '@rdub/use-hotkeys'
 
@@ -57,14 +57,19 @@ export interface ShortcutsModalContentProps {
   close: () => void
 }
 
+// Default sequence timeout from useRecordHotkey
+const SEQUENCE_TIMEOUT_MS = 1000
+
 export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentProps) {
   const [editingAction, setEditingAction] = useState<string | null>(null)
   const [addingAction, setAddingAction] = useState<string | null>(null)
+  // Key to restart timeout animation when pendingKeys changes
+  const [timeoutAnimKey, setTimeoutAnimKey] = useState(0)
 
   // Access shortcuts state from context
   const shortcutsState = useKeyboardShortcutsContext()
 
-  const { isRecording, startRecording, cancel, sequence, pendingKeys } = useRecordHotkey({
+  const { isRecording, startRecording, cancel, pendingKeys, activeKeys } = useRecordHotkey({
     onCapture: useCallback(
       (_sequence: HotkeySequence, display: KeyCombinationDisplay) => {
         if (addingAction) {
@@ -84,6 +89,13 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
       setAddingAction(null)
     }, []),
   })
+
+  // Restart timeout animation when pendingKeys changes
+  useEffect(() => {
+    if (pendingKeys.length > 0) {
+      setTimeoutAnimKey(k => k + 1)
+    }
+  }, [pendingKeys.length])
 
   const startEditing = useCallback(
     (action: string) => {
@@ -191,20 +203,25 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   // Check if a key has a conflict
   const hasConflict = (key: string) => shortcutsState.conflicts.has(key.toLowerCase())
 
-  // Format a sequence for display during recording
+  // Format keys for display during recording
+  // Shows pendingKeys (released keys) + activeKeys (currently held)
   const formatRecordingSequence = () => {
-    if (!sequence || sequence.length === 0) return '...'
-    // Format each key in the sequence
-    const parts = sequence.map(combo => {
-      let key = combo.key.toUpperCase()
-      if (combo.modifiers.shift) key = `SHIFT+${key}`
-      if (combo.modifiers.ctrl) key = `CTRL+${key}`
-      if (combo.modifiers.alt) key = `ALT+${key}`
-      if (combo.modifiers.meta) key = `META+${key}`
-      return key
-    })
-    // Show pending indicator if sequence is incomplete
-    return parts.join(' → ') + (pendingKeys && pendingKeys.length > 0 ? ' → ...' : '')
+    // Nothing pressed yet
+    if (pendingKeys.length === 0 && (!activeKeys || !activeKeys.key)) {
+      return '...'
+    }
+
+    // Format pending keys (already pressed and released)
+    let display = pendingKeys.length > 0 ? formatCombination(pendingKeys).display : ''
+
+    // Add currently held keys
+    if (activeKeys && activeKeys.key) {
+      if (display) display += ' → '
+      display += formatCombination([activeKeys]).display
+    }
+
+    // Ellipsis indicates we're waiting for timeout or more keys
+    return display + '...'
   }
 
   // Render an editable kbd element with optional remove button
@@ -214,9 +231,17 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     const isConflict = key && hasConflict(key)
 
     if (isEditing) {
+      const showTimeoutBar = pendingKeys.length > 0
       return (
         <kbd className="editing">
           {formatRecordingSequence()}
+          {showTimeoutBar && (
+            <span
+              key={timeoutAnimKey}
+              className="kbd-timeout-bar"
+              style={{ animationDuration: `${SEQUENCE_TIMEOUT_MS}ms` }}
+            />
+          )}
         </kbd>
       )
     }
@@ -256,9 +281,17 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     const isAdding = addingAction === action
 
     if (isAdding) {
+      const showTimeoutBar = pendingKeys.length > 0
       return (
         <kbd className="editing adding">
-          {formatRecordingSequence() || '...'}
+          {formatRecordingSequence()}
+          {showTimeoutBar && (
+            <span
+              key={timeoutAnimKey}
+              className="kbd-timeout-bar"
+              style={{ animationDuration: `${SEQUENCE_TIMEOUT_MS}ms` }}
+            />
+          )}
         </kbd>
       )
     }
