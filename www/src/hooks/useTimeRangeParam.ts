@@ -191,26 +191,23 @@ export function useTimeRangeParam(
 
   // Update duration - keeps end time fixed, adjusts start time
   const setDuration = useCallback((duration: number) => {
+    // Preserve current Latest mode state - don't switch modes just because of time proximity
+    const wasInLatestMode = timeRange.timestamp === null
+
     // Determine end time: use current xAxisRange end, or current time if in Latest mode
     let endTime: Date
-    let stayInLatestMode = false
     if (xAxisRange) {
       endTime = new Date(xAxisRange[1])
-      // Check if current end is close to now (within 10 min) -> stay in Latest mode
-      const now = new Date()
-      const timeDiffMinutes = Math.abs(endTime.getTime() - now.getTime()) / (1000 * 60)
-      stayInLatestMode = timeDiffMinutes < 10
-    } else if (timeRange.timestamp === null) {
+    } else if (wasInLatestMode) {
       // Add buffer so latest point isn't at edge (use current time, not cached data)
       endTime = new Date(new Date().getTime() + bufferMs)
-      stayInLatestMode = true
     } else {
-      endTime = timeRange.timestamp
+      endTime = timeRange.timestamp!
     }
 
     const startTime = new Date(endTime.getTime() - duration)
     setXAxisRangeState([formatForPlotly(startTime), formatForPlotly(endTime)])
-    setTimeRange({ timestamp: stayInLatestMode ? null : endTime, duration })
+    setTimeRange({ timestamp: wasInLatestMode ? null : endTime, duration })
   }, [xAxisRange, timeRange.timestamp, setTimeRange, formatForPlotly, bufferMs])
 
   return {

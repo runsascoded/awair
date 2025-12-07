@@ -44,6 +44,8 @@ export interface SmartPollingOptions {
   enabled?: boolean
   /** Device ID for logging (optional) */
   deviceId?: number
+  /** Whether currently viewing Latest mode (timestamp === null) */
+  isLatestMode?: boolean
 }
 
 export interface SmartPollingResult {
@@ -60,6 +62,7 @@ export function useSmartPolling({
   refetch,
   enabled = true,
   deviceId,
+  isLatestMode = true,
 }: SmartPollingOptions): SmartPollingResult {
   const [state, setState] = useState<PollState>({ phase: 'idle', attempt: 0, targetMtime: null })
   const [isTabVisible, setIsTabVisible] = useState(!document.hidden)
@@ -71,6 +74,8 @@ export function useSmartPolling({
   const pollingRef = useRef(false)
   // Timer ref for cleanup
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Track previous Latest mode state to detect transitions
+  const wasLatestModeRef = useRef(isLatestMode)
 
   const lastModifiedMs = lastModified?.getTime() ?? null
 
@@ -107,6 +112,30 @@ export function useSmartPolling({
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [deviceId])
+
+  // Detect transition into Latest mode - reset polling cycle
+  useEffect(() => {
+    const wasLatest = wasLatestModeRef.current
+    wasLatestModeRef.current = isLatestMode
+
+    // Only act on transition INTO Latest mode
+    if (!wasLatest && isLatestMode && enabled && isTabVisible) {
+      const now = Date.now()
+      const expectedNextData = (state.targetMtime ?? 0) + INITIAL_DELAY_MS
+
+      if (now > expectedNextData + 60_000) {
+        // Been away >1 min past expected data time - poll immediately
+        // Set targetMtime to now - 61s so that targetTime = now, delay = 0 → 100ms
+        console.log(`${logPrefix}🔄 Returned to Latest mode (stale), polling immediately`)
+        setState({ phase: 'burst', attempt: 0, targetMtime: now - INITIAL_DELAY_MS })
+      } else if (state.phase === 'backoff' || state.phase === 'idle') {
+        // Was in backoff or idle - reset to waiting to resume normal cycle
+        console.log(`${logPrefix}🔄 Returned to Latest mode, resuming poll cycle`)
+        setState(prev => ({ ...prev, phase: 'waiting', attempt: 0 }))
+      }
+      // Otherwise (in waiting or burst phase, <1min past expected) - just continue
+    }
+  }, [isLatestMode, enabled, isTabVisible, state.targetMtime, state.phase, logPrefix])
 
   // Detect new data arrival (lastModified changed from what we were polling for)
   useEffect(() => {

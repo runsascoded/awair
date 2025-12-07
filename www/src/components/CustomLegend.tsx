@@ -37,11 +37,9 @@ function LegendLineSample({
   return (
     <span
       className="legend-line-sample"
-      style={{ color }}
+      style={{ backgroundColor: color }}
       onMouseEnter={() => onHover(hoverState)}
-    >
-      ━━
-    </span>
+    />
   )
 }
 

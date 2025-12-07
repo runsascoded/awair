@@ -89,13 +89,19 @@ export class ParquetCache {
    * Fetches footer + recent row groups in one request.
    */
   async initialize(): Promise<FileMetaData> {
-    // HEAD request to get file size
+    // HEAD request to get file size and Last-Modified
     const headRes = await this.fetchFn(this.url, { method: 'HEAD' })
     if (!headRes.ok) throw new Error(`HEAD failed: ${headRes.status}`)
 
     const contentLength = headRes.headers.get('Content-Length')
     if (!contentLength) throw new Error('Missing Content-Length header')
     this.fileSize = parseInt(contentLength)
+
+    // Capture Last-Modified for smart polling
+    const lastModifiedHeader = headRes.headers.get('Last-Modified')
+    if (lastModifiedHeader) {
+      this.lastModified = new Date(lastModifiedHeader)
+    }
 
     // Fetch last N bytes (footer + some row groups)
     this.tailCacheStart = Math.max(0, this.fileSize - this.initialFetchSize)

@@ -672,8 +672,9 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
   }, [deviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, formatForPlotly, deviceRenderStrategy, hsvConfig, getTraceOpacity])
 
   // Font sizes - larger in og mode for better screenshot readability
+  // Note: x-axis ticks need smaller font to fit with multi-line date labels
   const fontSizes = isOgMode
-    ? { tick: 22, legend: 22, annotation: 24, title: 28 }
+    ? { tick: 14, legend: 22, annotation: 24, title: 28 }
     : { tick: 11, legend: 11, annotation: 12, title: 16 }
 
   // Helper to create yaxis config
@@ -735,7 +736,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
         className="plot-container"
         onMouseEnter={() => setHoverState(null)}
       >
-        {!isOgMode && (() => {
+        {(() => {
           // Calculate device colors for legend markers (primary metric)
           const primaryColors = deviceAggregations.map((_, deviceIdx) => {
             const lineProps = getDeviceLineProps(
@@ -769,9 +770,9 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
               deviceNames={deviceAggregations.map(d => d.deviceName)}
               primaryColors={primaryColors}
               secondaryColors={secondaryColors}
-              onHover={setHoverState}
-              onLeftAutoRangeDisplayChange={setLeftAutoRangeDisplay}
-              onRightAutoRangeDisplayChange={setRightAutoRangeDisplay}
+              onHover={isOgMode ? noop : setHoverState}
+              onLeftAutoRangeDisplayChange={isOgMode ? noop : setLeftAutoRangeDisplay}
+              onRightAutoRangeDisplayChange={isOgMode ? noop : setRightAutoRangeDisplay}
             />
           )
         })()}
@@ -818,7 +819,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
             ...(secondaryConfig && r.val !== 'none' && { yaxis2: createYAxisConfig('right', rightAutoRangeDisplay, getRangeFloor(r.val as Metric)) }),
             // Legend is now in flow above plot, so minimal top margin needed
             margin: isOgMode
-              ? { l: 50, r: 50, t: 55, b: 70 }  // Just enough for axis labels, no border
+              ? { l: 50, r: 50, t: 55, b: 85 }  // Extra bottom margin for x-axis tick labels
               : { l: 35, r: secondaryConfig ? 35 : 10, t: 5, b: 45 },
             hovermode: 'x unified',
             hoverlabel: {

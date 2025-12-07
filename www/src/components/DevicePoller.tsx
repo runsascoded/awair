@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import { encodeTimeRange } from '../lib/timeRangeCodec'
 import { fetchAwairData, refreshDeviceData } from '../services/awairService'
@@ -36,6 +36,9 @@ export function DevicePoller({
   // Manual keepPreviousData implementation
   const previousDataRef = useRef<{ records: AwairRecord[]; summary: DataSummary | null; lastModified: Date | null } | null>(null)
 
+  // Latest mode = timestamp is null (viewing most recent data)
+  const isLatestMode = useMemo(() => timeRange.timestamp === null, [timeRange.timestamp])
+
   const query = useQuery({
     queryKey: ['awair-data', deviceId, encodeTimeRange(timeRange)],
     queryFn: () => fetchAwairData(deviceId, timeRange),
@@ -50,12 +53,13 @@ export function DevicePoller({
     await query.refetch()
   }, [deviceId, query.refetch])
 
-  // Independent smart polling for this device
+  // Independent smart polling for this device (only when viewing Latest)
   useSmartPolling({
     lastModified: query.data?.lastModified ?? null,
     refetch,
-    enabled: smartPolling,
+    enabled: smartPolling && isLatestMode,
     deviceId,
+    isLatestMode,
   })
 
   // Build result with fallback to previous data
