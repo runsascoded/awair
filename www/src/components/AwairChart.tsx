@@ -819,7 +819,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
             ...(secondaryConfig && r.val !== 'none' && { yaxis2: createYAxisConfig('right', rightAutoRangeDisplay, getRangeFloor(r.val as Metric)) }),
             // Legend is now in flow above plot, so minimal top margin needed
             margin: isOgMode
-              ? { l: 50, r: 50, t: 55, b: 85 }  // Extra bottom margin for x-axis tick labels
+              ? { l: 50, r: 50, t: 10, b: 115 }  // Minimal top (title is absolute), extra bottom for x-axis
               : { l: 35, r: secondaryConfig ? 35 : 10, t: 5, b: 45 },
             hovermode: 'x unified',
             hoverlabel: {

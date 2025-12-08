@@ -129,7 +129,7 @@
 
   // OG mode: larger legend, hide inactive controls
   .og-mode & {
-    margin: 0 0.5rem;
+    margin: 0 1rem;  // More horizontal margin to prevent clipping
 
     .legend-metric-control {
       .legend-controls-row {
@@ -140,7 +140,9 @@
 
         select {
           font-size: 1.1rem;
-          padding: 0.25rem 0.5rem;
+          padding: 0.2rem 0.4rem;
+          line-height: 1.4;
+          height: 2rem;  // Explicit height to fit font + padding
         }
       }
 
