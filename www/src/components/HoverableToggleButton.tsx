@@ -11,13 +11,17 @@ interface HoverableToggleButtonProps {
   title?: string
 }
 
+// Check if device supports hover (not a touch-only device)
+const canHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches
+
 /**
  * A toggle button that shows a hover preview of the toggled state.
  *
  * Behavior:
- * - Hover shows preview of toggled state with reduced opacity
- * - Click toggles the actual state
+ * - Hover shows preview of toggled state with reduced opacity (desktop only)
+ * - Click/tap toggles the actual state
  * - After clicking while hovered, preview is disabled until mouseout/mousein
+ * - On touch devices, hover preview is disabled entirely
  *
  * Visual states:
  * - Not active, not hovered: default styling
@@ -37,8 +41,8 @@ export function HoverableToggleButton({
   const [isHovered, setIsHovered] = useState(false)
   const [clickedWhileHovered, setClickedWhileHovered] = useState(false)
 
-  // Determine display state
-  const shouldShowPreview = isHovered && !clickedWhileHovered
+  // Determine display state - only show preview on hover-capable devices
+  const shouldShowPreview = canHover && isHovered && !clickedWhileHovered
   const displayValue = shouldShowPreview ? !value : value
 
   // Notify parent when display value changes (for plot preview)
