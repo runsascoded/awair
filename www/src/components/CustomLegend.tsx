@@ -6,6 +6,9 @@ import type { LegendHoverState } from './AwairChart'
 import type { MetricsState } from "../hooks/useMetrics"
 import type { Metric } from "../lib/urlParams"
 
+// Check if device supports hover (not a touch-only device)
+const canHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches
+
 interface CustomLegendProps {
   metrics: MetricsState
   isMobile: boolean
@@ -116,7 +119,7 @@ export function CustomLegend({
               <select
                 value={l.val}
                 onChange={(e) => l.set(e.target.value as Metric)}
-                onMouseEnter={() => onHover({ type: 'metric', metric: 'primary' })}
+                onMouseEnter={canHover ? () => onHover({ type: 'metric', metric: 'primary' }) : undefined}
               >
                 {Object.entries(metricConfig).map(([key, cfg]) => (
                   <option key={key} value={key}>
@@ -140,7 +143,7 @@ export function CustomLegend({
                 <select
                   value={l.val}
                   onChange={(e) => l.set(e.target.value as Metric)}
-                  onMouseEnter={() => onHover({ type: 'metric', metric: 'primary' })}
+                  onMouseEnter={canHover ? () => onHover({ type: 'metric', metric: 'primary' }) : undefined}
                 >
                   {Object.entries(metricConfig).map(([key, cfg]) => (
                     <option key={key} value={key}>
@@ -166,7 +169,7 @@ export function CustomLegend({
         <div className="legend-labels-row">
           <span
             className="metric-unit left-unit"
-            onMouseEnter={() => onHover({ type: 'metric', metric: 'primary' })}
+            onMouseEnter={canHover ? () => onHover({ type: 'metric', metric: 'primary' }) : undefined}
           >
             ({metricConfig[l.val].unit})
           </span>
@@ -210,7 +213,7 @@ export function CustomLegend({
                 <select
                   value={r.val}
                   onChange={(e) => r.set(e.target.value as Metric | 'none')}
-                  onMouseEnter={() => onHover({ type: 'metric', metric: 'secondary' })}
+                  onMouseEnter={canHover ? () => onHover({ type: 'metric', metric: 'secondary' }) : undefined}
                 >
                   <option value="none">None</option>
                   {Object.entries(metricConfig).map(([key, cfg]) => (
@@ -238,7 +241,7 @@ export function CustomLegend({
                   <select
                     value={r.val}
                     onChange={(e) => r.set(e.target.value as Metric | 'none')}
-                    onMouseEnter={() => onHover({ type: 'metric', metric: 'secondary' })}
+                    onMouseEnter={canHover ? () => onHover({ type: 'metric', metric: 'secondary' }) : undefined}
                   >
                     <option value="none">None</option>
                     {Object.entries(metricConfig).map(([key, cfg]) => (
@@ -258,7 +261,7 @@ export function CustomLegend({
           <div className="legend-labels-row">
             <span
               className="metric-unit right-unit"
-              onMouseEnter={() => onHover({ type: 'metric', metric: 'secondary' })}
+              onMouseEnter={canHover ? () => onHover({ type: 'metric', metric: 'secondary' }) : undefined}
             >
               ({metricConfig[r.val as Metric].unit})
             </span>
