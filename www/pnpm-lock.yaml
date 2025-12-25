@@ -18,8 +18,8 @@ importers:
         specifier: ^0.6.17
         version: 0.6.17
       '@rdub/use-hotkeys':
-        specifier: 0.2.0
-        version: 0.2.0(react@19.2.1)
+        specifier: workspace:*
+        version: link:../../js/use-hotkeys
       '@rdub/use-url-params':
         specifier: ^0.1.2
         version: 0.1.2(react@19.2.1)
@@ -1156,11 +1156,6 @@ packages:
     hasBin: true
     peerDependencies:
       '@aws-sdk/client-s3': ^3.0.0
-
-  '@rdub/use-hotkeys@0.2.0':
-    resolution: {integrity: sha512-mNZIcPQFwNXd+t1hDnsEKZE8WrjXW9l7WBEWojyxqHZ+JRdCVWOBjH3sek4HePckzQ3Wignww7uPAgoDIXjNeQ==}
-    peerDependencies:
-      react: '>=18.0.0'
 
   '@rdub/use-url-params@0.1.2':
     resolution: {integrity: sha512-iFH21uvN6VpX2NitgqnIeyqdVCQ96x+LaolXJBspb1ABYJBhnUa0XWZf0zmJ7C7cUvZtpDrNkHj+9PthXKF6lg==}
@@ -5795,10 +5790,6 @@ snapshots:
       - react-native-b4a
       - supports-color
       - utf-8-validate
-
-  '@rdub/use-hotkeys@0.2.0(react@19.2.1)':
-    dependencies:
-      react: 19.2.1
 
   '@rdub/use-url-params@0.1.2(react@19.2.1)':
     optionalDependencies:
