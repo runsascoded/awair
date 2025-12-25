@@ -118,8 +118,8 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   )
 
   const handleRemoveKey = useCallback(
-    (key: string) => {
-      shortcutsState.removeBinding(key)
+    (action: string, key: string) => {
+      shortcutsState.removeBindingForAction(action, key)
     },
     [shortcutsState],
   )
@@ -172,17 +172,11 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   const renderMultiKeyCell = (action: string, keys: string[]) => {
     return (
       <span className="multi-keys">
-        {keys.length === 0 ? (
-          <kbd className="editable empty" onClick={() => startEditing(action)} title="Click to add shortcut">
-            -
-          </kbd>
-        ) : (
-          keys.map(key => (
-            <React.Fragment key={key}>
-              {renderEditableKbd(action, key, true)}
-            </React.Fragment>
-          ))
-        )}
+        {keys.map(key => (
+          <React.Fragment key={key}>
+            {renderEditableKbd(action, key, true)}
+          </React.Fragment>
+        ))}
         {renderAddButton(action)}
       </span>
     )
@@ -298,7 +292,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
             className="remove-key-btn"
             onClick={(e) => {
               e.stopPropagation()
-              handleRemoveKey(key)
+              handleRemoveKey(action, key)
             }}
             title="Remove this shortcut"
           >
