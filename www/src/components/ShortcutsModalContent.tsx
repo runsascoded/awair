@@ -21,6 +21,7 @@ export const HOTKEY_DESCRIPTIONS: Record<string, string> = {
   'right:none': 'Clear',
   'right:autorange': 'Toggle auto-range',
   // Time ranges
+  'time:00-12h': '12 hours',
   'time:01-1d': '1 day',
   'time:02-3d': '3 days',
   'time:03-7d': '1 week',
@@ -182,10 +183,24 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     )
   }
 
-  // Shift arrow SVG - consistent across all browsers/platforms
+  // Modifier key SVG icons - consistent across all browsers/platforms
   const ShiftIcon = () => (
     <svg className="modifier-icon" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 4l-8 8h5v8h6v-8h5z"/>
+    </svg>
+  )
+
+  // Command/Meta key icon (⌘ as SVG for consistent sizing)
+  const CommandIcon = () => (
+    <svg className="modifier-icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M6 4a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h2v4H6a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-2h4v2a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-2v-4h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v2h-4V6a2 2 0 0 0-2-2H6zm4 6h4v4h-4v-4z"/>
+    </svg>
+  )
+
+  // Control key icon (^)
+  const CtrlIcon = () => (
+    <svg className="modifier-icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 6l-6 6h12l-6-6z"/>
     </svg>
   )
 
@@ -194,7 +209,11 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     const upper = key.toUpperCase()
     if (upper.startsWith('META+')) {
       const mainKey = upper.replace('META+', '')
-      return <>⌘{mainKey}</>
+      return <><CommandIcon />{mainKey}</>
+    }
+    if (upper.startsWith('CTRL+')) {
+      const mainKey = upper.replace('CTRL+', '')
+      return <><CtrlIcon />{mainKey}</>
     }
     if (upper.startsWith('SHIFT+')) {
       const mainKey = upper.replace('SHIFT+', '')

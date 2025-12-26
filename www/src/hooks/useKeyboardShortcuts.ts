@@ -52,6 +52,8 @@ export const DEFAULT_HOTKEY_MAP: HotkeyMap = {
   'shift+n': 'right:none',
   'shift+a': 'right:autorange',
   // Time ranges - both single keys and sequences
+  // Hours
+  'ctrl+h': 'time:00-12h',
   // Days
   '1': 'time:01-1d',
   'd 1': 'time:01-1d',
@@ -171,6 +173,7 @@ export function useKeyboardShortcuts({
         }
       },
       // Time ranges
+      'time:00-12h': () => handleTimeRangeClick(12),
       'time:01-1d': () => handleTimeRangeClick(24),
       'time:02-3d': () => handleTimeRangeClick(24 * 3),
       'time:03-7d': () => handleTimeRangeClick(24 * 7),
