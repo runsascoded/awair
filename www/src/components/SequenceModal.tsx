@@ -1,6 +1,6 @@
 import { formatCombination, useKeyboardShortcutsContext } from '@rdub/use-hotkeys'
 import { useMemo } from 'react'
-import { HOTKEY_DESCRIPTIONS } from './ShortcutsModalContent'
+import { HOTKEY_DESCRIPTIONS } from '../config/hotkeyConfig'
 import type { HotkeySequence, SequenceCompletion } from '@rdub/use-hotkeys'
 
 interface SequenceModalProps {
