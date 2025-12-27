@@ -507,113 +507,23 @@
   to { opacity: 1; }
 }
 
-// Omnibar (command palette)
-.omnibar-backdrop {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 15vh;
-  z-index: 9999;
-  background-color: rgba(0, 0, 0, 0.3);
-  animation: fadeIn 0.1s ease;
+// Map awair theme variables to use-hotkeys library CSS variables
+.hotkeys-omnibar,
+.hotkeys-modal {
+  --hk-bg: var(--bg-primary);
+  --hk-bg-secondary: var(--bg-secondary);
+  --hk-text: var(--text-primary);
+  --hk-text-secondary: var(--text-secondary);
+  --hk-border: var(--border-color);
+  --hk-kbd-bg: var(--bg-tertiary, var(--bg-secondary));
+  --hk-kbd-border: var(--border-color);
+  --hk-kbd-text: var(--text-primary);
 }
 
-.omnibar {
-  width: 500px;
-  max-width: 90vw;
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
-  overflow: hidden;
-  animation: slideDown 0.15s ease;
-
-  @keyframes slideDown {
-    from {
-      opacity: 0;
-      transform: translateY(-20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .omnibar-input {
-    width: 100%;
-    padding: 16px 20px;
-    border: none;
-    border-bottom: 1px solid var(--border-color);
-    background: transparent;
-    font-size: 1.1rem;
-    color: var(--text-primary);
-    outline: none;
-
-    &::placeholder {
-      color: var(--text-secondary);
-    }
-  }
-
-  .omnibar-results {
-    max-height: 400px;
-    overflow-y: auto;
-  }
-
-  .omnibar-no-results {
-    padding: 20px;
-    text-align: center;
-    color: var(--text-secondary);
-    font-style: italic;
-  }
-
-  .omnibar-result {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 20px;
-    cursor: pointer;
-    transition: background-color 0.1s ease;
-
-    &:hover,
-    &.selected {
-      background-color: var(--bg-secondary);
-    }
-
-    &.selected {
-      border-left: 3px solid #3b82f6;
-      padding-left: 17px;
-    }
-
-    .result-label {
-      flex: 1;
-      font-size: 0.95rem;
-      color: var(--text-primary);
-    }
-
-    .result-category {
-      font-size: 0.75rem;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .result-bindings {
-      display: flex;
-      gap: 4px;
-
-      kbd {
-        padding: 3px 6px;
-        font-family: inherit;
-        font-size: 0.75rem;
-        background-color: var(--bg-primary);
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        color: var(--text-secondary);
-      }
-    }
-  }
+// Customize omnibar selected state with accent border
+.hotkeys-omnibar-result.selected {
+  border-left: 3px solid #3b82f6;
+  padding-left: calc(var(--hk-padding, 16px) - 3px);
 }
 
 // Legacy sequence indicator (keeping for reference, but replaced by modal)

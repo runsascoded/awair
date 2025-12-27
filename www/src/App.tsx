@@ -1,35 +1,28 @@
-import { KeyboardShortcutsProvider, ShortcutsModal, useKeyboardShortcutsContext } from '@rdub/use-hotkeys'
+import { getActionRegistry, HotkeysProvider, Omnibar, ShortcutsModal, useHotkeysContext } from '@rdub/use-hotkeys'
+import '@rdub/use-hotkeys/styles.css'
 import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import useSessionStorageState from 'use-session-storage-state'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
-import { Omnibar } from './components/Omnibar'
 import { ShortcutsModalContent } from './components/ShortcutsModalContent'
 import { ThemeToggle } from './components/ThemeToggle'
-import { HOTKEY_DESCRIPTIONS, HOTKEY_GROUPS } from './config/hotkeyConfig'
+import { ACTIONS, HOTKEY_DESCRIPTIONS, HOTKEY_GROUPS } from './config/hotkeyConfig'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
-import { DEFAULT_HOTKEY_MAP } from './hooks/useKeyboardShortcuts'
 import { queryClient } from './lib/queryClient'
 import { boolParam, deviceIdsParam, timeRangeParam, refetchIntervalParam } from './lib/urlParams'
 import './App.scss'
 
 function AppContent() {
   const [isOgMode] = useUrlParam('og', boolParam)
-  const [shortcutsOpen, setShortcutsOpen] = useSessionStorageState('shortcuts-modal-open', { defaultValue: false })
-  const [omnibarOpen, setOmnibarOpen] = useState(false)
-  const openShortcuts = useCallback(() => setShortcutsOpen(true), [])
-  const closeShortcuts = useCallback(() => setShortcutsOpen(false), [])
-  const toggleOmnibar = useCallback(() => setOmnibarOpen(prev => !prev), [])
-  const closeOmnibar = useCallback(() => setOmnibarOpen(false), [])
 
   // Ref for executing actions from omnibar
   const handlersRef = useRef<Record<string, () => void>>({})
 
-  // Access keyboard shortcuts from context (state lives in KeyboardShortcutsProvider)
-  const shortcutsState = useKeyboardShortcutsContext()
+  // Access hotkeys context (includes modal/omnibar state + keymap)
+  const hotkeysContext = useHotkeysContext()
+  const { isModalOpen, closeModal, openModal, isOmnibarOpen, closeOmnibar, keymap } = hotkeysContext
 
   // Add og-mode class to body for CSS overrides
   useEffect(() => {
@@ -187,21 +180,19 @@ function AppContent() {
             timeRange={timeRange}
             setTimeRange={setTimeRange}
             isOgMode={isOgMode}
-            onOpenShortcuts={openShortcuts}
-            onOpenOmnibar={toggleOmnibar}
             handlersRef={handlersRef}
           />
         )}
       </main>
-      {!isOgMode && <ThemeToggle onOpenShortcuts={openShortcuts} />}
+      {!isOgMode && <ThemeToggle onOpenShortcuts={openModal} />}
       {/* Modal rendered at App level to avoid re-rendering AwairChart on open/close */}
       {!isOgMode && (
         <ShortcutsModal
-          keymap={shortcutsState.keymap}
+          keymap={keymap}
           descriptions={HOTKEY_DESCRIPTIONS}
           groups={HOTKEY_GROUPS}
-          isOpen={shortcutsOpen}
-          onClose={closeShortcuts}
+          isOpen={isModalOpen}
+          onClose={closeModal}
           autoRegisterOpen={false}
         >
           {({ groups, close }) => (
@@ -215,12 +206,17 @@ function AppContent() {
       {/* Omnibar (command palette) */}
       {!isOgMode && (
         <Omnibar
-          isOpen={omnibarOpen}
+          actions={getActionRegistry(ACTIONS)}
+          keymap={keymap}
+          isOpen={isOmnibarOpen}
           onClose={closeOmnibar}
           onExecute={(actionId) => {
             const handler = handlersRef.current[actionId]
             if (handler) handler()
           }}
+          enabled={false}
+          placeholder="Search actions..."
+          maxResults={15}
         />
       )}
     </div>
@@ -231,12 +227,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <KeyboardShortcutsProvider
-          defaults={DEFAULT_HOTKEY_MAP}
-          storageKey="awair-hotkeys"
+        <HotkeysProvider
+          actions={ACTIONS}
+          config={{ storageKey: 'awair-hotkeys' }}
         >
           <AppContent />
-        </KeyboardShortcutsProvider>
+        </HotkeysProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )

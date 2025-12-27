@@ -1,4 +1,4 @@
-import { useRegisteredHotkeys, type HotkeyMap } from '@rdub/use-hotkeys'
+import { useRegisteredHotkeys } from '@rdub/use-hotkeys'
 import { useMemo } from 'react'
 import type { MetricsState } from "./useMetrics"
 import type { Device } from '../services/awairService'
@@ -15,8 +15,6 @@ interface UseKeyboardShortcutsProps {
   handleTimeRangeClick: (hours: number) => void
   handleAllClick: () => void
   setIgnoreNextPanCheck: () => void
-  openShortcutsModal: () => void
-  openOmnibar: () => void
   // Device selection
   devices: Device[]
   selectedDeviceIds: number[]
@@ -32,63 +30,6 @@ interface UseKeyboardShortcutsProps {
 
 type Metric = 'temp' | 'co2' | 'humid' | 'pm25' | 'voc'
 
-// Default hotkey map: key combination -> action name
-// Supports sequences (space-separated) like "d 1" for 1 day, "w 2" for 2 weeks
-// Multiple keys can map to the same action
-export const DEFAULT_HOTKEY_MAP: HotkeyMap = {
-  // Left Y-axis metrics
-  't': 'left:temp',
-  'c': 'left:co2',
-  'h': 'left:humid',
-  'p': 'left:pm25',
-  'v': 'left:voc',
-  'a': 'left:autorange',
-  // Right Y-axis metrics
-  'shift+t': 'right:temp',
-  'shift+c': 'right:co2',
-  'shift+h': 'right:humid',
-  'shift+p': 'right:pm25',
-  'shift+v': 'right:voc',
-  'shift+n': 'right:none',
-  'shift+a': 'right:autorange',
-  // Time ranges - both single keys and sequences
-  // Hours
-  'ctrl+h': 'time:00-12h',
-  // Days
-  '1': 'time:01-1d',
-  'd 1': 'time:01-1d',
-  '3': 'time:02-3d',
-  'd 3': 'time:02-3d',
-  // Weeks
-  '7': 'time:03-7d',
-  'w 1': 'time:03-7d',
-  '2': 'time:04-14d',
-  'w 2': 'time:04-14d',
-  // Months (31d ≈ 365/12, rounded up)
-  'm 1': 'time:05-31d',
-  'm 2': 'time:06-62d',
-  'm 3': 'time:07-92d',
-  // All and Latest
-  'x': 'time:08-all',
-  'l': 'time:09-latest',
-  // Devices
-  'g': 'device:gym',
-  'b': 'device:br',
-  // Table pagination
-  ',': 'table:prev-page',
-  '.': 'table:next-page',
-  '<': 'table:prev-plot-page',
-  '>': 'table:next-plot-page',
-  'meta+,': 'table:first-page',
-  'meta+.': 'table:last-page',
-  // Modal
-  '?': 'modal:shortcuts',
-  'meta+k': 'omnibar:toggle',
-} as const
-
-// Re-export for backward compatibility
-export const HOTKEY_MAP = DEFAULT_HOTKEY_MAP
-
 export function useKeyboardShortcuts({
   metrics,
   xAxisRange,
@@ -100,8 +41,6 @@ export function useKeyboardShortcuts({
   handleTimeRangeClick,
   handleAllClick,
   setIgnoreNextPanCheck,
-  openShortcutsModal,
-  openOmnibar,
   devices,
   selectedDeviceIds,
   setSelectedDeviceIds,
@@ -215,11 +154,9 @@ export function useKeyboardShortcuts({
       'table:next-plot-page': () => tableNextPlotPage?.(),
       'table:first-page': () => tableFirstPage?.(),
       'table:last-page': () => tableLastPage?.(),
-      // Modal
-      'modal:shortcuts': openShortcutsModal,
-      'omnibar:toggle': openOmnibar,
+      // Note: modal:shortcuts and omnibar:toggle are handled by HotkeysProvider
     }
-  }, [l, r, handleTimeRangeClick, handleAllClick, latestModeIntended, setLatestModeIntended, xAxisRange, data, formatForPlotly, setXAxisRange, setIgnoreNextPanCheck, openShortcutsModal, openOmnibar, findDeviceIdByName, toggleDevice, tablePrevPage, tableNextPage, tablePrevPlotPage, tableNextPlotPage, tableFirstPage, tableLastPage])
+  }, [l, r, handleTimeRangeClick, handleAllClick, latestModeIntended, setLatestModeIntended, xAxisRange, data, formatForPlotly, setXAxisRange, setIgnoreNextPanCheck, findDeviceIdByName, toggleDevice, tablePrevPage, tableNextPage, tablePrevPlotPage, tableNextPlotPage, tableFirstPage, tableLastPage])
 
   // Register handlers with keymap from context
   const hotkeysResult = useRegisteredHotkeys(handlers, { sequenceTimeout: 2000 })

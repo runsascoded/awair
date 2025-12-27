@@ -26,7 +26,6 @@ import type { Data, PlotRelayoutEvent } from 'plotly.js'
 // Extend Data type to include zorder (supported by plotly.js but not in @types/plotly.js); https://github.com/DefinitelyTyped/DefinitelyTyped/pull/74155 will fix
 type DataWithZorder = Data & { zorder?: number }
 
-// Stable noop function to avoid re-renders
 const noop = () => {}
 
 export type HasDeviceIdx = { deviceIdx: number }
@@ -47,12 +46,10 @@ interface Props {
   timeRange: { timestamp: Date | null; duration: number }
   setTimeRange: (range: { timestamp: Date | null; duration: number }) => void
   isOgMode?: boolean
-  onOpenShortcuts?: () => void
-  onOpenOmnibar?: () => void
   handlersRef?: MutableRefObject<Record<string, () => void>>
 }
 
-export const AwairChart = React.memo(function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps, isOgMode = false, onOpenShortcuts, onOpenOmnibar, handlersRef }: Props) {
+export const AwairChart = React.memo(function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps, isOgMode = false, handlersRef }: Props) {
 
   // Combine data from all devices for time range calculations and bounds checking
   // Sorted newest-first for efficient latest record access
@@ -301,8 +298,6 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     handleTimeRangeClick,
     handleAllClick,
     setIgnoreNextPanCheck,
-    openShortcutsModal: onOpenShortcuts || noop,
-    openOmnibar: onOpenOmnibar || noop,
     devices,
     selectedDeviceIds,
     setSelectedDeviceIds: onDeviceSelectionChange,

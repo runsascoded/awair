@@ -183,8 +183,8 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
       actionName = `${prefix}:${actionSuffix}`
     } else if (_group) {
       // Try to infer from group
-      const sample = _group.shortcuts.find(s => s.action.endsWith(`:${actionSuffix}`))
-      actionName = sample?.action || actionSuffix
+      const sample = _group.shortcuts.find(s => s.actionId.endsWith(`:${actionSuffix}`))
+      actionName = sample?.actionId || actionSuffix
     } else {
       actionName = actionSuffix
     }
