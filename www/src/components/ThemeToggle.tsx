@@ -14,6 +14,9 @@ export function ThemeToggle({ onOpenShortcuts }: ThemeToggleProps) {
   const lastScrollY = useRef(0)
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Hide keyboard shortcuts button on touch-only devices (no keyboard anyway)
+  const canHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches
+
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY
@@ -87,7 +90,7 @@ export function ThemeToggle({ onOpenShortcuts }: ThemeToggleProps) {
         >
           <FaGithub />
         </a>
-        {onOpenShortcuts && (
+        {canHover && onOpenShortcuts && (
           <button
             className="shortcuts-button"
             onClick={onOpenShortcuts}
