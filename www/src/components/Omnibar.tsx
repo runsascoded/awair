@@ -1,6 +1,6 @@
 import { useKeyboardShortcutsContext } from '@rdub/use-hotkeys'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { HOTKEY_DESCRIPTIONS, HOTKEY_GROUPS } from './ShortcutsModalContent'
+import { HOTKEY_DESCRIPTIONS, HOTKEY_GROUPS } from '../config/hotkeyConfig'
 import type { ActionSearchResult } from '@rdub/use-hotkeys'
 
 // Keywords/synonyms for better search matching
@@ -24,9 +24,14 @@ const ACTION_KEYWORDS: Record<string, string[]> = {
   'right:pm25': ['pm2.5', 'particulate', 'particles', 'dust'],
   'left:voc': ['volatile', 'organic', 'compounds'],
   'right:voc': ['volatile', 'organic', 'compounds'],
-  // Time range synonyms
-  'time:06-all': ['everything', 'full', 'complete'],
-  'time:07-latest': ['now', 'current', 'recent', 'live'],
+  // Time range synonyms (alpha/num splitting handles "2w" → "2 weeks" automatically)
+  'time:08-all': ['everything', 'full', 'complete', 'all'],
+  'time:09-latest': ['now', 'current', 'recent', 'live'],
+}
+
+// Split between letters and numbers: "2w" → "2 w", "w2" → "w 2", "1mo" → "1 mo"
+function splitAlphaNum(s: string): string {
+  return s.replace(/([a-z])(\d)/gi, '$1 $2').replace(/(\d)([a-z])/gi, '$1 $2')
 }
 
 interface OmnibarProps {
@@ -76,7 +81,9 @@ export function Omnibar({ isOpen, onClose, onExecute }: OmnibarProps) {
   // Search - filter actions by query, matching label, group, keywords, and bindings
   const results: ActionSearchResult[] = useMemo(() => {
     const q = query.toLowerCase().trim()
-    const queryTerms = q.split(/\s+/).filter(Boolean)
+    // Split alpha/num: "2w" → "2 w", "1mo" → "1 mo"
+    const normalizedQuery = splitAlphaNum(q)
+    const queryTerms = normalizedQuery.split(/\s+/).filter(Boolean)
     const matches: ActionSearchResult[] = []
 
     for (const [id, action] of Object.entries(actions)) {
@@ -85,27 +92,28 @@ export function Omnibar({ isOpen, onClose, onExecute }: OmnibarProps) {
       const keywords = action.keywords
       const bindings = actionBindings.get(id) || []
 
-      // Build searchable text for this action
-      const searchableTexts = [label, groupName, ...keywords, ...bindings.map(b => b.toLowerCase())]
+      // Build searchable text (split bindings too: "w 2" stays as terms)
+      const bindingTerms = bindings.flatMap(b => splitAlphaNum(b.toLowerCase()).split(/\s+/))
+      const searchableTexts = [label, groupName, ...keywords, ...bindingTerms]
       const allText = searchableTexts.join(' ')
 
-      // Check if ALL query terms match something
+      // Check if ALL query terms match something in the searchable text
       const matchesQuery = !q || queryTerms.every(term =>
         searchableTexts.some(text => text.includes(term))
       )
 
       if (matchesQuery) {
-        // Calculate score: prefer label matches, then group, then keywords
+        // Calculate score: prefer label matches, then group, then keywords/bindings
         let score = 0
         if (q) {
-          if (label.startsWith(q)) score = 4
-          else if (label.includes(q)) score = 3
-          else if (groupName.includes(q)) score = 2
-          else if (keywords.some(k => k.includes(q))) score = 1
-          // Multi-term queries get a bonus if they match
-          if (queryTerms.length > 1 && queryTerms.every(t => allText.includes(t))) {
-            score += 1
-          }
+          if (label.startsWith(normalizedQuery)) score = 4
+          else if (label.includes(normalizedQuery)) score = 3
+          else if (allText.includes(normalizedQuery)) score = 2.5
+          else if (groupName.includes(normalizedQuery)) score = 2
+          else if (keywords.some(k => k.includes(normalizedQuery))) score = 1.5
+          else if (bindingTerms.some(b => queryTerms.every(t => b.includes(t)))) score = 1
+          // Multi-term match bonus
+          if (queryTerms.length > 1) score += 0.5
         }
 
         matches.push({
