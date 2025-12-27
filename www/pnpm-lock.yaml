@@ -18,8 +18,8 @@ importers:
         specifier: ^0.6.17
         version: 0.6.17
       '@rdub/use-hotkeys':
-        specifier: ^0.2.1
-        version: 0.2.1(react@19.2.1)
+        specifier: github:runsascoded/use-hotkeys#90a9885b6e5a480c2ffdbddc68b7df1b025cd0fe
+        version: https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/90a9885b6e5a480c2ffdbddc68b7df1b025cd0fe(react@19.2.1)
       '@rdub/use-url-params':
         specifier: ^0.1.2
         version: 0.1.2(react@19.2.1)
@@ -1157,8 +1157,9 @@ packages:
     peerDependencies:
       '@aws-sdk/client-s3': ^3.0.0
 
-  '@rdub/use-hotkeys@0.2.1':
-    resolution: {integrity: sha512-AMdVkX2frtcoBDhyGABhkQ6QV01yc7hoe3Fw7Rd7mSihwR4kiICGU+6FqMw2GMs864etu2A4cpNz4AEMDynATw==}
+  '@rdub/use-hotkeys@https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/90a9885b6e5a480c2ffdbddc68b7df1b025cd0fe':
+    resolution: {tarball: https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/90a9885b6e5a480c2ffdbddc68b7df1b025cd0fe}
+    version: 0.2.1-dist.33560db
     peerDependencies:
       react: '>=18.0.0'
 
@@ -5796,7 +5797,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@rdub/use-hotkeys@0.2.1(react@19.2.1)':
+  '@rdub/use-hotkeys@https://codeload.github.com/runsascoded/use-hotkeys/tar.gz/90a9885b6e5a480c2ffdbddc68b7df1b025cd0fe(react@19.2.1)':
     dependencies:
       react: 19.2.1
 

@@ -14,8 +14,8 @@
   background-color: var(--bg-primary);
   border-radius: 8px;
   padding: 20px 24px;
-  width: 90vw;
-  max-width: 540px;
+  width: 85vw;
+  max-width: 480px;
   max-height: 80vh;
   overflow: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
@@ -125,18 +125,26 @@
     font-weight: 600;
     font-size: 0.85rem;
     color: var(--text-secondary);
+    // Override global sticky th from _table.scss
+    position: static;
   }
 
   td:not(:first-child) {
     text-align: center;
   }
 
-  td.multi-keys {
-    display: flex;
+  .multi-keys {
+    display: inline-flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 12px;
     justify-content: center;
     align-items: center;
+  }
+
+  .sequence-sep {
+    margin: 0 1px;
+    opacity: 0.4;
+    font-size: 0.75em;
   }
 
   .key-with-remove {
@@ -207,18 +215,23 @@
     padding: 2px 6px;
     font-family: inherit;
     font-size: 0.85rem;
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-tertiary, var(--bg-secondary));
     border: 1px solid var(--border-color);
     border-radius: 4px;
     min-width: 24px;
     text-align: center;
     transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 
     .modifier-icon {
-      width: 0.9em;
-      height: 0.9em;
-      margin-right: 1px;
+      width: 1.2em;
+      height: 1.2em;
+      margin-right: 2px;
       vertical-align: middle;
+
+      &.modifier-icon-wide {
+        width: 1.4em;
+      }
     }
 
     .sequence-separator {
@@ -253,6 +266,24 @@
         transform-origin: left;
         animation: shrink-timeout linear forwards;
       }
+
+      // Editing + conflict state - show red/orange to warn about conflict
+      &.conflict {
+        border-color: #f59e0b;
+        background-color: #fef3c7;
+        color: #92400e;
+
+        .kbd-timeout-bar {
+          background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        }
+
+        // Dark mode
+        :root[data-theme="dark"] & {
+          border-color: #f59e0b;
+          background-color: rgba(245, 158, 11, 0.2);
+          color: #fcd34d;
+        }
+      }
     }
 
     @keyframes shrink-timeout {
@@ -283,10 +314,37 @@
       }
     }
 
+    // Highlight keys that would conflict with current pending input
+    &.pending-conflict {
+      border-color: #f59e0b;
+      background-color: #fef3c7;
+      color: #92400e;
+      animation: pulse-conflict 1s ease-in-out infinite;
+
+      // Dark mode
+      :root[data-theme="dark"] & {
+        border-color: #f59e0b;
+        background-color: rgba(245, 158, 11, 0.2);
+        color: #fcd34d;
+      }
+    }
+
+    @keyframes pulse-conflict {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
     &.empty {
       color: var(--text-secondary);
       font-style: italic;
       opacity: 0.7;
+    }
+
+    // Default binding indicator - subtle underline
+    &.default-binding {
+      border-bottom: 1px solid var(--text-secondary);
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
     }
   }
 

@@ -1,59 +1,8 @@
-import { useRecordHotkey, useKeyboardShortcutsContext, formatCombination } from '@rdub/use-hotkeys'
-import React, { useState, useCallback, useEffect } from 'react'
+import { useRecordHotkey, useKeyboardShortcutsContext, CommandIcon, CtrlIcon, ShiftIcon, OptIcon, parseHotkeyString } from '@rdub/use-hotkeys'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { Tooltip } from './Tooltip'
-import type { HotkeySequence, KeyCombinationDisplay, ShortcutGroup } from '@rdub/use-hotkeys'
-
-// Descriptions for keyboard shortcuts modal
-export const HOTKEY_DESCRIPTIONS: Record<string, string> = {
-  // Left Y-axis
-  'left:temp': 'Temperature',
-  'left:co2': 'CO₂',
-  'left:humid': 'Humidity',
-  'left:pm25': 'PM2.5',
-  'left:voc': 'VOC',
-  'left:autorange': 'Toggle auto-range',
-  // Right Y-axis
-  'right:temp': 'Temperature',
-  'right:co2': 'CO₂',
-  'right:humid': 'Humidity',
-  'right:pm25': 'PM2.5',
-  'right:voc': 'VOC',
-  'right:none': 'Clear',
-  'right:autorange': 'Toggle auto-range',
-  // Time ranges
-  'time:00-12h': '12 hours',
-  'time:01-1d': '1 day',
-  'time:02-3d': '3 days',
-  'time:03-7d': '1 week',
-  'time:04-14d': '2 weeks',
-  'time:05-30d': '1 month',
-  'time:06-all': 'Full history',
-  'time:07-latest': 'Latest',
-  // Devices
-  'device:gym': 'Toggle Gym',
-  'device:br': 'Toggle BR',
-  // Table pagination
-  'table:prev-page': 'Prev table page',
-  'table:next-page': 'Next table page',
-  'table:prev-plot-page': 'Prev plot page',
-  'table:next-plot-page': 'Next plot page',
-  'table:first-page': 'First page',
-  'table:last-page': 'Last page',
-  // Modal
-  'modal:shortcuts': 'This dialog',
-  'omnibar:toggle': 'Command palette',
-}
-
-// Group names for shortcuts modal
-export const HOTKEY_GROUPS: Record<string, string> = {
-  'left': 'Left Y-Axis',
-  'right': 'Right Y-Axis',
-  'time': 'Time Range',
-  'device': 'Devices',
-  'table': 'Table Navigation',
-  'modal': 'Other',
-  'omnibar': 'Other',
-}
+import { HOTKEY_DESCRIPTIONS } from '../config/hotkeyConfig'
+import type { HotkeySequence, KeyCombinationDisplay, ShortcutGroup, KeyCombination } from '@rdub/use-hotkeys'
 
 export interface ShortcutsModalContentProps {
   groups: ShortcutGroup[]
@@ -64,13 +13,78 @@ export interface ShortcutsModalContentProps {
 const SEQUENCE_TIMEOUT_MS = 1000
 
 export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentProps) {
+  // Track which specific binding is being edited (action + key)
   const [editingAction, setEditingAction] = useState<string | null>(null)
+  const [editingKey, setEditingKey] = useState<string | null>(null)
   const [addingAction, setAddingAction] = useState<string | null>(null)
   // Key to restart timeout animation when pendingKeys changes
   const [timeoutAnimKey, setTimeoutAnimKey] = useState(0)
 
   // Access shortcuts state from context
   const shortcutsState = useKeyboardShortcutsContext()
+
+  // Build ordered list of all editable actions for Tab navigation
+  const editableActions = React.useMemo(() => {
+    const actions: string[] = []
+    // Y-Axis metrics (left then right per row)
+    const metricSuffixes = ['temp', 'co2', 'humid', 'pm25', 'voc', 'autorange']
+    for (const metric of metricSuffixes) {
+      actions.push(`left:${metric}`, `right:${metric}`)
+    }
+    actions.push('right:none')
+    // Time range actions (sorted)
+    const timeActions = Object.keys(HOTKEY_DESCRIPTIONS)
+      .filter(a => a.startsWith('time:'))
+      .sort()
+    actions.push(...timeActions)
+    // Device actions
+    const deviceActions = Object.keys(HOTKEY_DESCRIPTIONS)
+      .filter(a => a.startsWith('device:'))
+    actions.push(...deviceActions)
+    // Table navigation (prev/next pairs)
+    actions.push('table:prev-page', 'table:next-page')
+    actions.push('table:prev-plot-page', 'table:next-plot-page')
+    actions.push('table:first-page', 'table:last-page')
+    // Other
+    const otherActions = Object.keys(HOTKEY_DESCRIPTIONS)
+      .filter(a => a.startsWith('modal:') || a.startsWith('omnibar:'))
+    actions.push(...otherActions)
+    return actions
+  }, [])
+
+  // Navigate to next/previous action in the list
+  const navigateToAction = useCallback((direction: 'next' | 'prev') => {
+    const currentAction = editingAction || addingAction
+    if (!currentAction) return
+
+    const currentIndex = editableActions.indexOf(currentAction)
+    if (currentIndex === -1) return
+
+    const newIndex = direction === 'next'
+      ? (currentIndex + 1) % editableActions.length
+      : (currentIndex - 1 + editableActions.length) % editableActions.length
+
+    const newAction = editableActions[newIndex]
+
+    // Get the first binding for the new action (or null if none)
+    const bindings = shortcutsState.getBindingsForAction(newAction)
+    const firstKey = bindings.length > 0 ? bindings[0] : null
+
+    // Start editing the new action's first key (or adding if no bindings)
+    if (firstKey) {
+      setEditingAction(newAction)
+      setEditingKey(firstKey)
+      setAddingAction(null)
+    } else {
+      // No existing bindings, switch to adding mode
+      setEditingAction(null)
+      setEditingKey(null)
+      setAddingAction(newAction)
+    }
+  }, [editingAction, addingAction, editableActions, shortcutsState])
+
+  // Track pending conflict state - initially false, updated after pendingKeys changes
+  const [hasPendingConflict, setHasPendingConflict] = useState(false)
 
   const { isRecording, startRecording, cancel, pendingKeys, activeKeys } = useRecordHotkey({
     onCapture: useCallback(
@@ -79,18 +93,27 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
           // Adding a new key for an action
           shortcutsState.addBinding(addingAction, display.id)
           setAddingAction(null)
-        } else if (editingAction) {
-          // Editing/replacing an existing key
-          shortcutsState.setBinding(editingAction, display.id)
+        } else if (editingAction && editingKey) {
+          // Editing/replacing a specific existing key
+          shortcutsState.removeBindingForAction(editingAction, editingKey)
+          shortcutsState.addBinding(editingAction, display.id)
           setEditingAction(null)
+          setEditingKey(null)
         }
       },
-      [editingAction, addingAction, shortcutsState],
+      [editingAction, editingKey, addingAction, shortcutsState],
     ),
     onCancel: useCallback(() => {
       setEditingAction(null)
+      setEditingKey(null)
       setAddingAction(null)
     }, []),
+    // Tab navigation: onCapture is called first (by useRecordHotkey) with pending keys,
+    // then onTab/onShiftTab moves to next/prev action
+    onTab: useCallback(() => navigateToAction('next'), [navigateToAction]),
+    onShiftTab: useCallback(() => navigateToAction('prev'), [navigateToAction]),
+    // Pause timeout when there's a pending conflict - gives user time to refine
+    pauseTimeout: hasPendingConflict,
   })
 
   // Restart timeout animation when pendingKeys changes
@@ -101,9 +124,10 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   }, [pendingKeys.length])
 
   const startEditing = useCallback(
-    (action: string) => {
+    (action: string, key: string) => {
       setAddingAction(null)
       setEditingAction(action)
+      setEditingKey(key)
       startRecording()
     },
     [startRecording],
@@ -112,6 +136,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   const startAdding = useCallback(
     (action: string) => {
       setEditingAction(null)
+      setEditingKey(null)
       setAddingAction(action)
       startRecording()
     },
@@ -173,7 +198,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   const renderMultiKeyCell = (action: string, keys: string[]) => {
     return (
       <span className="multi-keys">
-        {keys.map(key => (
+        {keys.map((key) => (
           <React.Fragment key={key}>
             {renderEditableKbd(action, key, true)}
           </React.Fragment>
@@ -183,46 +208,40 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     )
   }
 
-  // Modifier key SVG icons - consistent across all browsers/platforms
-  const ShiftIcon = () => (
-    <svg className="modifier-icon" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 4l-8 8h5v8h6v-8h5z"/>
-    </svg>
-  )
-
-  // Command/Meta key icon (⌘ as SVG for consistent sizing)
-  const CommandIcon = () => (
-    <svg className="modifier-icon" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M6 4a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h2v4H6a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-2h4v2a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-2v-4h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v2h-4V6a2 2 0 0 0-2-2H6zm4 6h4v4h-4v-4z"/>
-    </svg>
-  )
-
-  // Control key icon (^)
-  const CtrlIcon = () => (
-    <svg className="modifier-icon" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 6l-6 6h12l-6-6z"/>
-    </svg>
-  )
-
   // Render a single key combination with nice modifier symbols
+  // Handles formats like "ctrl+shift+z", "meta+k", "shift+,", etc.
   const renderSingleKey = (key: string) => {
-    const upper = key.toUpperCase()
-    if (upper.startsWith('META+')) {
-      const mainKey = upper.replace('META+', '')
-      return <><CommandIcon />{mainKey}</>
+    const lower = key.toLowerCase()
+    const parts = lower.split('+')
+    const result: React.ReactNode[] = []
+
+    // Check for modifiers (all parts except the last one)
+    const modifiers = parts.slice(0, -1)
+    const mainKey = parts[parts.length - 1]
+
+    // Render modifiers in standard order: ctrl, meta, alt, shift
+    if (modifiers.includes('ctrl')) result.push(<CtrlIcon key="ctrl" />)
+    if (modifiers.includes('meta')) result.push(<CommandIcon key="meta" />)
+    if (modifiers.includes('alt')) result.push(<OptIcon key="alt" />)
+    if (modifiers.includes('shift')) {
+      // For shifted punctuation, show the shifted character instead
+      if (mainKey === ',') {
+        result.push(<span key="main">{'<'}</span>)
+        return <>{result}</>
+      }
+      if (mainKey === '.') {
+        result.push(<span key="main">{'>'}</span>)
+        return <>{result}</>
+      }
+      result.push(<ShiftIcon key="shift" />)
     }
-    if (upper.startsWith('CTRL+')) {
-      const mainKey = upper.replace('CTRL+', '')
-      return <><CtrlIcon />{mainKey}</>
+
+    // Add the main key
+    if (mainKey) {
+      result.push(<span key="main">{mainKey.toUpperCase()}</span>)
     }
-    if (upper.startsWith('SHIFT+')) {
-      const mainKey = upper.replace('SHIFT+', '')
-      // Show the shifted character for punctuation
-      if (mainKey === ',') return '<'
-      if (mainKey === '.') return '>'
-      return <><ShiftIcon />{mainKey}</>
-    }
-    return upper
+
+    return <>{result}</>
   }
 
   // Render a key or sequence (space-separated keys)
@@ -230,13 +249,13 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     if (!key) return '-'
     // Check if it's a sequence (contains space but not in modifier syntax)
     if (key.includes(' ') && !key.includes('+')) {
-      // It's a sequence like "1 d" or "2 w"
+      // It's a sequence like "d 1" or "w 2"
       const parts = key.split(' ')
       return (
         <>
           {parts.map((part, i) => (
             <React.Fragment key={i}>
-              {i > 0 && ' '}
+              {i > 0 && <span className="sequence-sep">›</span>}
               {renderSingleKey(part)}
             </React.Fragment>
           ))}
@@ -249,38 +268,138 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   // Check if a key has a conflict
   const hasConflict = (key: string) => shortcutsState.conflicts.has(key.toLowerCase())
 
+  // Check if two key combinations are equal
+  const combinationsEqual = (a: KeyCombination, b: KeyCombination): boolean => {
+    return (
+      a.key === b.key &&
+      a.modifiers.ctrl === b.modifiers.ctrl &&
+      a.modifiers.alt === b.modifiers.alt &&
+      a.modifiers.shift === b.modifiers.shift &&
+      a.modifiers.meta === b.modifiers.meta
+    )
+  }
+
+  // Check if sequence A is a prefix of sequence B
+  const isPrefix = (a: HotkeySequence, b: HotkeySequence): boolean => {
+    if (a.length >= b.length) return false
+    for (let i = 0; i < a.length; i++) {
+      if (!combinationsEqual(a[i], b[i])) return false
+    }
+    return true
+  }
+
+  // Check if pending keys would conflict with existing bindings
+  // Returns { hasConflict, conflictingKeys } where conflictingKeys are the existing bindings that conflict
+  const checkPendingConflict = useMemo(() => {
+    return (pending: HotkeySequence, excludeKey?: string): { hasConflict: boolean; conflictingKeys: string[] } => {
+      if (pending.length === 0) return { hasConflict: false, conflictingKeys: [] }
+
+      const conflictingKeys: string[] = []
+
+      for (const key of Object.keys(shortcutsState.keymap)) {
+        // Skip the key we're currently editing (it will be replaced)
+        if (excludeKey && key.toLowerCase() === excludeKey.toLowerCase()) continue
+
+        const keySequence = parseHotkeyString(key)
+
+        // Exact match conflict
+        if (pending.length === keySequence.length) {
+          let isExact = true
+          for (let i = 0; i < pending.length; i++) {
+            if (!combinationsEqual(pending[i], keySequence[i])) {
+              isExact = false
+              break
+            }
+          }
+          if (isExact) {
+            conflictingKeys.push(key)
+            continue
+          }
+        }
+
+        // Prefix conflict: pending is a prefix of existing key
+        if (isPrefix(pending, keySequence)) {
+          conflictingKeys.push(key)
+          continue
+        }
+
+        // Prefix conflict: existing key is a prefix of pending
+        if (isPrefix(keySequence, pending)) {
+          conflictingKeys.push(key)
+        }
+      }
+
+      return { hasConflict: conflictingKeys.length > 0, conflictingKeys }
+    }
+  }, [shortcutsState.keymap])
+
+  // Get pending conflict status for the current recording
+  const pendingConflict = useMemo(() => {
+    if (!isRecording || pendingKeys.length === 0) {
+      return { hasConflict: false, conflictingKeys: [] }
+    }
+    // When editing, exclude the key being edited
+    const excludeKey = editingKey || undefined
+    return checkPendingConflict(pendingKeys, excludeKey)
+  }, [isRecording, pendingKeys, editingKey, checkPendingConflict])
+
+  // Update hasPendingConflict state to pause/resume timeout
+  useEffect(() => {
+    setHasPendingConflict(pendingConflict.hasConflict)
+  }, [pendingConflict.hasConflict])
+
+  // Render a single KeyCombination with our SVG icons
+  const renderCombination = (combo: { key: string; modifiers: { ctrl?: boolean; alt?: boolean; shift?: boolean; meta?: boolean } }) => {
+    const parts: React.ReactNode[] = []
+    if (combo.modifiers.ctrl) parts.push(<CtrlIcon key="ctrl" />)
+    if (combo.modifiers.meta) parts.push(<CommandIcon key="meta" />)
+    if (combo.modifiers.alt) parts.push(<OptIcon key="alt" />)
+    if (combo.modifiers.shift) parts.push(<ShiftIcon key="shift" />)
+    if (combo.key) parts.push(<span key="key">{combo.key.toUpperCase()}</span>)
+    return <>{parts}</>
+  }
+
   // Format keys for display during recording
   // Shows pendingKeys (released keys) + activeKeys (currently held)
-  const formatRecordingSequence = () => {
+  const renderRecordingSequence = (): React.ReactNode => {
     // Nothing pressed yet
     if (pendingKeys.length === 0 && (!activeKeys || !activeKeys.key)) {
       return '...'
     }
 
-    // Format pending keys (already pressed and released)
-    let display = pendingKeys.length > 0 ? formatCombination(pendingKeys).display : ''
+    const parts: React.ReactNode[] = []
+
+    // Render pending keys (already pressed and released)
+    pendingKeys.forEach((combo, i) => {
+      if (i > 0) parts.push(<span key={`sep-${i}`}> </span>)
+      parts.push(<span key={`pending-${i}`}>{renderCombination(combo)}</span>)
+    })
 
     // Add currently held keys
     if (activeKeys && activeKeys.key) {
-      if (display) display += ' → '
-      display += formatCombination([activeKeys]).display
+      if (parts.length > 0) parts.push(<span key="arrow"> → </span>)
+      parts.push(<span key="active">{renderCombination(activeKeys)}</span>)
     }
 
     // Ellipsis indicates we're waiting for timeout or more keys
-    return display + '...'
+    parts.push(<span key="ellipsis">...</span>)
+    return <>{parts}</>
   }
 
   // Render an editable kbd element with optional remove button
   const renderEditableKbd = (action: string, key: string, showRemove = false) => {
-    const isEditing = editingAction === action && !addingAction
+    // Check if THIS specific binding is being edited (not just the action)
+    const isEditing = editingAction === action && editingKey === key && !addingAction
     const displayKey = renderKey(key)
     const isConflict = key && hasConflict(key)
 
     if (isEditing) {
-      const showTimeoutBar = pendingKeys.length > 0
+      // Only show timeout bar when there's no conflict (timeout is paused during conflict)
+      const showTimeoutBar = pendingKeys.length > 0 && !pendingConflict.hasConflict
+      const editingClasses = ['editing', pendingConflict.hasConflict && 'conflict'].filter(Boolean).join(' ')
       return (
-        <kbd className="editing">
-          {formatRecordingSequence()}
+        <kbd className={editingClasses} title={pendingConflict.hasConflict ? `Conflicts with: ${pendingConflict.conflictingKeys.join(', ')}` : undefined}>
+          {renderRecordingSequence()}
           {showTimeoutBar && (
             <span
               key={timeoutAnimKey}
@@ -292,16 +411,28 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
       )
     }
 
-    const classes = ['editable', isConflict && 'conflict'].filter(Boolean).join(' ')
+    // Check if this key would conflict with current pending keys
+    const isPendingConflict = isRecording && pendingConflict.conflictingKeys.includes(key)
+    const isDefault = shortcutsState.isDefaultBinding(key, action)
+    const classes = [
+      'editable',
+      isConflict && 'conflict',
+      isPendingConflict && 'pending-conflict',
+      isDefault && 'default-binding',
+    ].filter(Boolean).join(' ')
     const title = isConflict
       ? `Conflict! This key is bound to multiple actions. Click to change.`
-      : 'Click to change'
+      : isPendingConflict
+        ? 'This binding would conflict with your current input'
+        : isDefault
+          ? 'Default binding. Click to change.'
+          : 'Custom binding. Click to change.'
 
     return (
       <span className="key-with-remove">
         <kbd
           className={classes}
-          onClick={() => startEditing(action)}
+          onClick={() => startEditing(action, key)}
           title={title}
         >
           {displayKey || '-'}
@@ -327,10 +458,12 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     const isAdding = addingAction === action
 
     if (isAdding) {
-      const showTimeoutBar = pendingKeys.length > 0
+      // Only show timeout bar when there's no conflict (timeout is paused during conflict)
+      const showTimeoutBar = pendingKeys.length > 0 && !pendingConflict.hasConflict
+      const addingClasses = ['editing', 'adding', pendingConflict.hasConflict && 'conflict'].filter(Boolean).join(' ')
       return (
-        <kbd className="editing adding">
-          {formatRecordingSequence()}
+        <kbd className={addingClasses} title={pendingConflict.hasConflict ? `Conflicts with: ${pendingConflict.conflictingKeys.join(', ')}` : undefined}>
+          {renderRecordingSequence()}
           {showTimeoutBar && (
             <span
               key={timeoutAnimKey}
@@ -358,12 +491,28 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
       className="shortcuts-modal-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
+          // Cancel any pending recording before closing (discards uncommitted changes)
           if (isRecording) cancel()
           close()
         }
       }}
     >
-      <div className="shortcuts-modal" role="dialog" aria-modal="true">
+      <div
+        className="shortcuts-modal"
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => {
+          // Cancel when clicking inside modal but not on kbd/button
+          // This discards pending keys - use Tab/Enter to commit
+          if (isRecording) {
+            const target = e.target as HTMLElement
+            const isInteractive = target.closest('kbd, button')
+            if (!isInteractive) {
+              cancel()
+            }
+          }
+        }}
+      >
         <div className="shortcuts-header">
           <h2>Keyboard Shortcuts</h2>
           <div className="shortcuts-header-buttons">
