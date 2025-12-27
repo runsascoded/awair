@@ -2,11 +2,13 @@ import { KeyboardShortcutsProvider, ShortcutsModal, useKeyboardShortcutsContext 
 import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import useSessionStorageState from 'use-session-storage-state'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
 import { Omnibar } from './components/Omnibar'
-import { HOTKEY_DESCRIPTIONS, HOTKEY_GROUPS, ShortcutsModalContent } from './components/ShortcutsModalContent'
+import { ShortcutsModalContent } from './components/ShortcutsModalContent'
 import { ThemeToggle } from './components/ThemeToggle'
+import { HOTKEY_DESCRIPTIONS, HOTKEY_GROUPS } from './config/hotkeyConfig'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
 import { DEFAULT_HOTKEY_MAP } from './hooks/useKeyboardShortcuts'
@@ -16,7 +18,7 @@ import './App.scss'
 
 function AppContent() {
   const [isOgMode] = useUrlParam('og', boolParam)
-  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useSessionStorageState('shortcuts-modal-open', { defaultValue: false })
   const [omnibarOpen, setOmnibarOpen] = useState(false)
   const openShortcuts = useCallback(() => setShortcutsOpen(true), [])
   const closeShortcuts = useCallback(() => setShortcutsOpen(false), [])
