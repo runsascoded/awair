@@ -217,10 +217,12 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     if (Math.abs(durationHours - (24 * 3)) < 6) return isLatestView ? 'latest-3d' : '3d'
     if (Math.abs(durationHours - (24 * 7)) < 12) return isLatestView ? 'latest-7d' : '7d'
     if (Math.abs(durationHours - (24 * 14)) < 24) return isLatestView ? 'latest-14d' : '14d'
-    if (Math.abs(durationHours - (24 * 30)) < 48) return isLatestView ? 'latest-30d' : '30d'
+    if (Math.abs(durationHours - (24 * 31)) < 24) return isLatestView ? 'latest-1mo' : '1mo'
+    if (Math.abs(durationHours - (24 * 62)) < 48) return isLatestView ? 'latest-2mo' : '2mo'
+    if (Math.abs(durationHours - (24 * 92)) < 48) return isLatestView ? 'latest-3mo' : '3mo'
 
-    // "All" is only active when duration exceeds 30 days (or summary indicates full range)
-    if (durationHours > 24 * 45) return 'all'
+    // "All" is only active when duration exceeds 3 months
+    if (durationHours > 24 * 100) return 'all'
 
     return isLatestView ? 'latest-custom' : 'custom'
   }, [timeRangeFromProps.duration, latestModeIntended])

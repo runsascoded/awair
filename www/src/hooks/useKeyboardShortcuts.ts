@@ -64,11 +64,13 @@ export const DEFAULT_HOTKEY_MAP: HotkeyMap = {
   'w 1': 'time:03-7d',
   '2': 'time:04-14d',
   'w 2': 'time:04-14d',
-  // Month
-  'm 1': 'time:05-30d',
+  // Months (31d ≈ 365/12, rounded up)
+  'm 1': 'time:05-31d',
+  'm 2': 'time:06-62d',
+  'm 3': 'time:07-92d',
   // All and Latest
-  'x': 'time:06-all',
-  'l': 'time:07-latest',
+  'x': 'time:08-all',
+  'l': 'time:09-latest',
   // Devices
   'g': 'device:gym',
   'b': 'device:br',
@@ -178,9 +180,11 @@ export function useKeyboardShortcuts({
       'time:02-3d': () => handleTimeRangeClick(24 * 3),
       'time:03-7d': () => handleTimeRangeClick(24 * 7),
       'time:04-14d': () => handleTimeRangeClick(24 * 14),
-      'time:05-30d': () => handleTimeRangeClick(24 * 30),
-      'time:06-all': handleAllClick,
-      'time:07-latest': () => {
+      'time:05-31d': () => handleTimeRangeClick(24 * 31),
+      'time:06-62d': () => handleTimeRangeClick(24 * 62),
+      'time:07-92d': () => handleTimeRangeClick(24 * 92),
+      'time:08-all': handleAllClick,
+      'time:09-latest': () => {
         if (latestModeIntended) {
           setLatestModeIntended(false)
         } else if (xAxisRange && data.length > 0) {

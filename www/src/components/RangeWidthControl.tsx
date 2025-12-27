@@ -22,7 +22,9 @@ const timeRangeOptions = [
   { label: '3d', hours: 24 * 3 },
   { label: '7d', hours: 24 * 7 },
   { label: '14d', hours: 24 * 14 },
-  { label: '30d', hours: 24 * 30 },
+  { label: '1mo', hours: 24 * 31 },
+  { label: '2mo', hours: 24 * 62 },
+  { label: '3mo', hours: 24 * 92 },
   { label: 'All', hours: -1 } // Special value for "All"
 ]
 
@@ -50,7 +52,7 @@ export function RangeWidthControl({
   const tooltipContent = <div><ul>
     <li><b>Current:</b> {rangeText}</li>
     <li><b>▶|:</b> "Latest" mode; auto-follow newest data (hotkey: l)</li>
-    <li><b>Hotkeys:</b> 1=12h, 2=1d, 3=3d, 4=7d, 5=14d, 6=30d, 0=All</li>
+    <li><b>Hotkeys:</b> 1=1d, 2=2wk, 3=3d, 7=1wk, x=All, ?=more</li>
   </ul></div>
 
   return (

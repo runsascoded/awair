@@ -40,7 +40,9 @@ export function formatDuration(ms: number): string | null {
     { ms: 3 * DAY, label: '3d' },
     { ms: 7 * DAY, label: '7d' },
     { ms: 14 * DAY, label: '14d' },
-    { ms: 30 * DAY, label: '30d' },
+    { ms: 31 * DAY, label: '1mo' },
+    { ms: 62 * DAY, label: '2mo' },
+    { ms: 92 * DAY, label: '3mo' },
   ]
 
   for (const preset of presets) {
