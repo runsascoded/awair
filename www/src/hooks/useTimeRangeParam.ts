@@ -1,4 +1,5 @@
 import { useCallback, useState, useRef, useEffect } from 'react'
+import { formatForPlotly } from "../utils/dateFormat"
 import type { AwairRecord } from '../types/awair'
 
 const MINUTE = 60 * 1000
@@ -76,7 +77,6 @@ export function formatDuration(ms: number): string | null {
 function computeRange(
   data: AwairRecord[],
   timeRange: { timestamp: Date | null; duration: number },
-  formatForPlotly: (date: Date) => string,
   windowMinutes: number
 ): [string, string] | null {
   if (data.length === 0) return null
@@ -103,7 +103,6 @@ function computeRange(
  */
 export function useTimeRangeParam(
   data: AwairRecord[],
-  formatForPlotly: (date: Date) => string,
   timeRange: { timestamp: Date | null; duration: number },
   setTimeRange: (range: { timestamp: Date | null; duration: number }) => void,
   windowMinutes: number,
@@ -113,7 +112,7 @@ export function useTimeRangeParam(
 
   // Compute initial range synchronously to avoid null -> range transition
   const [xAxisRange, setXAxisRangeState] = useState<[string, string] | null>(
-    () => computeRange(data, timeRange, formatForPlotly, windowMinutes)
+    () => computeRange(data, timeRange, windowMinutes)
   )
 
   // Track if we've initialized (to handle case where data wasn't ready on first render)
@@ -121,7 +120,7 @@ export function useTimeRangeParam(
 
   // If we didn't have data on first render, initialize now
   if (!initializedRef.current && data.length > 0) {
-    const range = computeRange(data, timeRange, formatForPlotly, windowMinutes)
+    const range = computeRange(data, timeRange, windowMinutes)
     if (range) {
       initializedRef.current = true
       setXAxisRangeState(range)
@@ -134,12 +133,12 @@ export function useTimeRangeParam(
   // Sync xAxisRange when timeRange changes (from URL or external updates)
   useEffect(() => {
     if (data.length > 0 && initializedRef.current) {
-      const range = computeRange(data, timeRange, formatForPlotly, windowMinutes)
+      const range = computeRange(data, timeRange, windowMinutes)
       if (range) {
         setXAxisRangeState(range)
       }
     }
-  }, [timeRange, data, formatForPlotly, windowMinutes])
+  }, [timeRange, data, windowMinutes])
 
   // Simple setXAxisRange - only updates URL param, xAxisRange syncs via useEffect
   const setXAxisRange = useCallback((
@@ -189,7 +188,7 @@ export function useTimeRangeParam(
       const endTime = new Date(xAxisRange[1])
       setTimeRange({ timestamp: endTime, duration: currentDuration })
     }
-  }, [xAxisRange, timeRange.duration, setTimeRange, formatForPlotly, bufferMs])
+  }, [xAxisRange, timeRange.duration, setTimeRange, bufferMs])
 
   // Update duration - keeps end time fixed, adjusts start time
   const setDuration = useCallback((duration: number) => {
@@ -210,7 +209,7 @@ export function useTimeRangeParam(
     const startTime = new Date(endTime.getTime() - duration)
     setXAxisRangeState([formatForPlotly(startTime), formatForPlotly(endTime)])
     setTimeRange({ timestamp: wasInLatestMode ? null : endTime, duration })
-  }, [xAxisRange, timeRange.timestamp, setTimeRange, formatForPlotly, bufferMs])
+  }, [xAxisRange, timeRange.timestamp, setTimeRange, bufferMs])
 
   return {
     timeRange,

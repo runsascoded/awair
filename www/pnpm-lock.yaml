@@ -130,7 +130,7 @@ importers:
   ../../js/use-hotkeys:
     devDependencies:
       '@types/react':
-        specifier: ^18.3.18
+        specifier: ^18.3.27
         version: 18.3.27
       react:
         specifier: ^18.3.1

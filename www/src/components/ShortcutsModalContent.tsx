@@ -1,7 +1,6 @@
-import { useRecordHotkey, useKeyboardShortcutsContext, CommandIcon, CtrlIcon, ShiftIcon, OptIcon, parseHotkeyString } from '@rdub/use-hotkeys'
-import React, { useState, useCallback, useEffect, useMemo } from 'react'
+import { useRecordHotkey, useDynamicHotkeysContext, CommandIcon, CtrlIcon, ShiftIcon, OptIcon, parseHotkeyString } from '@rdub/use-hotkeys'
+import React, { useState, useCallback, useEffect, useMemo, type ReactNode, Fragment } from 'react'
 import { Tooltip } from './Tooltip'
-import { HOTKEY_DESCRIPTIONS } from '../config/hotkeyConfig'
 import type { HotkeySequence, KeyCombinationDisplay, ShortcutGroup, KeyCombination } from '@rdub/use-hotkeys'
 
 export interface ShortcutsModalContentProps {
@@ -21,10 +20,11 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   const [timeoutAnimKey, setTimeoutAnimKey] = useState(0)
 
   // Access shortcuts state from context
-  const shortcutsState = useKeyboardShortcutsContext()
+  const { registry, conflicts, hasConflicts } = useDynamicHotkeysContext()
 
   // Build ordered list of all editable actions for Tab navigation
-  const editableActions = React.useMemo(() => {
+  const editableActions = useMemo(() => {
+    const allActions = Array.from(registry.actions.keys())
     const actions: string[] = []
     // Y-Axis metrics (left then right per row)
     const metricSuffixes = ['temp', 'co2', 'humid', 'pm25', 'voc', 'autorange']
@@ -33,12 +33,12 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     }
     actions.push('right:none')
     // Time range actions (sorted)
-    const timeActions = Object.keys(HOTKEY_DESCRIPTIONS)
+    const timeActions = allActions
       .filter(a => a.startsWith('time:'))
       .sort()
     actions.push(...timeActions)
     // Device actions
-    const deviceActions = Object.keys(HOTKEY_DESCRIPTIONS)
+    const deviceActions = allActions
       .filter(a => a.startsWith('device:'))
     actions.push(...deviceActions)
     // Table navigation (prev/next pairs)
@@ -46,11 +46,11 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     actions.push('table:prev-plot-page', 'table:next-plot-page')
     actions.push('table:first-page', 'table:last-page')
     // Other
-    const otherActions = Object.keys(HOTKEY_DESCRIPTIONS)
+    const otherActions = allActions
       .filter(a => a.startsWith('modal:') || a.startsWith('omnibar:'))
     actions.push(...otherActions)
     return actions
-  }, [])
+  }, [registry.actions])
 
   // Navigate to next/previous action in the list
   const navigateToAction = useCallback((direction: 'next' | 'prev') => {
@@ -67,7 +67,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     const newAction = editableActions[newIndex]
 
     // Get the first binding for the new action (or null if none)
-    const bindings = shortcutsState.getBindingsForAction(newAction)
+    const bindings = registry.getBindingsForAction(newAction)
     const firstKey = bindings.length > 0 ? bindings[0] : null
 
     // Start editing the new action's first key (or adding if no bindings)
@@ -81,7 +81,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
       setEditingKey(null)
       setAddingAction(newAction)
     }
-  }, [editingAction, addingAction, editableActions, shortcutsState])
+  }, [editingAction, addingAction, editableActions, registry])
 
   // Track pending conflict state - initially false, updated after pendingKeys changes
   const [hasPendingConflict, setHasPendingConflict] = useState(false)
@@ -91,17 +91,17 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
       (_sequence: HotkeySequence, display: KeyCombinationDisplay) => {
         if (addingAction) {
           // Adding a new key for an action
-          shortcutsState.addBinding(addingAction, display.id)
+          registry.setBinding(addingAction, display.id)
           setAddingAction(null)
         } else if (editingAction && editingKey) {
           // Editing/replacing a specific existing key
-          shortcutsState.removeBindingForAction(editingAction, editingKey)
-          shortcutsState.addBinding(editingAction, display.id)
+          registry.removeBinding(editingKey)
+          registry.setBinding(editingAction, display.id)
           setEditingAction(null)
           setEditingKey(null)
         }
       },
-      [editingAction, editingKey, addingAction, shortcutsState],
+      [editingAction, editingKey, addingAction, registry],
     ),
     onCancel: useCallback(() => {
       setEditingAction(null)
@@ -144,10 +144,10 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   )
 
   const handleRemoveKey = useCallback(
-    (action: string, key: string) => {
-      shortcutsState.removeBindingForAction(action, key)
+    (_action: string, key: string) => {
+      registry.removeBinding(key)
     },
-    [shortcutsState],
+    [registry],
   )
 
   // Extract shortcuts by group (only used for Y-axis metrics which have paired columns)
@@ -156,7 +156,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
 
   // Build metric rows: pair left and right shortcuts
   const metricNames = ['temp', 'co2', 'humid', 'pm25', 'voc', 'autorange']
-  const metricLabels: Record<string, React.ReactNode> = {
+  const metricLabels: Record<string, ReactNode> = {
     temp: 'Temperature',
     co2: 'CO₂',
     humid: 'Humidity',
@@ -175,7 +175,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     'time:07-latest': 'Jump to most recent data and auto-update as new data arrives',
   }
 
-  // Get all shortcuts for a given action (using context, not groups, to include unbound actions)
+  // Get all shortcuts for a given action (using registry to include unbound actions)
   const getShortcutsForAction = (_group: typeof leftGroup, actionSuffix: string, prefix: string = ''): string[] => {
     // Determine the full action name
     let actionName: string
@@ -188,7 +188,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     } else {
       actionName = actionSuffix
     }
-    return shortcutsState.getBindingsForAction(actionName)
+    return registry.getBindingsForAction(actionName)
   }
 
   // Get action name from group and metric
@@ -199,9 +199,9 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
     return (
       <span className="multi-keys">
         {keys.map((key) => (
-          <React.Fragment key={key}>
+          <Fragment key={key}>
             {renderEditableKbd(action, key, true)}
-          </React.Fragment>
+          </Fragment>
         ))}
         {renderAddButton(action)}
       </span>
@@ -213,7 +213,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   const renderSingleKey = (key: string) => {
     const lower = key.toLowerCase()
     const parts = lower.split('+')
-    const result: React.ReactNode[] = []
+    const result: ReactNode[] = []
 
     // Check for modifiers (all parts except the last one)
     const modifiers = parts.slice(0, -1)
@@ -254,10 +254,10 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
       return (
         <>
           {parts.map((part, i) => (
-            <React.Fragment key={i}>
+            <Fragment key={i}>
               {i > 0 && <span className="sequence-sep">›</span>}
               {renderSingleKey(part)}
-            </React.Fragment>
+            </Fragment>
           ))}
         </>
       )
@@ -266,7 +266,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   }
 
   // Check if a key has a conflict
-  const hasConflict = (key: string) => shortcutsState.conflicts.has(key.toLowerCase())
+  const hasConflict = (key: string) => conflicts.has(key.toLowerCase())
 
   // Check if two key combinations are equal
   const combinationsEqual = (a: KeyCombination, b: KeyCombination): boolean => {
@@ -296,7 +296,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
 
       const conflictingKeys: string[] = []
 
-      for (const key of Object.keys(shortcutsState.keymap)) {
+      for (const key of Object.keys(registry.keymap)) {
         // Skip the key we're currently editing (it will be replaced)
         if (excludeKey && key.toLowerCase() === excludeKey.toLowerCase()) continue
 
@@ -331,7 +331,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
 
       return { hasConflict: conflictingKeys.length > 0, conflictingKeys }
     }
-  }, [shortcutsState.keymap])
+  }, [registry.keymap])
 
   // Get pending conflict status for the current recording
   const pendingConflict = useMemo(() => {
@@ -350,7 +350,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
 
   // Render a single KeyCombination with our SVG icons
   const renderCombination = (combo: { key: string; modifiers: { ctrl?: boolean; alt?: boolean; shift?: boolean; meta?: boolean } }) => {
-    const parts: React.ReactNode[] = []
+    const parts: ReactNode[] = []
     if (combo.modifiers.ctrl) parts.push(<CtrlIcon key="ctrl" />)
     if (combo.modifiers.meta) parts.push(<CommandIcon key="meta" />)
     if (combo.modifiers.alt) parts.push(<OptIcon key="alt" />)
@@ -361,13 +361,13 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
 
   // Format keys for display during recording
   // Shows pendingKeys (released keys) + activeKeys (currently held)
-  const renderRecordingSequence = (): React.ReactNode => {
+  const renderRecordingSequence = (): ReactNode => {
     // Nothing pressed yet
     if (pendingKeys.length === 0 && (!activeKeys || !activeKeys.key)) {
       return '...'
     }
 
-    const parts: React.ReactNode[] = []
+    const parts: ReactNode[] = []
 
     // Render pending keys (already pressed and released)
     pendingKeys.forEach((combo, i) => {
@@ -413,7 +413,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
 
     // Check if this key would conflict with current pending keys
     const isPendingConflict = isRecording && pendingConflict.conflictingKeys.includes(key)
-    const isDefault = shortcutsState.isDefaultBinding(key, action)
+    const isDefault = registry.actions.get(action)?.config.defaultBindings?.includes(key) ?? false
     const classes = [
       'editable',
       isConflict && 'conflict',
@@ -518,7 +518,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
           <div className="shortcuts-header-buttons">
             <button
               className="reset-button"
-              onClick={() => shortcutsState.reset()}
+              onClick={() => registry.resetOverrides()}
               title="Reset all shortcuts to defaults"
             >
               Reset
@@ -527,7 +527,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
           </div>
         </div>
 
-        {shortcutsState.hasConflicts && (
+        {hasConflicts && (
           <div className="shortcuts-conflict-warning">
             <span className="warning-icon">⚠</span>
             Some shortcuts have conflicts and are disabled. Click to reassign.
@@ -575,21 +575,21 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
         <table className="shortcuts-table">
           <tbody>
             {(() => {
-              // Include all time actions from HOTKEY_DESCRIPTIONS
-              const timeActions = Object.entries(HOTKEY_DESCRIPTIONS)
+              // Include all time actions from registry
+              const timeActions = Array.from(registry.actions.entries())
                 .filter(([action]) => action.startsWith('time:'))
                 .sort(([a], [b]) => a.localeCompare(b))
-              return timeActions.map(([action, description]) => {
+              return timeActions.map(([action, { config }]) => {
                 const tooltip = timeTooltips[action]
-                const keys = shortcutsState.getBindingsForAction(action)
+                const keys = registry.getBindingsForAction(action)
                 return (
                   <tr key={action}>
                     <td>
                       {tooltip ? (
                         <Tooltip content={tooltip}>
-                          <span className="tooltip-trigger">{description} ⓘ</span>
+                          <span className="tooltip-trigger">{config.label} ⓘ</span>
                         </Tooltip>
-                      ) : description}
+                      ) : config.label}
                     </td>
                     <td>{renderMultiKeyCell(action, keys)}</td>
                   </tr>
@@ -601,7 +601,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
 
         {/* Devices section - show if any device actions exist */}
         {(() => {
-          const deviceActions = Object.entries(HOTKEY_DESCRIPTIONS)
+          const deviceActions = Array.from(registry.actions.entries())
             .filter(([action]) => action.startsWith('device:'))
           if (deviceActions.length === 0) return null
           return (
@@ -609,10 +609,10 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
               <h3>Devices</h3>
               <table className="shortcuts-table">
                 <tbody>
-                  {deviceActions.map(([action, description]) => (
+                  {deviceActions.map(([action, { config }]) => (
                     <tr key={action}>
-                      <td>{description}</td>
-                      <td>{renderMultiKeyCell(action, shortcutsState.getBindingsForAction(action))}</td>
+                      <td>{config.label}</td>
+                      <td>{renderMultiKeyCell(action, registry.getBindingsForAction(action))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -623,8 +623,8 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
 
         {/* Table Navigation - always show if any table actions exist */}
         {(() => {
-          const tableActions = Object.entries(HOTKEY_DESCRIPTIONS)
-            .filter(([action]) => action.startsWith('table:'))
+          const tableActions = Array.from(registry.actions.keys())
+            .filter(action => action.startsWith('table:'))
           if (tableActions.length === 0) return null
           // Pair prev/next shortcuts
           const pairs = [
@@ -647,8 +647,8 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
                   {pairs.map(({ label, prev, next }) => (
                     <tr key={label}>
                       <td>{label}</td>
-                      <td>{renderMultiKeyCell(prev, shortcutsState.getBindingsForAction(prev))}</td>
-                      <td>{renderMultiKeyCell(next, shortcutsState.getBindingsForAction(next))}</td>
+                      <td>{renderMultiKeyCell(prev, registry.getBindingsForAction(prev))}</td>
+                      <td>{renderMultiKeyCell(next, registry.getBindingsForAction(next))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -662,12 +662,12 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
           <tbody>
             {(() => {
               // Include all actions from 'modal' and 'omnibar' groups
-              const otherActions = Object.entries(HOTKEY_DESCRIPTIONS)
+              const otherActions = Array.from(registry.actions.entries())
                 .filter(([action]) => action.startsWith('modal:') || action.startsWith('omnibar:'))
-              return otherActions.map(([action, description]) => (
+              return otherActions.map(([action, { config }]) => (
                 <tr key={action}>
-                  <td>{description}</td>
-                  <td>{renderMultiKeyCell(action, shortcutsState.getBindingsForAction(action))}</td>
+                  <td>{config.label}</td>
+                  <td>{renderMultiKeyCell(action, registry.getBindingsForAction(action))}</td>
                 </tr>
               ))
             })()}

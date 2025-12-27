@@ -1,19 +1,19 @@
+import { useAction, useDynamicHotkeysContext } from '@rdub/use-hotkeys'
 import { useUrlParam } from '@rdub/use-url-params'
-import React, { useState, useMemo, useCallback, useEffect, useRef, type MutableRefObject } from 'react'
+import React, { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
 import Plot from 'react-plotly.js'
 import { ChartControls, metricConfig, getRangeFloor } from './ChartControls'
 import { CustomLegend } from './CustomLegend'
 import { DataTable } from './DataTable'
 import { SequenceModal } from './SequenceModal'
 import { TIME_WINDOWS, getWindowForDuration } from '../hooks/useDataAggregation'
-import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
 import { deviceRenderStrategyParam, hsvConfigParam, intFromList, xGroupingParam } from '../lib/urlParams'
 import { getFileBounds } from '../services/awairService'
-import { formatForPlotly, formatCompactDate, formatFullDate } from '../utils/dateFormat'
+import { formatForPlotly } from '../utils/dateFormat'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { PxOption } from './AggregationControl'
 import type { TableNavigationHandlers } from './DataTable'
@@ -46,17 +46,29 @@ interface Props {
   timeRange: { timestamp: Date | null; duration: number }
   setTimeRange: (range: { timestamp: Date | null; duration: number }) => void
   isOgMode?: boolean
-  handlersRef?: MutableRefObject<Record<string, () => void>>
 }
 
-export const AwairChart = React.memo(function AwairChart({ deviceDataResults, summary, devices, selectedDeviceIds, onDeviceSelectionChange, timeRange: timeRangeFromProps, setTimeRange: setTimeRangeFromProps, isOgMode = false, handlersRef }: Props) {
+export const AwairChart = memo(function AwairChart(
+  {
+    deviceDataResults,
+    summary,
+    devices,
+    selectedDeviceIds,
+    onDeviceSelectionChange,
+    timeRange: timeRangeFromProps,
+    setTimeRange: setTimeRangeFromProps,
+    isOgMode = false,
+  }: Props
+) {
 
   // Combine data from all devices for time range calculations and bounds checking
   // Sorted newest-first for efficient latest record access
   const data = useMemo(() => {
     return deviceDataResults
       .flatMap(r => r.data)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .sort((a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      )
   }, [deviceDataResults])
 
   // Y-axes state - combined primary + secondary + per-axis auto-range in URL (?y=tc, ?y=tca, ?y=tcaA)
@@ -114,7 +126,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     setXAxisRange,
     setLatestModeIntended,
     setDuration
-  } = useTimeRangeParam(data, formatForPlotly, timeRangeFromProps, setTimeRangeFromProps, windowMinutes)
+  } = useTimeRangeParam(data, timeRangeFromProps, setTimeRangeFromProps, windowMinutes)
 
   // Metrics and Y-axis mode now persisted in URL params (via useUrlParam above)
 
@@ -126,7 +138,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     const earliestTime = new Date(latestTime.getTime() - duration)
     const newRange: [string, string] = [formatForPlotly(earliestTime), formatForPlotly(latestTime)]
     setXAxisRange(newRange, { duration })
-  }, [data, formatForPlotly, setXAxisRange])
+  }, [data, setXAxisRange])
 
   const setRangeByWidth = useCallback((hours: number, centerTime?: Date) => {
     if (data.length === 0) return
@@ -138,7 +150,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
 
     const newRange: [string, string] = [formatForPlotly(newStart), formatForPlotly(newEnd)]
     setXAxisRange(newRange, { duration })
-  }, [xAxisRange, data, formatForPlotly, setXAxisRange])
+  }, [xAxisRange, data, setXAxisRange])
 
   // Extract custom hooks - use multi-device aggregation
   const { deviceAggregations, selectedWindow, validWindows, isRawData } = useMultiDeviceAggregation(
@@ -184,9 +196,8 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
 
   const {
     autoUpdateRange,
-    jumpToLatest: _jumpToLatest,
     setIgnoreNextPanCheck
-  } = useLatestMode(data, xAxisRange, formatForPlotly, latestModeIntended, setLatestModeIntended)
+  } = useLatestMode(data, xAxisRange, latestModeIntended, setLatestModeIntended)
 
   // Helper: Get all device bounds for selected devices
   const getAllDeviceBounds = useCallback(() => {
@@ -236,7 +247,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     } else {
       setXAxisRange(null)
     }
-  }, [data, formatForPlotly])
+  }, [data])
 
   // "All" handler - show full data extent from file bounds
   const handleAllClick = useCallback(() => {
@@ -256,7 +267,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
 
     // Use Latest mode (timestamp=null) so it auto-follows new data, but with full duration
     setTimeRangeFromProps({ timestamp: null, duration: durationMs })
-  }, [getAllDeviceBounds, formatForPlotly, setXAxisRange, setTimeRangeFromProps])
+  }, [getAllDeviceBounds, setXAxisRange, setTimeRangeFromProps])
 
   // Relayout handler
   const handleRelayout = useCallback((eventData: PlotRelayoutEvent) => {
@@ -284,37 +295,105 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
 
       setXAxisRange([formatForPlotly(newStart), formatForPlotly(newEnd)], { duration: newDuration })
     }
-  }, [setXAxisRange, getAllDeviceBounds, formatForPlotly])
+  }, [setXAxisRange, getAllDeviceBounds])
 
-  // Register keyboard shortcuts (keymap managed by context, handlers defined here)
-  const { pendingKeys, isAwaitingSequence, timeoutStartedAt, sequenceTimeout, handlers } = useKeyboardShortcuts({
-    metrics,
-    xAxisRange,
-    setXAxisRange,
-    data,
-    formatForPlotly,
-    latestModeIntended,
-    setLatestModeIntended,
-    handleTimeRangeClick,
-    handleAllClick,
-    setIgnoreNextPanCheck,
-    devices,
-    selectedDeviceIds,
-    setSelectedDeviceIds: onDeviceSelectionChange,
-    tablePrevPage: tableNavHandlers?.prevPage,
-    tableNextPage: tableNavHandlers?.nextPage,
-    tablePrevPlotPage: tableNavHandlers?.prevPlotPage,
-    tableNextPlotPage: tableNavHandlers?.nextPlotPage,
-    tableFirstPage: tableNavHandlers?.firstPage,
-    tableLastPage: tableNavHandlers?.lastPage,
-  })
+  // Get sequence state from hotkeys context
+  const {
+    pendingKeys,
+    isAwaitingSequence,
+    sequenceTimeoutStartedAt: timeoutStartedAt,
+    sequenceTimeout,
+  } = useDynamicHotkeysContext()
 
-  // Update handlersRef for omnibar to use
-  useEffect(() => {
-    if (handlersRef) {
-      handlersRef.current = handlers
+  // Helper: set primary metric (swapping if needed)
+  const setLeftMetric = useCallback((metric: Metric) => {
+    l.set(metric)
+    if (r.val === metric) r.set('none')
+  }, [l, r])
+
+  // Helper: set secondary metric (swapping if needed)
+  const setRightMetric = useCallback((metric: Metric) => {
+    if (metric === l.val && r.val !== 'none') {
+      l.set(r.val as typeof metric)
+      r.set(metric)
+    } else if (metric !== l.val) {
+      r.set(metric)
     }
-  }, [handlersRef, handlers])
+  }, [l, r])
+
+  // Helper: toggle device by name pattern
+  const toggleDeviceByPattern = useCallback((pattern: string) => {
+    const regex = new RegExp(pattern, 'i')
+    const device = devices.find(d => regex.test(d.name))
+    if (!device) return
+    const deviceId = device.deviceId
+    if (selectedDeviceIds.includes(deviceId)) {
+      if (selectedDeviceIds.length > 1) {
+        onDeviceSelectionChange(selectedDeviceIds.filter(id => id !== deviceId))
+      }
+    } else {
+      onDeviceSelectionChange([...selectedDeviceIds, deviceId])
+    }
+  }, [devices, selectedDeviceIds, onDeviceSelectionChange])
+
+  // Helper: toggle latest mode
+  const toggleLatestMode = useCallback(() => {
+    if (latestModeIntended) {
+      setLatestModeIntended(false)
+    } else if (xAxisRange && data.length > 0) {
+      const rangeStart = new Date(xAxisRange[0])
+      const rangeEnd = new Date(xAxisRange[1])
+      const currentWidth = rangeEnd.getTime() - rangeStart.getTime()
+      const latestTime = new Date(data[0].timestamp)
+      const newStart = new Date(latestTime.getTime() - currentWidth)
+      setIgnoreNextPanCheck()
+      setXAxisRange([formatForPlotly(newStart), formatForPlotly(latestTime)])
+      setLatestModeIntended(true)
+    }
+  }, [latestModeIntended, setLatestModeIntended, xAxisRange, data, setIgnoreNextPanCheck, setXAxisRange])
+
+  // ===== Register actions with useAction =====
+
+  // Left Y-axis metrics
+  useAction('left:temp', { label: 'Temperature', group: 'Left Y-Axis', defaultBindings: ['t'], handler: () => setLeftMetric('temp') })
+  useAction('left:co2', { label: 'CO₂', group: 'Left Y-Axis', defaultBindings: ['c'], handler: () => setLeftMetric('co2') })
+  useAction('left:humid', { label: 'Humidity', group: 'Left Y-Axis', defaultBindings: ['h'], handler: () => setLeftMetric('humid') })
+  useAction('left:pm25', { label: 'PM2.5', group: 'Left Y-Axis', defaultBindings: ['p'], handler: () => setLeftMetric('pm25') })
+  useAction('left:voc', { label: 'VOC', group: 'Left Y-Axis', defaultBindings: ['v'], handler: () => setLeftMetric('voc') })
+  useAction('left:autorange', { label: 'Toggle auto-range', group: 'Left Y-Axis', defaultBindings: ['a'], handler: () => l.setAutoRange(!l.autoRange) })
+
+  // Right Y-axis metrics
+  useAction('right:temp', { label: 'Temperature', group: 'Right Y-Axis', defaultBindings: ['shift+t'], handler: () => setRightMetric('temp') })
+  useAction('right:co2', { label: 'CO₂', group: 'Right Y-Axis', defaultBindings: ['shift+c'], handler: () => setRightMetric('co2') })
+  useAction('right:humid', { label: 'Humidity', group: 'Right Y-Axis', defaultBindings: ['shift+h'], handler: () => setRightMetric('humid') })
+  useAction('right:pm25', { label: 'PM2.5', group: 'Right Y-Axis', defaultBindings: ['shift+p'], handler: () => setRightMetric('pm25') })
+  useAction('right:voc', { label: 'VOC', group: 'Right Y-Axis', defaultBindings: ['shift+v'], handler: () => setRightMetric('voc') })
+  useAction('right:none', { label: 'Clear', group: 'Right Y-Axis', defaultBindings: ['shift+n'], handler: () => r.set('none') })
+  useAction('right:autorange', { label: 'Toggle auto-range', group: 'Right Y-Axis', defaultBindings: ['shift+a'], handler: () => { if (r.val !== 'none') r.setAutoRange(!r.autoRange) } })
+
+  // Time ranges
+  useAction('time:00-12h', { label: '12 hours', group: 'Time Range', defaultBindings: ['ctrl+h'], keywords: ['12h', '12hr', 'half day'], handler: () => handleTimeRangeClick(12) })
+  useAction('time:01-1d', { label: '1 day', group: 'Time Range', defaultBindings: ['1', 'd 1'], keywords: ['1d', '24h', 'day', 'today'], handler: () => handleTimeRangeClick(24) })
+  useAction('time:02-3d', { label: '3 days', group: 'Time Range', defaultBindings: ['3', 'd 3'], keywords: ['3d', '72h'], handler: () => handleTimeRangeClick(24 * 3) })
+  useAction('time:03-7d', { label: '1 week', group: 'Time Range', defaultBindings: ['7', 'w 1'], keywords: ['7d', '1w', 'week'], handler: () => handleTimeRangeClick(24 * 7) })
+  useAction('time:04-14d', { label: '2 weeks', group: 'Time Range', defaultBindings: ['2', 'w 2'], keywords: ['14d', '2w', 'fortnight'], handler: () => handleTimeRangeClick(24 * 14) })
+  useAction('time:05-31d', { label: '1 month', group: 'Time Range', defaultBindings: ['m 1'], keywords: ['31d', '1mo', '1m', 'month'], handler: () => handleTimeRangeClick(24 * 31) })
+  useAction('time:06-62d', { label: '2 months', group: 'Time Range', defaultBindings: ['m 2'], keywords: ['62d', '2mo', '2m'], handler: () => handleTimeRangeClick(24 * 62) })
+  useAction('time:07-92d', { label: '3 months', group: 'Time Range', defaultBindings: ['m 3'], keywords: ['92d', '3mo', '3m', 'quarter'], handler: () => handleTimeRangeClick(24 * 92) })
+  useAction('time:08-all', { label: 'Full history', group: 'Time Range', defaultBindings: ['x'], keywords: ['all', 'everything', 'max'], handler: handleAllClick })
+  useAction('time:09-latest', { label: 'Latest', group: 'Time Range', defaultBindings: ['l'], keywords: ['now', 'current', 'live'], handler: toggleLatestMode })
+
+  // Devices
+  useAction('device:gym', { label: 'Toggle Gym', group: 'Devices', defaultBindings: ['g'], handler: () => toggleDeviceByPattern('gym') })
+  useAction('device:br', { label: 'Toggle BR', group: 'Devices', defaultBindings: ['b'], keywords: ['bedroom'], handler: () => toggleDeviceByPattern('br') })
+
+  // Table pagination
+  useAction('table:prev-page', { label: 'Prev table page', group: 'Table Navigation', defaultBindings: [','], handler: () => tableNavHandlers?.prevPage?.() })
+  useAction('table:next-page', { label: 'Next table page', group: 'Table Navigation', defaultBindings: ['.'], handler: () => tableNavHandlers?.nextPage?.() })
+  useAction('table:prev-plot-page', { label: 'Prev plot page', group: 'Table Navigation', defaultBindings: ['<'], handler: () => tableNavHandlers?.prevPlotPage?.() })
+  useAction('table:next-plot-page', { label: 'Next plot page', group: 'Table Navigation', defaultBindings: ['>'], handler: () => tableNavHandlers?.nextPlotPage?.() })
+  useAction('table:first-page', { label: 'First page', group: 'Table Navigation', defaultBindings: ['meta+,'], handler: () => tableNavHandlers?.firstPage?.() })
+  useAction('table:last-page', { label: 'Last page', group: 'Table Navigation', defaultBindings: ['meta+.'], handler: () => tableNavHandlers?.lastPage?.() })
 
   // Handle responsive plot height and viewport width using matchMedia
   useEffect(() => {
@@ -449,7 +528,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     }
 
     return { tickvals, ticktext }
-  }, [xAxisRange, data, isMobile, viewportWidth, formatForPlotly])
+  }, [xAxisRange, data, isMobile, viewportWidth])
 
   const { tickvals, ticktext } = generateCustomTicks()
 
@@ -666,7 +745,7 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
     }
 
     return traces
-  }, [deviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, formatForPlotly, deviceRenderStrategy, hsvConfig, getTraceOpacity])
+  }, [deviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, deviceRenderStrategy, hsvConfig, getTraceOpacity])
 
   // Font sizes - larger in og mode for better screenshot readability
   // Note: x-axis ticks need smaller font to fit with multi-line date labels
@@ -861,39 +940,35 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
 
       {!isOgMode && (
         <ChartControls
-          metrics={metrics}
-          deviceRenderStrategy={deviceRenderStrategy}
-          setDeviceRenderStrategy={setDeviceRenderStrategy}
-          hsvConfig={hsvConfig}
-          setHsvConfig={setHsvConfig}
-          xAxisRange={xAxisRange}
-          setXAxisRange={setXAxisRange}
-          data={data}
-          summary={summary}
-          formatForPlotly={formatForPlotly}
-          formatCompactDate={formatCompactDate}
-          formatFullDate={formatFullDate}
-          latestModeIntended={latestModeIntended}
-          setLatestModeIntended={setLatestModeIntended}
-          setDuration={setDuration}
-          timeRange={timeRangeFromProps}
-          setTimeRange={setTimeRangeFromProps}
-          getActiveTimeRange={getActiveTimeRange}
-          handleTimeRangeClick={handleTimeRangeClick}
-          setRangeByWidth={setRangeByWidth}
-          setIgnoreNextPanCheck={setIgnoreNextPanCheck}
-          devices={devices}
-          selectedDeviceIds={selectedDeviceIds}
-          onDeviceSelectionChange={onDeviceSelectionChange}
-          selectedWindow={selectedWindow}
-          validWindows={validWindows}
-          onWindowChange={(window) => {
+          {...{
+            metrics,
+            deviceRenderStrategy, setDeviceRenderStrategy,
+            hsvConfig, setHsvConfig,
+            xAxisRange, setXAxisRange,
+            data,
+            summary,
+            latestModeIntended, setLatestModeIntended,
+            setDuration,
+            timeRange: timeRangeFromProps,
+            setTimeRange: setTimeRangeFromProps,
+            getActiveTimeRange,
+            handleTimeRangeClick,
+            setRangeByWidth,
+            setIgnoreNextPanCheck,
+            devices,
+            selectedDeviceIds,
+            onDeviceSelectionChange,
+            selectedWindow,
+            validWindows,
+            timeRangeMinutes,
+          }}
+          onWindowChange={window => {
             if (window) {
-              setXGrouping({ mode: 'fixed', windowLabel: window.label })
+              setXGrouping({mode: 'fixed', windowLabel: window.label})
             }
           }}
           targetPx={targetPx as PxOption | null}
-          onTargetPxChange={(px) => {
+          onTargetPxChange={px => {
             if (px === null) {
               // Switch to fixed mode, keep current window
               setXGrouping({ mode: 'fixed', windowLabel: selectedWindow.label })
@@ -901,7 +976,6 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
               setXGrouping({ mode: 'auto', targetPx: px })
             }
           }}
-          timeRangeMinutes={timeRangeMinutes}
           containerWidth={viewportWidth}
         />
       )}
@@ -909,8 +983,6 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
       {!isOgMode && (
         <DataTable
           data={aggregatedData}
-          formatCompactDate={formatCompactDate}
-          formatFullDate={formatFullDate}
           isRawData={isRawData}
           totalDataCount={tableMetadata.totalDataCount}
           rawDataCount={tableMetadata.rawDataCount}
@@ -923,7 +995,6 @@ export const AwairChart = React.memo(function AwairChart({ deviceDataResults, su
           onDeviceChange={setSelectedDeviceIdForTable}
           timeRange={timeRangeFromProps}
           setTimeRange={setTimeRangeFromProps}
-          formatForPlotly={formatForPlotly}
           pageSize={tablePageSize}
           onPageSizeChange={(size) => setTablePageSize(size as 10 | 20 | 50 | 100 | 200)}
           onNavigationReady={setTableNavHandlers}

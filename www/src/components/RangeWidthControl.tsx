@@ -1,6 +1,7 @@
 import React from 'react'
 import { Tooltip } from './Tooltip'
 import { formatDuration } from '../hooks/useTimeRangeParam'
+import { formatFullDate } from "../utils/dateFormat"
 import type { DataSummary } from '../types/awair'
 
 interface RangeWidthControlProps {
@@ -10,8 +11,6 @@ interface RangeWidthControlProps {
   latestModeIntended: boolean
   handleLatestButtonClick: () => void
   xAxisRange: [string, string] | null
-  formatCompactDate: (date: Date) => string
-  formatFullDate: (date: Date) => string
   summary: DataSummary | null
   duration: number
 }
@@ -35,8 +34,6 @@ export function RangeWidthControl({
   latestModeIntended,
   handleLatestButtonClick,
   xAxisRange,
-  formatCompactDate: _formatCompactDate,
-  formatFullDate,
   summary: _summary,
   duration,
 }: RangeWidthControlProps) {

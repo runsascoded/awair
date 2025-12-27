@@ -3,6 +3,7 @@ import { AggregationControl } from './AggregationControl'
 import { DevicesControl } from './DevicesControl'
 import { RangeWidthControl } from './RangeWidthControl'
 import { getFileBounds } from '../services/awairService'
+import { formatForPlotly } from "../utils/dateFormat"
 import type { PxOption } from './AggregationControl'
 import type { TimeWindow } from '../hooks/useDataAggregation'
 import type { MetricsState } from "../hooks/useMetrics"
@@ -29,9 +30,6 @@ interface ChartControlsProps {
   setXAxisRange: (range: [string, string] | null) => void
   data: AwairRecord[]
   summary: DataSummary | null
-  formatForPlotly: (date: Date) => string
-  formatCompactDate: (date: Date) => string
-  formatFullDate: (date: Date) => string
   latestModeIntended: boolean
   setLatestModeIntended: (value: boolean) => void
   setDuration?: (duration: number) => void
@@ -80,9 +78,6 @@ export function ChartControls({
   setXAxisRange,
   data,
   summary,
-  formatForPlotly,
-  formatCompactDate,
-  formatFullDate,
   latestModeIntended,
   setLatestModeIntended,
   getActiveTimeRange,
@@ -180,8 +175,6 @@ export function ChartControls({
         latestModeIntended={latestModeIntended}
         handleLatestButtonClick={handleLatestButtonClick}
         xAxisRange={xAxisRange}
-        formatCompactDate={formatCompactDate}
-        formatFullDate={formatFullDate}
         summary={summary}
         duration={timeRange?.duration ?? 24 * 60 * 60 * 1000}
       />

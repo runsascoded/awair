@@ -1,14 +1,23 @@
+export function splitDate(date: Date) {
+  const yyyy = String(date.getFullYear())
+  const yy = yyyy.slice(-2)
+  const m = String(date.getMonth() + 1)
+  const mm = m.padStart(2, '0')
+  const d= String(date.getDate())
+  const dd = d.padStart(2, '0')
+  const HH = String(date.getHours()).padStart(2, '0')
+  const MM = String(date.getMinutes()).padStart(2, '0')
+  const SS = String(date.getSeconds()).padStart(2, '0')
+
+  return { yyyy, yy, m, mm, d, dd, HH, MM, SS }
+}
+
 /**
  * Format date for Plotly's x-axis (ISO-like format, local time)
  */
 export function formatForPlotly(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  const seconds = String(date.getSeconds()).padStart(2, '0')
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+  const { yyyy, mm, dd, HH, MM, SS } = splitDate(date)
+  return `${yyyy}-${mm}-${dd} ${HH}:${MM}:${SS}`
 }
 
 /**

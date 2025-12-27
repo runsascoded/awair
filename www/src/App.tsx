@@ -1,28 +1,25 @@
-import { getActionRegistry, HotkeysProvider, Omnibar, ShortcutsModal, useHotkeysContext } from '@rdub/use-hotkeys'
+import { Omnibar, ShortcutsModal, useDynamicHotkeysContext } from '@rdub/use-hotkeys'
 import '@rdub/use-hotkeys/styles.css'
 import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
 import { ShortcutsModalContent } from './components/ShortcutsModalContent'
 import { ThemeToggle } from './components/ThemeToggle'
-import { ACTIONS, HOTKEY_DESCRIPTIONS, HOTKEY_GROUPS } from './config/hotkeyConfig'
+import { HOTKEY_GROUPS } from './config/hotkeyConfig'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
 import { queryClient } from './lib/queryClient'
 import { boolParam, deviceIdsParam, timeRangeParam, refetchIntervalParam } from './lib/urlParams'
+import { AwairHotkeysProvider } from './providers/AwairHotkeysProvider'
 import './App.scss'
 
 function AppContent() {
   const [isOgMode] = useUrlParam('og', boolParam)
 
-  // Ref for executing actions from omnibar
-  const handlersRef = useRef<Record<string, () => void>>({})
-
-  // Access hotkeys context (includes modal/omnibar state + keymap)
-  const hotkeysContext = useHotkeysContext()
-  const { isModalOpen, closeModal, openModal, isOmnibarOpen, closeOmnibar, keymap } = hotkeysContext
+  // Only need openModal for ThemeToggle; modal/omnibar components use context internally
+  const { openModal } = useDynamicHotkeysContext()
 
   // Add og-mode class to body for CSS overrides
   useEffect(() => {
@@ -180,45 +177,21 @@ function AppContent() {
             timeRange={timeRange}
             setTimeRange={setTimeRange}
             isOgMode={isOgMode}
-            handlersRef={handlersRef}
           />
         )}
       </main>
-      {!isOgMode && <ThemeToggle onOpenShortcuts={openModal} />}
-      {/* Modal rendered at App level to avoid re-rendering AwairChart on open/close */}
-      {!isOgMode && (
-        <ShortcutsModal
-          keymap={keymap}
-          descriptions={HOTKEY_DESCRIPTIONS}
-          groups={HOTKEY_GROUPS}
-          isOpen={isModalOpen}
-          onClose={closeModal}
-          autoRegisterOpen={false}
-        >
-          {({ groups, close }) => (
-            <ShortcutsModalContent
-              groups={groups}
-              close={close}
-            />
-          )}
-        </ShortcutsModal>
-      )}
-      {/* Omnibar (command palette) */}
-      {!isOgMode && (
-        <Omnibar
-          actions={getActionRegistry(ACTIONS)}
-          keymap={keymap}
-          isOpen={isOmnibarOpen}
-          onClose={closeOmnibar}
-          onExecute={(actionId) => {
-            const handler = handlersRef.current[actionId]
-            if (handler) handler()
-          }}
-          enabled={false}
-          placeholder="Search actions..."
-          maxResults={15}
-        />
-      )}
+      {
+        !isOgMode &&
+          <>
+            <ThemeToggle onOpenShortcuts={openModal} />
+            {/* Modal and Omnibar - all props come from HotkeysContext */}
+            <ShortcutsModal groups={HOTKEY_GROUPS}>{
+              ({ groups, close }) =>
+                <ShortcutsModalContent groups={groups} close={close} />
+            }</ShortcutsModal>
+            <Omnibar placeholder="Search actions..." maxResults={15} />
+          </>
+      }
     </div>
   )
 }
@@ -227,12 +200,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <HotkeysProvider
-          actions={ACTIONS}
-          config={{ storageKey: 'awair-hotkeys' }}
-        >
+        <AwairHotkeysProvider>
           <AppContent />
-        </HotkeysProvider>
+        </AwairHotkeysProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )

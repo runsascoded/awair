@@ -1,5 +1,6 @@
 import { parquetRead } from 'hyparquet'
 import { HyparquetSource } from './dataSources/hyparquetSource'
+import { splitDate } from "../utils/dateFormat"
 import type { AwairRecord, DataSummary } from '../types/awair'
 
 export interface Device {
@@ -145,10 +146,8 @@ export async function fetchAwairData(
   let dateRange = 'No data'
   if (fileEarliest && fileLatest) {
     const formatCompactDate = (date: Date) => {
-      const month = String(date.getMonth() + 1)
-      const day = String(date.getDate())
-      const year = String(date.getFullYear()).slice(-2)
-      return `${month}/${day}/${year}`
+      const { yy, m, d } = splitDate(date)
+      return `${m}/${d}/${yy}`
     }
 
     const start = formatCompactDate(new Date(fileEarliest))

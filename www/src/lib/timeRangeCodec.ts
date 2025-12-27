@@ -3,6 +3,8 @@
  * Safe for testing (no React dependencies)
  */
 
+import { splitDate } from "../utils/dateFormat"
+
 /**
  * Time range configuration
  */
@@ -61,19 +63,13 @@ function parseCompactTimestamp(compact: string): Date {
  * Omits trailing zeros (midnight = YYMMDD, no time part needed)
  */
 function encodeCompactTimestamp(date: Date): string {
-  const yy = String(date.getFullYear()).slice(-2)
-  const mm = String(date.getMonth() + 1).padStart(2, '0')
-  const dd = String(date.getDate()).padStart(2, '0')
-  const hh = String(date.getHours()).padStart(2, '0')
-  const min = String(date.getMinutes()).padStart(2, '0')
-  const ss = String(date.getSeconds()).padStart(2, '0')
-
+  const { yy, mm, dd, HH, MM, SS } = splitDate(date)
   const datePart = `${yy}${mm}${dd}`
 
   // Only include time if non-zero
-  if (hh !== '00' || min !== '00' || ss !== '00') {
+  if (HH !== '00' || MM !== '00' || SS !== '00') {
     // Trim trailing zeros from time
-    let timePart = `${hh}${min}${ss}`
+    let timePart = `${HH}${MM}${SS}`
     // Remove trailing 00s
     timePart = timePart.replace(/(?:00)+$/, '')
     return `${datePart}T${timePart}`

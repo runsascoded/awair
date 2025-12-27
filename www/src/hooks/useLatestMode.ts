@@ -1,10 +1,10 @@
 import { useRef, useCallback, useMemo } from 'react'
+import { formatForPlotly } from "../utils/dateFormat"
 import type { AwairRecord } from '../types/awair'
 
 export function useLatestMode(
   data: AwairRecord[],
   xAxisRange: [string, string] | null,
-  formatForPlotly: (date: Date) => string,
   latestModeIntended: boolean,
   setLatestModeIntended: (value: boolean) => void
 ) {
@@ -49,7 +49,7 @@ export function useLatestMode(
 
     prevLatestTimestamp.current = latestTimestamp // Update the previous timestamp even if not updating range
     return null
-  }, [data.length, latestTimestamp, latestModeIntended, formatForPlotly])
+  }, [data.length, latestTimestamp, latestModeIntended])
 
   // Check if user panned away from latest data and disable Latest mode
   const checkUserPanAway = useCallback((newEnd: Date) => {
@@ -83,7 +83,7 @@ export function useLatestMode(
     setLatestModeIntended(true)
 
     return newRange
-  }, [data, xAxisRange, formatForPlotly])
+  }, [data, xAxisRange])
 
   // Set ignore flag for programmatic updates (like table navigation)
   const setIgnoreNextPanCheck = useCallback(() => {

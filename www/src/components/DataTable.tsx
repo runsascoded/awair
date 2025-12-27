@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Tooltip } from './Tooltip'
+import { formatCompactDate, formatFullDate } from "../utils/dateFormat"
 
 interface AggregatedData {
   timestamp: Date;
@@ -34,8 +35,6 @@ export interface TableNavigationHandlers {
 
 interface Props {
   data: AggregatedData[];
-  formatCompactDate: (date: Date) => string;
-  formatFullDate: (date: Date) => string;
   isRawData: boolean;
   totalDataCount: number;
   rawDataCount: number;
@@ -48,13 +47,31 @@ interface Props {
   onDeviceChange: (deviceId: number) => void;
   timeRange: { timestamp: Date | null; duration: number };
   setTimeRange: (range: { timestamp: Date | null; duration: number }) => void;
-  formatForPlotly: (date: Date) => string;
   pageSize: number;
   onPageSizeChange: (size: number) => void;
   onNavigationReady?: (handlers: TableNavigationHandlers) => void;
 }
 
-export function DataTable({ data, formatCompactDate, formatFullDate, isRawData, totalDataCount, rawDataCount, windowLabel, fullDataStartTime, fullDataEndTime, windowMinutes, deviceAggregations, selectedDeviceId, onDeviceChange, timeRange, setTimeRange, formatForPlotly: _formatForPlotly, pageSize, onPageSizeChange, onNavigationReady }: Props) {
+export function DataTable(
+  {
+    data,
+    isRawData,
+    totalDataCount,
+    rawDataCount,
+    windowLabel,
+    fullDataStartTime,
+    fullDataEndTime,
+    windowMinutes,
+    deviceAggregations,
+    selectedDeviceId,
+    onDeviceChange,
+    timeRange,
+    setTimeRange,
+    pageSize,
+    onPageSizeChange,
+    onNavigationReady,
+  }: Props
+) {
   const [page, setPage] = useState(0)
 
   // Reverse the data to show most recent first (reverse chronological)

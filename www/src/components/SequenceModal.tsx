@@ -1,6 +1,5 @@
-import { formatCombination, useKeyboardShortcutsContext } from '@rdub/use-hotkeys'
+import { formatCombination, useDynamicHotkeysContext } from '@rdub/use-hotkeys'
 import { useMemo } from 'react'
-import { HOTKEY_DESCRIPTIONS } from '../config/hotkeyConfig'
 import type { HotkeySequence, SequenceCompletion } from '@rdub/use-hotkeys'
 
 interface SequenceModalProps {
@@ -16,7 +15,7 @@ export function SequenceModal({
   timeoutStartedAt,
   sequenceTimeout = 1000,
 }: SequenceModalProps) {
-  const { getCompletions } = useKeyboardShortcutsContext()
+  const { getCompletions, registry } = useDynamicHotkeysContext()
 
   // Get completions for the current pending keys
   const completions = useMemo(() => {
@@ -30,9 +29,10 @@ export function SequenceModal({
     return formatCombination(pendingKeys).display
   }, [pendingKeys])
 
-  // Get human-readable label for an action
+  // Get human-readable label for an action from registry
   const getActionLabel = (actionId: string) => {
-    return HOTKEY_DESCRIPTIONS[actionId] || actionId
+    const action = registry.actions.get(actionId)
+    return action?.config.label || actionId
   }
 
   // Group completions by what happens next
