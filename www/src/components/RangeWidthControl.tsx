@@ -7,12 +7,11 @@ import type { DataSummary } from '../types/awair'
 interface RangeWidthControlProps {
   getActiveTimeRange: () => string
   handleTimeRangeButtonClick: (hours: number) => void
-  handleAllButtonClick: () => void
+  handleAllClick: () => void
   latestModeIntended: boolean
   handleLatestButtonClick: () => void
   xAxisRange: [string, string] | null
   summary: DataSummary | null
-  duration: number
 }
 
 const timeRangeOptions = [
@@ -30,17 +29,21 @@ const timeRangeOptions = [
 export function RangeWidthControl({
   getActiveTimeRange,
   handleTimeRangeButtonClick,
-  handleAllButtonClick,
+  handleAllClick,
   latestModeIntended,
   handleLatestButtonClick,
   xAxisRange,
   summary: _summary,
-  duration,
 }: RangeWidthControlProps) {
   const activeRange = getActiveTimeRange()
 
+  // Calculate duration from xAxisRange
+  const duration = xAxisRange
+    ? new Date(xAxisRange[1]).getTime() - new Date(xAxisRange[0]).getTime()
+    : 0
+
   // Get custom duration label if not at a preset
-  const customLabel = formatDuration(duration)
+  const customLabel = duration ? formatDuration(duration) : null
 
   const rangeText = xAxisRange
     ? `${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`
@@ -69,7 +72,7 @@ export function RangeWidthControl({
           onChange={(e) => {
             const value = e.target.value
             if (value === 'all') {
-              handleAllButtonClick()
+              handleAllClick()
             } else if (value === 'custom') {
               // Custom option selected - no action (it's just for display)
             } else {
