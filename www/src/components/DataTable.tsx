@@ -1,3 +1,4 @@
+import { useAction } from '@rdub/use-hotkeys'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Tooltip } from './Tooltip'
 import { formatCompactDate, formatFullDate } from "../utils/dateFormat"
@@ -178,7 +179,15 @@ export function DataTable(
     setPage(0)
   }, [isAtLatest, timeRange.duration, setTimeRange])
 
-  // Notify parent of navigation handlers
+  // Register table navigation actions
+  useAction('table:prev-page', { label: 'Prev table page', group: 'Table Navigation', defaultBindings: [','], handler: prevPage })
+  useAction('table:next-page', { label: 'Next table page', group: 'Table Navigation', defaultBindings: ['.'], handler: nextPage })
+  useAction('table:prev-plot-page', { label: 'Prev plot page', group: 'Table Navigation', defaultBindings: ['<'], handler: prevPlotPage })
+  useAction('table:next-plot-page', { label: 'Next plot page', group: 'Table Navigation', defaultBindings: ['>'], handler: nextPlotPage })
+  useAction('table:first-page', { label: 'First page', group: 'Table Navigation', defaultBindings: ['meta+,'], handler: firstPage })
+  useAction('table:last-page', { label: 'Last page', group: 'Table Navigation', defaultBindings: ['meta+.'], handler: lastPage })
+
+  // Notify parent of navigation handlers (for backwards compatibility)
   useEffect(() => {
     onNavigationReady?.({ prevPage, nextPage, prevPlotPage, nextPlotPage, firstPage, lastPage })
   }, [onNavigationReady, prevPage, nextPage, prevPlotPage, nextPlotPage, firstPage, lastPage])

@@ -16,7 +16,6 @@ import { getFileBounds } from '../services/awairService'
 import { formatForPlotly } from '../utils/dateFormat'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { PxOption } from './AggregationControl'
-import type { TableNavigationHandlers } from './DataTable'
 import type { DeviceDataResult } from './DevicePoller'
 import type { Metric } from '../lib/urlParams'
 import type { Device } from '../services/awairService'
@@ -172,9 +171,6 @@ export const AwairChart = memo(function AwairChart(
 
   // Table page size - persisted in URL
   const [tablePageSize, setTablePageSize] = useUrlParam('p', intFromList([10, 20, 50, 100, 200] as const, 20))
-
-  // Table navigation handlers (exposed by DataTable for keyboard shortcuts)
-  const [tableNavHandlers, setTableNavHandlers] = useState<TableNavigationHandlers | null>(null)
 
   // Get the selected device's aggregated data for the table
   const selectedDeviceAggregation = deviceAggregations.find(d => d.deviceId === selectedDeviceIdForTable)
@@ -386,14 +382,6 @@ export const AwairChart = memo(function AwairChart(
   // Devices
   useAction('device:gym', { label: 'Toggle Gym', group: 'Devices', defaultBindings: ['g'], handler: () => toggleDeviceByPattern('gym') })
   useAction('device:br', { label: 'Toggle BR', group: 'Devices', defaultBindings: ['b'], keywords: ['bedroom'], handler: () => toggleDeviceByPattern('br') })
-
-  // Table pagination
-  useAction('table:prev-page', { label: 'Prev table page', group: 'Table Navigation', defaultBindings: [','], handler: () => tableNavHandlers?.prevPage?.() })
-  useAction('table:next-page', { label: 'Next table page', group: 'Table Navigation', defaultBindings: ['.'], handler: () => tableNavHandlers?.nextPage?.() })
-  useAction('table:prev-plot-page', { label: 'Prev plot page', group: 'Table Navigation', defaultBindings: ['<'], handler: () => tableNavHandlers?.prevPlotPage?.() })
-  useAction('table:next-plot-page', { label: 'Next plot page', group: 'Table Navigation', defaultBindings: ['>'], handler: () => tableNavHandlers?.nextPlotPage?.() })
-  useAction('table:first-page', { label: 'First page', group: 'Table Navigation', defaultBindings: ['meta+,'], handler: () => tableNavHandlers?.firstPage?.() })
-  useAction('table:last-page', { label: 'Last page', group: 'Table Navigation', defaultBindings: ['meta+.'], handler: () => tableNavHandlers?.lastPage?.() })
 
   // Handle responsive plot height and viewport width using matchMedia
   useEffect(() => {
@@ -996,7 +984,6 @@ export const AwairChart = memo(function AwairChart(
           setTimeRange={setTimeRangeFromProps}
           pageSize={tablePageSize}
           onPageSizeChange={(size) => setTablePageSize(size as 10 | 20 | 50 | 100 | 200)}
-          onNavigationReady={setTableNavHandlers}
         />
       )}
 
