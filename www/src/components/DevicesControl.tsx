@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { Tooltip } from './Tooltip'
 import { MAX_SELECTED_DEVICES } from '../utils/colorUtils'
 import type { Device } from '../services/awairService'

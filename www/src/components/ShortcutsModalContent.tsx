@@ -1,5 +1,5 @@
 import { useRecordHotkey, useDynamicHotkeysContext, CommandIcon, CtrlIcon, ShiftIcon, OptIcon, parseHotkeyString } from '@rdub/use-hotkeys'
-import React, { useState, useCallback, useEffect, useMemo, type ReactNode, Fragment } from 'react'
+import { useState, useCallback, useEffect, useMemo, type ReactNode, Fragment } from 'react'
 import { Tooltip } from './Tooltip'
 import type { HotkeySequence, KeyCombinationDisplay, ShortcutGroup, KeyCombination } from '@rdub/use-hotkeys'
 

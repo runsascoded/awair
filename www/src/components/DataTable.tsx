@@ -1,5 +1,6 @@
+import { abs, max, min, round } from '@rdub/base'
 import { useAction } from '@rdub/use-hotkeys'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Tooltip } from './Tooltip'
 import { formatCompactDate, formatFullDate } from "../utils/dateFormat"
 
@@ -79,7 +80,7 @@ export function DataTable(
   const reversedData = [...data].reverse()
 
   const startIdx = page * pageSize
-  const endIdx = Math.min(startIdx + pageSize, reversedData.length)
+  const endIdx = min(startIdx + pageSize, reversedData.length)
   const pageData = reversedData.slice(startIdx, endIdx)
 
   // Calculate position within total dataset (reverse chronological)
@@ -100,7 +101,7 @@ export function DataTable(
     } else {
       const rangeEnd = timeRange.timestamp!.getTime()
       const windowsFromEnd = (fullEnd - rangeEnd) / windowMs
-      firstVisibleIndex = Math.max(1, Math.round(windowsFromEnd + 1))
+      firstVisibleIndex = max(1, round(windowsFromEnd + 1))
     }
 
     const globalEnd = firstVisibleIndex + pageSize - 1
@@ -113,7 +114,7 @@ export function DataTable(
     if (!fullDataStartTime || !timeRange.timestamp) return false
     const rangeStart = new Date(timeRange.timestamp.getTime() - timeRange.duration)
     // Within 1 minute of earliest
-    return Math.abs(rangeStart.getTime() - fullDataStartTime.getTime()) < 60 * 1000
+    return abs(rangeStart.getTime() - fullDataStartTime.getTime()) < 60 * 1000
   }, [timeRange, fullDataStartTime])
 
   // Check if we're at or past latest data
@@ -136,7 +137,7 @@ export function DataTable(
   const prevPlotPage = useCallback(() => {
     if (isAtEarliest) return
     const currentTimestamp = timeRange.timestamp
-      ? new Date(Math.min(timeRange.timestamp.getTime(), fullDataEndTime?.getTime() ?? Infinity))
+      ? new Date(min(timeRange.timestamp.getTime(), fullDataEndTime?.getTime() ?? Infinity))
       : fullDataEndTime
     if (!currentTimestamp) return
     const newTimestamp = new Date(currentTimestamp.getTime() - timeRange.duration)
@@ -147,7 +148,7 @@ export function DataTable(
   const prevPage = useCallback(() => {
     if (isAtEarliest) return
     const currentTimestamp = timeRange.timestamp
-      ? new Date(Math.min(timeRange.timestamp.getTime(), fullDataEndTime?.getTime() ?? Infinity))
+      ? new Date(min(timeRange.timestamp.getTime(), fullDataEndTime?.getTime() ?? Infinity))
       : fullDataEndTime
     if (!currentTimestamp) return
     const pageShiftMs = pageSize * windowMinutes * 60 * 1000
@@ -250,7 +251,7 @@ export function DataTable(
             <Tooltip
               content={
                 timeRange.timestamp || fullDataEndTime
-                  ? `Rewind by ${Math.round(timeRange.duration / (windowMinutes * 60 * 1000))} time points (plot width), to ${formatFullDate(new Date(((timeRange.timestamp || fullDataEndTime)!).getTime() - timeRange.duration))}`
+                  ? `Rewind by ${round(timeRange.duration / (windowMinutes * 60 * 1000))} time points (plot width), to ${formatFullDate(new Date(((timeRange.timestamp || fullDataEndTime)!).getTime() - timeRange.duration))}`
                   : "Pan backward by one plot width"
               }
             >
@@ -313,7 +314,7 @@ export function DataTable(
             <Tooltip
               content={
                 timeRange.timestamp && fullDataEndTime
-                  ? `Forward by ${Math.round(timeRange.duration / (windowMinutes * 60 * 1000))} time points (plot width), to ${timeRange.timestamp.getTime() + timeRange.duration >= fullDataEndTime.getTime() ? "Latest" : formatFullDate(new Date(timeRange.timestamp.getTime() + timeRange.duration))}`
+                  ? `Forward by ${round(timeRange.duration / (windowMinutes * 60 * 1000))} time points (plot width), to ${timeRange.timestamp.getTime() + timeRange.duration >= fullDataEndTime.getTime() ? "Latest" : formatFullDate(new Date(timeRange.timestamp.getTime() + timeRange.duration))}`
                   : "Pan forward by one plot width"
               }
             >
@@ -390,19 +391,19 @@ export function DataTable(
                 </td>
                 <td>
                   {isRawData ? (
-                    Math.round(record.co2_avg)
+                    round(record.co2_avg)
                   ) : (
-                    <Tooltip maxWidth={200} content={`±σ: ${Math.round(record.co2_avg - record.co2_stddev)} - ${Math.round(record.co2_avg + record.co2_stddev)} ppm${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
-                      <span className="help-cursor">{Math.round(record.co2_avg)}</span>
+                    <Tooltip maxWidth={200} content={`±σ: ${round(record.co2_avg - record.co2_stddev)} - ${round(record.co2_avg + record.co2_stddev)} ppm${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
+                      <span className="help-cursor">{round(record.co2_avg)}</span>
                     </Tooltip>
                   )}
                 </td>
                 <td>
                   {isRawData ? (
-                    Math.round(record.voc_avg)
+                    round(record.voc_avg)
                   ) : (
-                    <Tooltip maxWidth={200} content={`±σ: ${Math.round(record.voc_avg - record.voc_stddev)} - ${Math.round(record.voc_avg + record.voc_stddev)} ppb${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
-                      <span className="help-cursor">{Math.round(record.voc_avg)}</span>
+                    <Tooltip maxWidth={200} content={`±σ: ${round(record.voc_avg - record.voc_stddev)} - ${round(record.voc_avg + record.voc_stddev)} ppb${record.count > 1 ? ` | n = ${record.count}` : ''}`}>
+                      <span className="help-cursor">{round(record.voc_avg)}</span>
                     </Tooltip>
                   )}
                 </td>

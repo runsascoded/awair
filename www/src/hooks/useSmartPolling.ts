@@ -1,3 +1,4 @@
+import { min } from '@rdub/base'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
@@ -221,7 +222,7 @@ export function useSmartPolling({
       }
     } else if (state.phase === 'backoff') {
       // Exponential backoff from now
-      delay = BACKOFF_INTERVALS_MS[Math.min(state.attempt, BACKOFF_INTERVALS_MS.length - 1)]
+      delay = BACKOFF_INTERVALS_MS[min(state.attempt, BACKOFF_INTERVALS_MS.length - 1)]
       console.log(`${logPrefix}⚠️ Smart poll: backoff ${state.attempt + 1}/${BACKOFF_INTERVALS_MS.length}, retry in ${formatDelay(delay)}`)
     } else {
       return // Unknown phase

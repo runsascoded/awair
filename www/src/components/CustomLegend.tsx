@@ -1,4 +1,3 @@
-import React from 'react'
 import { metricConfig, getRangeFloor } from './ChartControls'
 import { HoverableToggleButton } from './HoverableToggleButton'
 import { Tooltip } from './Tooltip'

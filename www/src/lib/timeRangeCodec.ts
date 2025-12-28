@@ -3,6 +3,7 @@
  * Safe for testing (no React dependencies)
  */
 
+import { floor } from '@rdub/base'
 import { splitDate } from "../utils/dateFormat"
 
 /**
@@ -112,13 +113,13 @@ function parseDuration(duration: string): number {
  * Omits zero components
  */
 function encodeDuration(ms: number): string {
-  const days = Math.floor(ms / (24 * 60 * 60 * 1000))
+  const days = floor(ms / (24 * 60 * 60 * 1000))
   ms -= days * 24 * 60 * 60 * 1000
 
-  const hours = Math.floor(ms / (60 * 60 * 1000))
+  const hours = floor(ms / (60 * 60 * 1000))
   ms -= hours * 60 * 60 * 1000
 
-  const minutes = Math.floor(ms / (60 * 1000))
+  const minutes = floor(ms / (60 * 1000))
 
   const parts: string[] = []
   if (days > 0) parts.push(`${days}d`)

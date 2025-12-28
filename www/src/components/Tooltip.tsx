@@ -11,7 +11,7 @@ import {
   useInteractions,
   FloatingPortal
 } from '@floating-ui/react'
-import React, { cloneElement, type ReactElement, type ReactNode, useState } from 'react'
+import { cloneElement, type ReactElement, type ReactNode, useState } from 'react'
 
 interface TooltipProps {
   children: ReactElement

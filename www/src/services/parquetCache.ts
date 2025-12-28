@@ -20,6 +20,7 @@
  * indefinitely (subject to LRU eviction for memory limits).
  */
 
+import { abs, max, min } from '@rdub/base'
 import { parquetMetadataAsync, parquetRead } from 'hyparquet'
 import { LRUCache } from './lruCache'
 import type { LRUCacheOptions } from './lruCache'
@@ -104,7 +105,7 @@ export class ParquetCache {
     }
 
     // Fetch last N bytes (footer + some row groups)
-    this.tailCacheStart = Math.max(0, this.fileSize - this.initialFetchSize)
+    this.tailCacheStart = max(0, this.fileSize - this.initialFetchSize)
     const rangeHeader = `bytes=${this.tailCacheStart}-${this.fileSize - 1}`
 
     const res = await this.fetchFn(this.url, {
@@ -192,7 +193,7 @@ export class ParquetCache {
     const newRgCount = this.rowGroupInfos.length
 
     // Detect major structural change (RG count changed significantly)
-    if (Math.abs(newRgCount - oldRgCount) > 5 || newFileSize < oldFileSize * 0.8) {
+    if (abs(newRgCount - oldRgCount) > 5 || newFileSize < oldFileSize * 0.8) {
       console.warn(`⚠️ Major file restructure detected: ${oldRgCount} → ${newRgCount} RGs, clearing cache and reinitializing`)
       this.blobCache.clear()
       this.tailCache = null
@@ -415,7 +416,7 @@ export class ParquetCache {
           if (this.tailCache && pos >= this.tailCacheStart) {
             const tailEnd = this.tailCacheStart + this.tailCache.byteLength
             if (pos < tailEnd) {
-              const copyEnd = Math.min(actualEnd, tailEnd)
+              const copyEnd = min(actualEnd, tailEnd)
               const copyLen = copyEnd - pos
               const srcOffset = pos - this.tailCacheStart
               result.set(new Uint8Array(this.tailCache, srcOffset, copyLen), resultOffset)
@@ -432,7 +433,7 @@ export class ParquetCache {
             if (!cached) continue
 
             if (pos >= rg.startByte && pos < rg.endByte) {
-              const copyEnd = Math.min(actualEnd, rg.endByte)
+              const copyEnd = min(actualEnd, rg.endByte)
               const copyLen = copyEnd - pos
               const srcOffset = pos - rg.startByte
               result.set(new Uint8Array(cached, srcOffset, copyLen), resultOffset)
@@ -480,8 +481,8 @@ export class ParquetCache {
         return { start: offset, end: offset + size }
       })
 
-      const startByte = Math.min(...colOffsets.map((c: { start: number; end: number }) => c.start))
-      const endByte = Math.max(...colOffsets.map((c: { start: number; end: number }) => c.end))
+      const startByte = min(...colOffsets.map((c: { start: number; end: number }) => c.start))
+      const endByte = max(...colOffsets.map((c: { start: number; end: number }) => c.end))
 
       // Get timestamp stats from first column (assuming it's timestamp)
       const tsStats = rg.columns[0]?.meta_data?.statistics

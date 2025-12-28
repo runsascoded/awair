@@ -1,3 +1,4 @@
+import { abs, floor, round } from '@rdub/base'
 import { useCallback, useState, useRef, useEffect } from 'react'
 import { formatForPlotly } from "../utils/dateFormat"
 import type { AwairRecord } from '../types/awair'
@@ -13,19 +14,19 @@ const DAY = 24 * HOUR
 export function roundDuration(ms: number): number {
   if (ms < 2 * HOUR) {
     // < 2h: round to 5 min
-    return Math.round(ms / (5 * MINUTE)) * (5 * MINUTE)
+    return round(ms / (5 * MINUTE)) * (5 * MINUTE)
   } else if (ms < 12 * HOUR) {
     // 2h-12h: round to 15 min
-    return Math.round(ms / (15 * MINUTE)) * (15 * MINUTE)
+    return round(ms / (15 * MINUTE)) * (15 * MINUTE)
   } else if (ms < 3 * DAY) {
     // 12h-3d: round to 1 hour
-    return Math.round(ms / HOUR) * HOUR
+    return round(ms / HOUR) * HOUR
   } else if (ms < 14 * DAY) {
     // 3d-14d: round to 6 hours
-    return Math.round(ms / (6 * HOUR)) * (6 * HOUR)
+    return round(ms / (6 * HOUR)) * (6 * HOUR)
   } else {
     // > 14d: round to 1 day
-    return Math.round(ms / DAY) * DAY
+    return round(ms / DAY) * DAY
   }
 }
 
@@ -47,15 +48,15 @@ export function formatDuration(ms: number): string | null {
   ]
 
   for (const preset of presets) {
-    if (Math.abs(ms - preset.ms) < MINUTE) {
+    if (abs(ms - preset.ms) < MINUTE) {
       return null // Matches preset, don't show custom
     }
   }
 
   // Format with at most 2 units
-  const days = Math.floor(ms / DAY)
-  const hours = Math.floor((ms % DAY) / HOUR)
-  const minutes = Math.floor((ms % HOUR) / MINUTE)
+  const days = floor(ms / DAY)
+  const hours = floor((ms % DAY) / HOUR)
+  const minutes = floor((ms % HOUR) / MINUTE)
 
   if (days > 0 && hours > 0) {
     return `${days}d${hours}h`
@@ -163,7 +164,7 @@ export function useTimeRangeParam(
 
     // Check if close to latest (within 10 min) -> Latest mode
     const latestDataTime = data.length > 0 ? new Date(data[0].timestamp) : new Date()
-    const timeDiffMinutes = Math.abs(endTime.getTime() - latestDataTime.getTime()) / (1000 * 60)
+    const timeDiffMinutes = abs(endTime.getTime() - latestDataTime.getTime()) / (1000 * 60)
 
     if (timeDiffMinutes < 10) {
       setTimeRange({ timestamp: null, duration })

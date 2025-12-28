@@ -1,3 +1,4 @@
+import { ceil, round } from "@rdub/base"
 import { Tooltip } from './Tooltip'
 import type { TimeWindow } from '../hooks/useDataAggregation'
 
@@ -21,8 +22,8 @@ function formatWindowOption(
 ): string {
   if (!timeRangeMinutes) return window.label
 
-  const count = Math.ceil(timeRangeMinutes / window.minutes)
-  const pxPerWindow = containerWidth ? Math.round(containerWidth / count) : undefined
+  const count = ceil(timeRangeMinutes / window.minutes)
+  const pxPerWindow = containerWidth ? round(containerWidth / count) : undefined
 
   if (pxPerWindow !== undefined) {
     return `${window.label} (${count} × ${pxPerWindow}px)`

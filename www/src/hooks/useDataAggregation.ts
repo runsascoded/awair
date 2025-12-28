@@ -1,3 +1,4 @@
+import { abs, ceil, floor, max, min, pow, sqrt } from '@rdub/base'
 import { useMemo } from 'react'
 import type { AwairRecord } from '../types/awair'
 
@@ -70,7 +71,7 @@ export function aggregateData(data: AwairRecord[], windowMinutes: number): Aggre
   // Group data by time windows
   data.forEach(record => {
     const timestamp = new Date(record.timestamp).getTime()
-    const windowStart = Math.floor(timestamp / windowMs) * windowMs
+    const windowStart = floor(timestamp / windowMs) * windowMs
     const key = new Date(windowStart).toISOString()
 
     if (!groups[key]) {
@@ -83,9 +84,9 @@ export function aggregateData(data: AwairRecord[], windowMinutes: number): Aggre
   const calculateStdDev = (values: number[]): number => {
     if (values.length <= 1) return 0
     const mean = values.reduce((a, b) => a + b, 0) / values.length
-    const squaredDiffs = values.map(value => Math.pow(value - mean, 2))
+    const squaredDiffs = values.map(value => pow(value - mean, 2))
     const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / values.length
-    return Math.sqrt(avgSquaredDiff)
+    return sqrt(avgSquaredDiff)
   }
 
   // Aggregate each group and ensure chronological order
@@ -122,7 +123,7 @@ export function aggregateData(data: AwairRecord[], windowMinutes: number): Aggre
 export function getTargetPoints(containerWidth?: number): number {
   if (!containerWidth) return 300
   // Scale from ~100 points at 375px to ~400 points at 1600px
-  return Math.max(100, Math.min(400, Math.floor(containerWidth / 4)))
+  return max(100, min(400, floor(containerWidth / 4)))
 }
 
 /**
@@ -132,8 +133,8 @@ export function getTargetPoints(containerWidth?: number): number {
 function getPointConstraints(containerWidth?: number): { minPoints: number; maxPoints: number } {
   const target = getTargetPoints(containerWidth)
   return {
-    minPoints: Math.floor(target * 0.1),   // 10% of target (e.g., 30 for 300)
-    maxPoints: Math.floor(target * 5),      // 5x target (e.g., 1500 for 300)
+    minPoints: floor(target * 0.1),   // 10% of target (e.g., 30 for 300)
+    maxPoints: floor(target * 5),      // 5x target (e.g., 1500 for 300)
   }
 }
 
@@ -144,7 +145,7 @@ function getPointConstraints(containerWidth?: number): { minPoints: number; maxP
 export function getValidWindows(timeRangeMinutes: number, containerWidth?: number): TimeWindow[] {
   const { minPoints, maxPoints } = getPointConstraints(containerWidth)
   return TIME_WINDOWS.filter(window => {
-    const estimatedPoints = Math.ceil(timeRangeMinutes / window.minutes)
+    const estimatedPoints = ceil(timeRangeMinutes / window.minutes)
     return estimatedPoints >= minPoints && estimatedPoints <= maxPoints
   })
 }
@@ -173,9 +174,9 @@ export function findOptimalWindow(
     let bestLogDiff = Infinity
 
     for (const window of TIME_WINDOWS) {
-      const estimatedPoints = Math.ceil(timeRangeMinutes / window.minutes)
+      const estimatedPoints = ceil(timeRangeMinutes / window.minutes)
       // Log difference between actual and target points
-      const logDiff = Math.abs(Math.log(estimatedPoints) - Math.log(targetPoints))
+      const logDiff = abs(Math.log(estimatedPoints) - Math.log(targetPoints))
 
       if (logDiff < bestLogDiff) {
         bestLogDiff = logDiff
@@ -194,7 +195,7 @@ export function findOptimalWindow(
 
     for (let i = TIME_WINDOWS.length - 1; i >= 0; i--) {
       const window = TIME_WINDOWS[i]
-      const estimatedPoints = Math.ceil(totalMinutes / window.minutes)
+      const estimatedPoints = ceil(totalMinutes / window.minutes)
 
       if (estimatedPoints < targetPoints) {
         selectedWindow = window
@@ -208,7 +209,7 @@ export function findOptimalWindow(
     return selectedWindow
   } else {
     // Fallback to middle window
-    return TIME_WINDOWS[Math.floor(TIME_WINDOWS.length / 2)]
+    return TIME_WINDOWS[floor(TIME_WINDOWS.length / 2)]
   }
 }
 
@@ -228,7 +229,7 @@ export function getWindowForDuration(
 ): TimeWindow {
   const { containerWidth, overrideWindow, targetPx } = options
   const targetPoints = (targetPx && containerWidth)
-    ? Math.floor(containerWidth / targetPx)
+    ? floor(containerWidth / targetPx)
     : getTargetPoints(containerWidth)
   const timeRangeMinutes = durationMs / (1000 * 60)
   return findOptimalWindow(timeRangeMinutes, undefined, targetPoints, overrideWindow)
@@ -244,7 +245,7 @@ export function useDataAggregation(
   // If targetPx is set, calculate target points from container width
   // Otherwise fall back to the old responsive calculation
   const targetPoints = (targetPx && containerWidth)
-    ? Math.floor(containerWidth / targetPx)
+    ? floor(containerWidth / targetPx)
     : getTargetPoints(containerWidth)
 
   const { dataToAggregate, selectedWindow, validWindows } = useMemo(() => {

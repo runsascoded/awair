@@ -1,4 +1,3 @@
-import React from 'react'
 import { AggregationControl } from './AggregationControl'
 import { DevicesControl } from './DevicesControl'
 import { RangeWidthControl } from './RangeWidthControl'

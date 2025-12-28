@@ -1,6 +1,7 @@
+import { abs, ceil, floor, max } from "@rdub/base"
 import { useAction, useDynamicHotkeysContext } from '@rdub/use-hotkeys'
 import { useUrlParam } from '@rdub/use-url-params'
-import React, { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
 import Plot from 'react-plotly.js'
 import { ChartControls, metricConfig, getRangeFloor } from './ChartControls'
 import { CustomLegend } from './CustomLegend'
@@ -216,14 +217,14 @@ export const AwairChart = memo(function AwairChart(
     const isLatestView = latestModeIntended
 
     // Check range width with tolerance
-    if (Math.abs(durationHours - 12) < 1) return isLatestView ? 'latest-12h' : '12h'
-    if (Math.abs(durationHours - 24) < 2) return isLatestView ? 'latest-1d' : '1d'
-    if (Math.abs(durationHours - (24 * 3)) < 6) return isLatestView ? 'latest-3d' : '3d'
-    if (Math.abs(durationHours - (24 * 7)) < 12) return isLatestView ? 'latest-7d' : '7d'
-    if (Math.abs(durationHours - (24 * 14)) < 24) return isLatestView ? 'latest-14d' : '14d'
-    if (Math.abs(durationHours - (24 * 31)) < 24) return isLatestView ? 'latest-1mo' : '1mo'
-    if (Math.abs(durationHours - (24 * 62)) < 48) return isLatestView ? 'latest-2mo' : '2mo'
-    if (Math.abs(durationHours - (24 * 92)) < 48) return isLatestView ? 'latest-3mo' : '3mo'
+    if (abs(durationHours - 12) < 1) return isLatestView ? 'latest-12h' : '12h'
+    if (abs(durationHours - 24) < 2) return isLatestView ? 'latest-1d' : '1d'
+    if (abs(durationHours - (24 * 3)) < 6) return isLatestView ? 'latest-3d' : '3d'
+    if (abs(durationHours - (24 * 7)) < 12) return isLatestView ? 'latest-7d' : '7d'
+    if (abs(durationHours - (24 * 14)) < 24) return isLatestView ? 'latest-14d' : '14d'
+    if (abs(durationHours - (24 * 31)) < 24) return isLatestView ? 'latest-1mo' : '1mo'
+    if (abs(durationHours - (24 * 62)) < 48) return isLatestView ? 'latest-2mo' : '2mo'
+    if (abs(durationHours - (24 * 92)) < 48) return isLatestView ? 'latest-3mo' : '3mo'
 
     // "All" is only active when duration exceeds 3 months
     if (durationHours > 24 * 100) return 'all'
@@ -456,9 +457,9 @@ export const AwairChart = memo(function AwairChart(
     const totalHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)
 
     // Dynamic tick count based on actual viewport width
-    const plotWidth = Math.max(300, viewportWidth - 100) // Account for margins, min 300px
-    const maxTicks = Math.floor(plotWidth / 30) // ~80px per tick
-    const minTicks = Math.max(3, Math.floor(plotWidth / 120)) // At least 3 ticks
+    const plotWidth = max(300, viewportWidth - 100) // Account for margins, min 300px
+    const maxTicks = floor(plotWidth / 30) // ~80px per tick
+    const minTicks = max(3, floor(plotWidth / 120)) // At least 3 ticks
 
     let tickIntervalHours: number
     if (totalHours <= 6) tickIntervalHours = 1
@@ -468,11 +469,11 @@ export const AwairChart = memo(function AwairChart(
     else tickIntervalHours = 24
 
     // Adjust interval to fit within tick count limits
-    const estimatedTicks = Math.ceil(totalHours / tickIntervalHours)
+    const estimatedTicks = ceil(totalHours / tickIntervalHours)
     if (estimatedTicks > maxTicks) {
-      tickIntervalHours = Math.ceil(totalHours / maxTicks)
+      tickIntervalHours = ceil(totalHours / maxTicks)
     } else if (estimatedTicks < minTicks) {
-      tickIntervalHours = Math.max(1, Math.floor(totalHours / minTicks))
+      tickIntervalHours = max(1, floor(totalHours / minTicks))
     }
 
     const tickvals: string[] = []
@@ -772,8 +773,8 @@ export const AwairChart = memo(function AwairChart(
 
     const totalMinutes = (bounds.latest.getTime() - bounds.earliest.getTime()) / (1000 * 60)
     return {
-      totalDataCount: Math.ceil(totalMinutes / selectedWindow.minutes),
-      rawDataCount: Math.ceil(totalMinutes),  // ~1 data point per minute
+      totalDataCount: ceil(totalMinutes / selectedWindow.minutes),
+      rawDataCount: ceil(totalMinutes),  // ~1 data point per minute
       fullDataStartTime: bounds.earliest,
       fullDataEndTime: bounds.latest,
     }

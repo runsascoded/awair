@@ -1,3 +1,5 @@
+import { abs, max, min, round } from '@rdub/base'
+
 /**
  * Multi-device rendering strategies for distinguishing between devices on charts.
  *
@@ -50,17 +52,17 @@ function hexToHsl(hex: string): { h: number; s: number; l: number } {
   const g = parseInt(result[2], 16) / 255
   const b = parseInt(result[3], 16) / 255
 
-  const max = Math.max(r, g, b)
-  const min = Math.min(r, g, b)
+  const M = max(r, g, b)
+  const m = min(r, g, b)
   let h = 0
   let s = 0
-  const l = (max + min) / 2
+  const l = (M + m) / 2
 
-  if (max !== min) {
-    const d = max - min
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  if (M !== m) {
+    const d = M - m
+    s = l > 0.5 ? d / (2 - M - m) : d / (M + m)
 
-    switch (max) {
+    switch (M) {
       case r:
         h = ((g - b) / d + (g < b ? 6 : 0)) / 6
         break
@@ -83,8 +85,8 @@ function hslToHex(h: number, s: number, l: number): string {
   s /= 100
   l /= 100
 
-  const c = (1 - Math.abs(2 * l - 1)) * s
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  const c = (1 - abs(2 * l - 1)) * s
+  const x = c * (1 - abs(((h / 60) % 2) - 1))
   const m = l - c / 2
 
   let r = 0, g = 0, b = 0
@@ -97,7 +99,7 @@ function hslToHex(h: number, s: number, l: number): string {
   else { r = c; g = 0; b = x }
 
   const toHex = (n: number) => {
-    const hex = Math.round((n + m) * 255).toString(16)
+    const hex = round((n + m) * 255).toString(16)
     return hex.length === 1 ? '0' + hex : hex
   }
 
@@ -137,8 +139,8 @@ function getHsvNudgedColor(
 
   // Apply offsets
   const newH = (h + multiplier * config.hueStep + 360) % 360
-  const newS = Math.max(0, Math.min(100, s + multiplier * config.saturationStep))
-  const newL = Math.max(10, Math.min(90, l + multiplier * config.lightnessStep))
+  const newS = max(0, min(100, s + multiplier * config.saturationStep))
+  const newL = max(10, min(90, l + multiplier * config.lightnessStep))
 
   return hslToHex(newH, newS, newL)
 }

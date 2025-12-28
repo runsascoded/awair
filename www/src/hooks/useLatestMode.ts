@@ -1,3 +1,4 @@
+import { abs } from '@rdub/base'
 import { useRef, useCallback, useMemo } from 'react'
 import { formatForPlotly } from "../utils/dateFormat"
 import type { AwairRecord } from '../types/awair'
@@ -55,7 +56,7 @@ export function useLatestMode(
   const checkUserPanAway = useCallback((newEnd: Date) => {
     if (!ignoreLatestModeCheckRef.current && data.length > 0 && latestModeIntended) {
       const latestTime = new Date(data[0].timestamp)
-      const timeDiffMinutes = Math.abs(newEnd.getTime() - latestTime.getTime()) / (1000 * 60)
+      const timeDiffMinutes = abs(newEnd.getTime() - latestTime.getTime()) / (1000 * 60)
 
       // Disable Latest mode if user panned more than 10 minutes away from latest data
       if (timeDiffMinutes > 10) {

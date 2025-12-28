@@ -1,4 +1,3 @@
-import React from 'react'
 import { Tooltip } from './Tooltip'
 import { formatDuration } from '../hooks/useTimeRangeParam'
 import { formatFullDate } from "../utils/dateFormat"

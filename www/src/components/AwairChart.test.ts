@@ -1,3 +1,4 @@
+import { abs } from "@rdub/base"
 import { parquetRead } from 'hyparquet'
 import { describe, it, expect } from 'vitest'
 
@@ -43,7 +44,7 @@ describe('Timezone Conversion', () => {
     console.log('Timezone offset:', timezoneOffset, 'minutes')
 
     // In summer (EDT), timezone offset should be 240 minutes (4 hours)
-    expect(Math.abs(timezoneOffset)).toBe(240)
+    expect(abs(timezoneOffset)).toBe(240)
 
     // The difference between them should be the timezone offset
     const expectedDiff = timezoneOffset * 60 * 1000 // convert to milliseconds

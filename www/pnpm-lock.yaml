@@ -17,6 +17,9 @@ importers:
       '@observablehq/plot':
         specifier: ^0.6.17
         version: 0.6.17
+      '@rdub/base':
+        specifier: ^0.8.1
+        version: 0.8.1(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       '@rdub/use-hotkeys':
         specifier: workspace:*
         version: link:../../js/use-hotkeys
@@ -1144,6 +1147,12 @@ packages:
     resolution: {integrity: sha512-aBSREisdsGH890S2rQqK82qmQYU3uFpSH8wcZWHgHzl3LfzsxAKbLNiAG9mO8v1Y0UICBeClICxPJvyr0rcuxg==}
     engines: {node: '>=18'}
     hasBin: true
+
+  '@rdub/base@0.8.1':
+    resolution: {integrity: sha512-O1m8QmZy8jrnjRsWxSsTI+U5B0XwZAQV6kWcnRqFrnSlRa5BKpt8zsOuiEupCMFRo3eBNt57A4ajTEjiE6IRpg==}
+    peerDependencies:
+      react: ^18
+      react-dom: ^18
 
   '@rdub/eslint-config@0.0.3':
     resolution: {integrity: sha512-RPLHdNqZqdqJ2N/e+s2QbbVj/JnM+49kAbqz/+J1wAGDiH77629fSDJXinPL+xmA4c0euBJ4KP2neAY6BLPiOg==}
@@ -2334,6 +2343,10 @@ packages:
     resolution: {integrity: sha512-MOqHvMWF9/9MX6nza0KgvFH4HpMU0EF5uUDXqX/BtxtU8NfB0QzRtJ8Oe/6SuS4kbhyzVJwjd97EA4PKrzJ8bw==}
     engines: {node: '>=0.12'}
 
+  data-uri-to-buffer@4.0.1:
+    resolution: {integrity: sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==}
+    engines: {node: '>= 12'}
+
   data-uri-to-buffer@6.0.2:
     resolution: {integrity: sha512-7hvf7/GW8e86rW0ptuwS3OcBGDjIi6SZva7hCyWC0yYry2cOPmLIjXAUHI6DK2HsnwJd9ifmt57i8eV2n4YNpw==}
     engines: {node: '>= 14'}
@@ -2739,6 +2752,10 @@ packages:
       picomatch:
         optional: true
 
+  fetch-blob@3.2.0:
+    resolution: {integrity: sha512-7yAQpD2UMJzLi1Dqv7qFYnPbaPx7ZfFK6PiIxQ4PfkGPyNyl2Ugx+a/umUonmKqjhM4DnfbMvdX6otXq83soQQ==}
+    engines: {node: ^12.20 || >= 14.13}
+
   fflate@0.8.2:
     resolution: {integrity: sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==}
 
@@ -2789,6 +2806,10 @@ packages:
   foreground-child@3.3.1:
     resolution: {integrity: sha512-gIXjKqtFuWEgzFRJA9WCQeSJLZDjgJUOMCMzxtvFq/37KojM1BFGufqsCy0r4qSQmYLsZYMeyRqzIWOMup03sw==}
     engines: {node: '>=14'}
+
+  formdata-polyfill@4.0.10:
+    resolution: {integrity: sha512-buewHzMvYL29jdeQTVILecSaZKnt/RJWjoZCF5OW60Z67/GmSLBkOFM7qh1PI3zFNtJbaZL5eQu1vLfazOwj4g==}
+    engines: {node: '>=12.20.0'}
 
   from2@2.3.0:
     resolution: {integrity: sha512-OMcX/4IC/uqEPVgGeyfN22LJk6AZrMkRZHxcHBMBvHScDGgwTm2GT2Wkgtocyd3JfZffjj2kYUDXXII0Fk9W0g==}
@@ -3433,6 +3454,15 @@ packages:
 
   node-addon-api@7.1.1:
     resolution: {integrity: sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ==}
+
+  node-domexception@1.0.0:
+    resolution: {integrity: sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==}
+    engines: {node: '>=10.5.0'}
+    deprecated: Use your platform's native DOMException instead
+
+  node-fetch@3.3.2:
+    resolution: {integrity: sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
@@ -4300,6 +4330,13 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
+  use-local-storage-state@19.5.0:
+    resolution: {integrity: sha512-sUJAyFvsmqMpBhdwaRr7GTKkkoxb6PWeNVvpBDrLuwQF1PpbJRKIbOYeLLeqJI7B3wdfFlLLCBbmOdopiSTBOw==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      react: '>=18'
+      react-dom: '>=18'
+
   use-session-storage-state@19.0.1:
     resolution: {integrity: sha512-TK1K+UyTGNyOPN2K3yLOt0nTfeRlYRrLlNRN0kiI4irDng3HU4P0BArSAib0eD/VaQNlYs5WCdjeoEK1y/fIZA==}
     engines: {node: '>=14'}
@@ -4465,6 +4502,10 @@ packages:
 
   weak-map@1.0.8:
     resolution: {integrity: sha512-lNR9aAefbGPpHO7AEnY0hCFjz1eTkWCXYvkTRrTHs9qv8zJp+SkVYpzfLIFXQQiG3tVvbNFQgVg2bQS8YGgxyw==}
+
+  web-streams-polyfill@3.3.3:
+    resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
+    engines: {node: '>= 8'}
 
   webdriver-bidi-protocol@0.3.9:
     resolution: {integrity: sha512-uIYvlRQ0PwtZR1EzHlTMol1G0lAlmOe6wPykF9a77AK3bkpvZHzIVxRE2ThOx5vjy2zISe0zhwf5rzuUfbo1PQ==}
@@ -5760,6 +5801,13 @@ snapshots:
       - bare-buffer
       - react-native-b4a
       - supports-color
+
+  '@rdub/base@0.8.1(react-dom@19.2.1(react@19.2.1))(react@19.2.1)':
+    dependencies:
+      node-fetch: 3.3.2
+      react: 19.2.1
+      react-dom: 19.2.1(react@19.2.1)
+      use-local-storage-state: 19.5.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
 
   '@rdub/eslint-config@0.0.3(eslint@9.39.1)(typescript@5.8.3)':
     dependencies:
@@ -7173,6 +7221,8 @@ snapshots:
       es5-ext: 0.10.64
       type: 2.7.3
 
+  data-uri-to-buffer@4.0.1: {}
+
   data-uri-to-buffer@6.0.2: {}
 
   data-urls@5.0.0:
@@ -7720,6 +7770,11 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.3
 
+  fetch-blob@3.2.0:
+    dependencies:
+      node-domexception: 1.0.0
+      web-streams-polyfill: 3.3.3
+
   fflate@0.8.2: {}
 
   file-entry-cache@8.0.0:
@@ -7771,6 +7826,10 @@ snapshots:
     dependencies:
       cross-spawn: 7.0.6
       signal-exit: 4.1.0
+
+  formdata-polyfill@4.0.10:
+    dependencies:
+      fetch-blob: 3.2.0
 
   from2@2.3.0:
     dependencies:
@@ -8482,6 +8541,14 @@ snapshots:
 
   node-addon-api@7.1.1:
     optional: true
+
+  node-domexception@1.0.0: {}
+
+  node-fetch@3.3.2:
+    dependencies:
+      data-uri-to-buffer: 4.0.1
+      fetch-blob: 3.2.0
+      formdata-polyfill: 4.0.10
 
   node-releases@2.0.27: {}
 
@@ -9590,6 +9657,11 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
+  use-local-storage-state@19.5.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1):
+    dependencies:
+      react: 19.2.1
+      react-dom: 19.2.1(react@19.2.1)
+
   use-session-storage-state@19.0.1(react-dom@19.2.1(react@19.2.1))(react@19.2.1):
     dependencies:
       react: 19.2.1
@@ -9773,6 +9845,8 @@ snapshots:
       xml-name-validator: 5.0.0
 
   weak-map@1.0.8: {}
+
+  web-streams-polyfill@3.3.3: {}
 
   webdriver-bidi-protocol@0.3.9: {}
 
