@@ -1,12 +1,11 @@
 import { abs, ceil, floor, max } from "@rdub/base"
-import { useAction, useDynamicHotkeysContext } from '@rdub/use-hotkeys'
+import { useAction } from '@rdub/use-hotkeys'
 import { useUrlParam } from '@rdub/use-url-params'
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
 import Plot from 'react-plotly.js'
 import { ChartControls, metricConfig, getRangeFloor } from './ChartControls'
 import { CustomLegend } from './CustomLegend'
 import { DataTable } from './DataTable'
-import { SequenceModal } from './SequenceModal'
 import { TIME_WINDOWS, getWindowForDuration } from '../hooks/useDataAggregation'
 import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics'
@@ -293,14 +292,6 @@ export const AwairChart = memo(function AwairChart(
       setXAxisRange([formatForPlotly(newStart), formatForPlotly(newEnd)], { duration: newDuration })
     }
   }, [setXAxisRange, getAllDeviceBounds])
-
-  // Get sequence state from hotkeys context
-  const {
-    pendingKeys,
-    isAwaitingSequence,
-    sequenceTimeoutStartedAt: timeoutStartedAt,
-    sequenceTimeout,
-  } = useDynamicHotkeysContext()
 
   // Helper: set primary metric (swapping if needed)
   const setLeftMetric = useCallback((metric: Metric) => {
@@ -782,13 +773,6 @@ export const AwairChart = memo(function AwairChart(
 
   return (
     <div className={`awair-chart${isOgMode ? ' og-mode' : ''}`}>
-      {/* Sequence modal (omnibar-style with completions) */}
-      <SequenceModal
-        pendingKeys={pendingKeys}
-        isAwaitingSequence={isAwaitingSequence}
-        timeoutStartedAt={timeoutStartedAt}
-        sequenceTimeout={sequenceTimeout}
-      />
       {/* OG mode title overlay */}
       {isOgMode && (
         <div className="og-title" style={{ color: plotColors.textColor }}>
@@ -952,7 +936,7 @@ export const AwairChart = memo(function AwairChart(
           }}
           onWindowChange={window => {
             if (window) {
-              setXGrouping({mode: 'fixed', windowLabel: window.label})
+              setXGrouping({ mode: 'fixed', windowLabel: window.label })
             }
           }}
           targetPx={targetPx as PxOption | null}

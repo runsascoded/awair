@@ -1,4 +1,4 @@
-import { Omnibar, ShortcutsModal, useDynamicHotkeysContext } from '@rdub/use-hotkeys'
+import { Omnibar, SequenceModal, ShortcutsModal, useDynamicHotkeysContext } from '@rdub/use-hotkeys'
 import '@rdub/use-hotkeys/styles.css'
 import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -190,6 +190,7 @@ function AppContent() {
                 <ShortcutsModalContent groups={groups} close={close} />
             }</ShortcutsModal>
             <Omnibar placeholder="Search actions..." maxResults={15} />
+            <SequenceModal />
           </>
       }
     </div>
