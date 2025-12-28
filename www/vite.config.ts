@@ -16,7 +16,4 @@ export default defineConfig({
       'plotly.js-dist-min': 'plotly.js/dist/plotly-basic.min.js',
     },
   },
-  optimizeDeps: {
-    exclude: ['@rdub/use-hotkeys'],
-  },
 })

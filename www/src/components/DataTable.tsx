@@ -1,6 +1,6 @@
 import { abs, max, min, round } from '@rdub/base'
-import { useAction } from '@rdub/use-hotkeys'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useAction } from 'use-kbd'
 import { Tooltip } from './Tooltip'
 import { formatCompactDate, formatFullDate } from "../utils/dateFormat"
 

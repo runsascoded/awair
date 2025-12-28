@@ -1,7 +1,7 @@
-import { useRecordHotkey, useHotkeysContext, CommandIcon, CtrlIcon, ShiftIcon, OptIcon, parseHotkeyString } from '@rdub/use-hotkeys'
 import { useState, useCallback, useEffect, useMemo, type ReactNode, Fragment } from 'react'
+import { useRecordHotkey, useHotkeysContext, CommandIcon, CtrlIcon, ShiftIcon, OptIcon, parseHotkeyString } from 'use-kbd'
 import { Tooltip } from './Tooltip'
-import type { HotkeySequence, KeyCombinationDisplay, ShortcutGroup, KeyCombination } from '@rdub/use-hotkeys'
+import type { HotkeySequence, KeyCombinationDisplay, ShortcutGroup, KeyCombination } from 'use-kbd'
 
 export interface ShortcutsModalContentProps {
   groups: ShortcutGroup[]

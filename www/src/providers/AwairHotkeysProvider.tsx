@@ -1,4 +1,4 @@
-import { HotkeysProvider } from '@rdub/use-hotkeys'
+import { HotkeysProvider } from 'use-kbd'
 import type { ReactNode } from "react"
 
 interface AwairHotkeysProviderProps {
