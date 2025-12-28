@@ -360,16 +360,17 @@ export const AwairChart = memo(function AwairChart(
   useAction('right:autorange', { label: 'Toggle auto-range', group: 'Right Y-Axis', defaultBindings: ['shift+a'], handler: () => { if (r.val !== 'none') r.setAutoRange(!r.autoRange) } })
 
   // Time ranges
-  useAction('time:00-12h', { label: '12 hours', group: 'Time Range', defaultBindings: ['ctrl+h'], keywords: ['12h', '12hr', 'half day'], handler: () => handleTimeRangeClick(12) })
-  useAction('time:01-1d', { label: '1 day', group: 'Time Range', defaultBindings: ['1', 'd 1'], keywords: ['1d', '24h', 'day', 'today'], handler: () => handleTimeRangeClick(24) })
-  useAction('time:02-3d', { label: '3 days', group: 'Time Range', defaultBindings: ['3', 'd 3'], keywords: ['3d', '72h'], handler: () => handleTimeRangeClick(24 * 3) })
-  useAction('time:03-7d', { label: '1 week', group: 'Time Range', defaultBindings: ['7', 'w 1'], keywords: ['7d', '1w', 'week'], handler: () => handleTimeRangeClick(24 * 7) })
-  useAction('time:04-14d', { label: '2 weeks', group: 'Time Range', defaultBindings: ['2', 'w 2'], keywords: ['14d', '2w', 'fortnight'], handler: () => handleTimeRangeClick(24 * 14) })
-  useAction('time:05-31d', { label: '1 month', group: 'Time Range', defaultBindings: ['m 1'], keywords: ['31d', '1mo', '1m', 'month'], handler: () => handleTimeRangeClick(24 * 31) })
-  useAction('time:06-62d', { label: '2 months', group: 'Time Range', defaultBindings: ['m 2'], keywords: ['62d', '2mo', '2m'], handler: () => handleTimeRangeClick(24 * 62) })
-  useAction('time:07-92d', { label: '3 months', group: 'Time Range', defaultBindings: ['m 3'], keywords: ['92d', '3mo', '3m', 'quarter'], handler: () => handleTimeRangeClick(24 * 92) })
-  useAction('time:08-all', { label: 'Full history', group: 'Time Range', defaultBindings: ['x'], keywords: ['all', 'everything', 'max'], handler: handleAllClick })
-  useAction('time:09-latest', { label: 'Latest', group: 'Time Range', defaultBindings: ['l'], keywords: ['now', 'current', 'live'], handler: toggleLatestMode })
+  useAction('time:00-6h', { label: '6 hours', group: 'Time Range', defaultBindings: ['6'], keywords: ['6h', '6hr'], handler: () => handleTimeRangeClick(6) })
+  useAction('time:01-12h', { label: '12 hours', group: 'Time Range', defaultBindings: ['ctrl+h'], keywords: ['12h', '12hr', 'half day'], handler: () => handleTimeRangeClick(12) })
+  useAction('time:02-1d', { label: '1 day', group: 'Time Range', defaultBindings: ['1', 'd 1'], keywords: ['1d', '24h', 'day', 'today'], handler: () => handleTimeRangeClick(24) })
+  useAction('time:03-3d', { label: '3 days', group: 'Time Range', defaultBindings: ['3', 'd 3'], keywords: ['3d', '72h'], handler: () => handleTimeRangeClick(24 * 3) })
+  useAction('time:04-7d', { label: '1 week', group: 'Time Range', defaultBindings: ['7', 'w 1'], keywords: ['7d', '1w', 'week'], handler: () => handleTimeRangeClick(24 * 7) })
+  useAction('time:05-14d', { label: '2 weeks', group: 'Time Range', defaultBindings: ['2', 'w 2'], keywords: ['14d', '2w', 'fortnight'], handler: () => handleTimeRangeClick(24 * 14) })
+  useAction('time:06-31d', { label: '1 month', group: 'Time Range', defaultBindings: ['m 1'], keywords: ['31d', '1mo', '1m', 'month'], handler: () => handleTimeRangeClick(24 * 31) })
+  useAction('time:07-62d', { label: '2 months', group: 'Time Range', defaultBindings: ['m 2'], keywords: ['62d', '2mo', '2m'], handler: () => handleTimeRangeClick(24 * 62) })
+  useAction('time:08-92d', { label: '3 months', group: 'Time Range', defaultBindings: ['m 3'], keywords: ['92d', '3mo', '3m', 'quarter'], handler: () => handleTimeRangeClick(24 * 92) })
+  useAction('time:09-all', { label: 'Full history', group: 'Time Range', defaultBindings: ['x'], keywords: ['all', 'everything', 'max'], handler: handleAllClick })
+  useAction('time:10-latest', { label: 'Latest', group: 'Time Range', defaultBindings: ['l'], keywords: ['now', 'current', 'live'], handler: toggleLatestMode })
 
   // Devices
   useAction('device:gym', { label: 'Toggle Gym', group: 'Devices', defaultBindings: ['g'], handler: () => toggleDeviceByPattern('gym') })

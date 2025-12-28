@@ -14,6 +14,7 @@ interface RangeWidthControlProps {
 }
 
 const timeRangeOptions = [
+  { label: '6h', hours: 6 },
   { label: '12h', hours: 12 },
   { label: '1d', hours: 24 },
   { label: '3d', hours: 24 * 3 },
