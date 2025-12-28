@@ -1,4 +1,4 @@
-import { Omnibar, SequenceModal, ShortcutsModal, useDynamicHotkeysContext } from '@rdub/use-hotkeys'
+import { Omnibar, SequenceModal, ShortcutsModal, useHotkeysContext } from '@rdub/use-hotkeys'
 import '@rdub/use-hotkeys/styles.css'
 import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -19,7 +19,7 @@ function AppContent() {
   const [isOgMode] = useUrlParam('og', boolParam)
 
   // Only need openModal for ThemeToggle; modal/omnibar components use context internally
-  const { openModal } = useDynamicHotkeysContext()
+  const { openModal } = useHotkeysContext()
 
   // Add og-mode class to body for CSS overrides
   useEffect(() => {

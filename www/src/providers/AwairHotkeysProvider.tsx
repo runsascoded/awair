@@ -1,4 +1,4 @@
-import { DynamicHotkeysProvider } from '@rdub/use-hotkeys'
+import { HotkeysProvider } from '@rdub/use-hotkeys'
 import type { ReactNode } from "react"
 
 interface AwairHotkeysProviderProps {
@@ -6,10 +6,10 @@ interface AwairHotkeysProviderProps {
 }
 
 /**
- * Awair-specific wrapper around DynamicHotkeysProvider.
+ * Awair-specific wrapper around HotkeysProvider.
  * Actions are registered by individual components using useAction.
  */
 export function AwairHotkeysProvider({ children }: AwairHotkeysProviderProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <DynamicHotkeysProvider config={{ storageKey: 'awair-hotkeys' }} children={children as any} />
+  return <HotkeysProvider config={{ storageKey: 'awair-hotkeys' }} children={children as any} />
 }

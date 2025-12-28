@@ -1,4 +1,4 @@
-import { useRecordHotkey, useDynamicHotkeysContext, CommandIcon, CtrlIcon, ShiftIcon, OptIcon, parseHotkeyString } from '@rdub/use-hotkeys'
+import { useRecordHotkey, useHotkeysContext, CommandIcon, CtrlIcon, ShiftIcon, OptIcon, parseHotkeyString } from '@rdub/use-hotkeys'
 import { useState, useCallback, useEffect, useMemo, type ReactNode, Fragment } from 'react'
 import { Tooltip } from './Tooltip'
 import type { HotkeySequence, KeyCombinationDisplay, ShortcutGroup, KeyCombination } from '@rdub/use-hotkeys'
@@ -20,7 +20,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   const [timeoutAnimKey, setTimeoutAnimKey] = useState(0)
 
   // Access shortcuts state from context
-  const { registry, conflicts, hasConflicts } = useDynamicHotkeysContext()
+  const { registry, conflicts, hasConflicts } = useHotkeysContext()
 
   // Build ordered list of all editable actions for Tab navigation
   const editableActions = useMemo(() => {
