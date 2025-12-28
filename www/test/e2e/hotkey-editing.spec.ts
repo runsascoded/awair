@@ -120,8 +120,9 @@ test.describe('Hotkey Editing', () => {
     // Find the Temperature row in the Left column and click its kbd element
     // The table structure is: Metric | Left | Right
     // Temperature is the first row
+    // Each cell can have multiple kbd elements (multiple bindings), so use first()
     const tempRow = page.locator('.shortcuts-table tbody tr').first()
-    const leftKbd = tempRow.locator('td:nth-child(2) kbd')
+    const leftKbd = tempRow.locator('td:nth-child(2) kbd').first()
 
     // Verify it starts with 'T'
     await expect(leftKbd).toHaveText('T')
@@ -135,12 +136,14 @@ test.describe('Hotkey Editing', () => {
     // Press a new key - use 'q' (not already bound in DEFAULT_HOTKEY_MAP)
     await page.keyboard.press('q')
 
-    // Wait for the update
-    await page.waitForTimeout(500)
+    // Wait for sequence timeout (SEQUENCE_TIMEOUT_MS = 1000ms) + buffer
+    await page.waitForTimeout(1200)
 
-    // Verify the new key is displayed
-    await expect(leftKbd).toHaveText('Q')
-    await expect(leftKbd).not.toHaveClass(/editing/)
+    // Verify the key was replaced (T -> Q)
+    const leftCell = tempRow.locator('td:nth-child(2)')
+    await expect(leftCell.locator('kbd', { hasText: 'Q' })).toBeVisible()
+    await expect(leftCell.locator('kbd', { hasText: 'T' })).toHaveCount(0)  // T should be gone
+    await expect(leftCell.locator('kbd.editing')).toHaveCount(0)
   })
 
   test('edited hotkey persists and works', async ({ page }) => {
@@ -163,14 +166,16 @@ test.describe('Hotkey Editing', () => {
     await page.waitForSelector('.shortcuts-modal', { timeout: 5000 })
 
     const tempRow = page.locator('.shortcuts-table tbody tr').first()
-    const leftKbd = tempRow.locator('td:nth-child(2) kbd')
+    const leftKbd = tempRow.locator('td:nth-child(2) kbd').first()
 
     await leftKbd.click()
     await page.keyboard.press('q')
-    await page.waitForTimeout(500)
+    await page.waitForTimeout(1200)  // Wait for sequence timeout
 
-    // Verify the key was updated in the modal
-    await expect(leftKbd).toHaveText('Q')
+    // Verify the key was replaced (T -> Q)
+    const leftCell = tempRow.locator('td:nth-child(2)')
+    await expect(leftCell.locator('kbd', { hasText: 'Q' })).toBeVisible()
+    await expect(leftCell.locator('kbd', { hasText: 'T' })).toHaveCount(0)  // T should be gone
 
     // Close modal by pressing Escape
     await page.keyboard.press('Escape')
@@ -209,14 +214,14 @@ test.describe('Hotkey Editing', () => {
 
     // Find Temperature row and click left kbd
     const tempRow = page.locator('.shortcuts-table tbody tr').first()
-    const leftKbd = tempRow.locator('td:nth-child(2) kbd')
+    const leftKbd = tempRow.locator('td:nth-child(2) kbd').first()
 
     await expect(leftKbd).toHaveText('T')
 
     // Click and press '9'
     await leftKbd.click()
     await page.keyboard.press('9')
-    await page.waitForTimeout(500)
+    await page.waitForTimeout(1200)  // Wait for sequence timeout
 
     // Verify update
     await expect(leftKbd).toHaveText('9')
@@ -246,7 +251,7 @@ test.describe('Hotkey Editing', () => {
 
     // Change temp hotkey to 'x' which is already bound to 'time:06-all' (Full history) in defaults
     const tempRow = page.locator('.shortcuts-table tbody tr').first()
-    const leftKbd = tempRow.locator('td:nth-child(2) kbd')
+    const leftKbd = tempRow.locator('td:nth-child(2) kbd').first()
 
     // Verify initial state: temp is 'T'
     await expect(leftKbd).toHaveText('T')
@@ -265,7 +270,15 @@ test.describe('Hotkey Editing', () => {
     await page.keyboard.press('x')
     await page.waitForTimeout(500)
 
-    // Verify Temperature now shows 'X' with conflict styling
+    // Verify Temperature shows 'X...' with conflict styling (recording paused due to conflict)
+    await expect(leftKbd).toHaveText(/^X/)
+    await expect(leftKbd).toHaveClass(/conflict/)
+
+    // Press Tab to force-commit the conflicting key (timeout is paused during conflict)
+    await page.keyboard.press('Tab')
+    await page.waitForTimeout(300)
+
+    // Verify Temperature now shows just 'X' (committed)
     await expect(leftKbd).toHaveText('X')
     await expect(leftKbd).toHaveClass(/conflict/)
 
@@ -297,66 +310,75 @@ test.describe('Hotkey Editing', () => {
     await expect(yAxisDropdown).toHaveValue('temp')
   })
 
-  test('reassigning hotkey cleans up old overrides', async ({ page }) => {
-    // This tests the bug where reassigning a hotkey left old overrides in localStorage
-    // e.g., assigning '2' then '3' then '4' to same action would result in
-    // { '2': action, '3': action, '4': action } instead of just { '4': action }
+  test('adding multiple keys to an action using + button', async ({ page }) => {
+    // Multi-binding: use + button to add additional bindings to an action
+    // Clicking existing key edits/replaces it, + button adds new ones
 
     await page.locator('body').click({ position: { x: 10, y: 10 } })
     await page.keyboard.press('?')
     await page.waitForSelector('.shortcuts-modal', { timeout: 5000 })
 
     const tempRow = page.locator('.shortcuts-table tbody tr').first()
-    const leftKbd = tempRow.locator('td:nth-child(2) kbd')
+    const leftCell = tempRow.locator('td:nth-child(2)')
 
-    // Assign 'q' to temp
-    await leftKbd.click()
+    // Initially should have just 'T'
+    await expect(leftCell.locator('kbd', { hasText: 'T' })).toBeVisible()
+
+    // Add 'q' using the + button (adds, doesn't replace)
+    const addButton = leftCell.locator('.add-key-btn')
+    await addButton.click()
     await page.keyboard.press('q')
-    await page.waitForTimeout(300)
-    await expect(leftKbd).toHaveText('Q')
+    await page.waitForTimeout(1200)  // Wait for sequence timeout
 
-    // Reassign to 'w'
-    await leftKbd.click()
-    await page.keyboard.press('w')
-    await page.waitForTimeout(300)
-    await expect(leftKbd).toHaveText('W')
+    // Now should have both T and Q
+    await expect(leftCell.locator('kbd', { hasText: 'T' })).toBeVisible()
+    await expect(leftCell.locator('kbd', { hasText: 'Q' })).toBeVisible()
 
-    // Reassign to 'e'
-    await leftKbd.click()
-    await page.keyboard.press('e')
-    await page.waitForTimeout(300)
-    await expect(leftKbd).toHaveText('E')
+    // Add 'y' as well using the + button
+    // Note: 'w' can't be used because it's a prefix of 'w 1' and 'w 2' sequences,
+    // which creates a prefix conflict that pauses the timeout
+    await addButton.click()
+    await page.keyboard.press('y')
+    await page.waitForTimeout(1200)
 
-    // Check localStorage - should only have 'e': 'left:temp', not 'q' or 'w'
+    // Should have T, Q, and Y
+    await expect(leftCell.locator('kbd', { hasText: 'T' })).toBeVisible()
+    await expect(leftCell.locator('kbd', { hasText: 'Q' })).toBeVisible()
+    await expect(leftCell.locator('kbd', { hasText: 'Y' })).toBeVisible()
+
+    // Check localStorage - should have custom bindings for q and y
     const storage = await page.evaluate(() => localStorage.getItem('awair-hotkeys'))
     const overrides = JSON.parse(storage || '{}')
 
-    // Should only have one entry for this action
-    expect(Object.keys(overrides).filter(k => overrides[k] === 'left:temp')).toHaveLength(1)
-    expect(overrides['e']).toBe('left:temp')
-    expect(overrides['q']).toBeUndefined()
-    expect(overrides['w']).toBeUndefined()
+    expect(overrides['q']).toBe('left:temp')
+    expect(overrides['y']).toBe('left:temp')
   })
 
   test('reset button restores default hotkeys', async ({ page }) => {
-    // Click to focus, then open modal and change temp to 'x'
+    // Click to focus, then open modal and add 'z' to temp using + button
     await page.locator('body').click({ position: { x: 10, y: 10 } })
     await page.keyboard.press('?')
     await page.waitForSelector('.shortcuts-modal', { timeout: 5000 })
 
     const tempRow = page.locator('.shortcuts-table tbody tr').first()
-    const leftKbd = tempRow.locator('td:nth-child(2) kbd')
+    const leftCell = tempRow.locator('td:nth-child(2)')
 
-    await leftKbd.click()
-    await page.keyboard.press('x')
-    await page.waitForTimeout(500)
-    await expect(leftKbd).toHaveText('X')
+    // Add 'z' binding using + button (adds, doesn't replace)
+    const addButton = leftCell.locator('.add-key-btn')
+    await addButton.click()
+    await page.keyboard.press('z')
+    await page.waitForTimeout(1200)  // Wait for sequence timeout
+    await expect(leftCell.locator('kbd', { hasText: 'Z' })).toBeVisible()
+
+    // Verify we now have both T and Z
+    await expect(leftCell.locator('kbd', { hasText: 'T' })).toBeVisible()
 
     // Click Reset button
     await page.locator('.shortcuts-modal .reset-button').click()
     await page.waitForTimeout(300)
 
-    // Verify it's back to 'T'
-    await expect(leftKbd).toHaveText('T')
+    // Verify Z is gone and only T remains
+    await expect(leftCell.locator('kbd', { hasText: 'Z' })).toHaveCount(0)
+    await expect(leftCell.locator('kbd', { hasText: 'T' })).toBeVisible()
   })
 })

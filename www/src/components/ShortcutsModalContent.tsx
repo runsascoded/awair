@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, type ReactNode, Fragment } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode, Fragment } from 'react'
 import { useRecordHotkey, useHotkeysContext, CommandIcon, CtrlIcon, ShiftIcon, OptIcon, parseHotkeyString } from 'use-kbd'
 import { Tooltip } from './Tooltip'
 import type { HotkeySequence, KeyCombinationDisplay, ShortcutGroup, KeyCombination } from 'use-kbd'
@@ -18,6 +18,11 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   const [addingAction, setAddingAction] = useState<string | null>(null)
   // Key to restart timeout animation when pendingKeys changes
   const [timeoutAnimKey, setTimeoutAnimKey] = useState(0)
+
+  // Refs to avoid stale closure in onCapture callback
+  const editingActionRef = useRef<string | null>(null)
+  const editingKeyRef = useRef<string | null>(null)
+  const addingActionRef = useRef<string | null>(null)
 
   // Access shortcuts state from context
   const { registry, conflicts, hasConflicts } = useHotkeysContext()
@@ -89,21 +94,32 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   const { isRecording, startRecording, cancel, pendingKeys, activeKeys } = useRecordHotkey({
     onCapture: useCallback(
       (_sequence: HotkeySequence, display: KeyCombinationDisplay) => {
-        if (addingAction) {
+        // Use refs to get current values (avoids stale closure from async state updates)
+        const currentAddingAction = addingActionRef.current
+        const currentEditingAction = editingActionRef.current
+        const currentEditingKey = editingKeyRef.current
+
+        if (currentAddingAction) {
           // Adding a new key for an action
-          registry.setBinding(addingAction, display.id)
+          registry.setBinding(currentAddingAction, display.id)
+          addingActionRef.current = null
           setAddingAction(null)
-        } else if (editingAction && editingKey) {
+        } else if (currentEditingAction && currentEditingKey) {
           // Editing/replacing a specific existing key
-          registry.removeBinding(editingKey)
-          registry.setBinding(editingAction, display.id)
+          registry.removeBinding(currentEditingKey)
+          registry.setBinding(currentEditingAction, display.id)
+          editingActionRef.current = null
+          editingKeyRef.current = null
           setEditingAction(null)
           setEditingKey(null)
         }
       },
-      [editingAction, editingKey, addingAction, registry],
+      [registry],
     ),
     onCancel: useCallback(() => {
+      editingActionRef.current = null
+      editingKeyRef.current = null
+      addingActionRef.current = null
       setEditingAction(null)
       setEditingKey(null)
       setAddingAction(null)
@@ -125,6 +141,11 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
 
   const startEditing = useCallback(
     (action: string, key: string) => {
+      // Set refs immediately (sync) so onCapture sees current values
+      addingActionRef.current = null
+      editingActionRef.current = action
+      editingKeyRef.current = key
+      // Also set state for re-render
       setAddingAction(null)
       setEditingAction(action)
       setEditingKey(key)
@@ -135,6 +156,11 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
 
   const startAdding = useCallback(
     (action: string) => {
+      // Set refs immediately (sync) so onCapture sees current values
+      editingActionRef.current = null
+      editingKeyRef.current = null
+      addingActionRef.current = action
+      // Also set state for re-render
       setEditingAction(null)
       setEditingKey(null)
       setAddingAction(action)
