@@ -53,7 +53,11 @@ function findDeviceByPattern(pattern: string, devices: Device[]): number | null 
     if (device) return device.deviceId
   }
 
-  // Try case-insensitive substring match on name
+  // Try exact name match first (case-insensitive)
+  const exactMatch = devices.find(d => d.name?.toLowerCase() === lower)
+  if (exactMatch) return exactMatch.deviceId
+
+  // Fall back to substring match on name
   const nameMatches = devices.filter(d =>
     d.name?.toLowerCase().includes(lower)
   )

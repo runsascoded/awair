@@ -43,8 +43,8 @@ class ParquetStorage:
             if self._dirty and self._batch_df is not None:
                 # Normalize timestamps to naive (remove timezone info) before sorting
                 self._batch_df['timestamp'] = pd.to_datetime(self._batch_df['timestamp']).dt.tz_localize(None)
-                # Sort by timestamp and save
-                final_df = self._batch_df.sort_values('timestamp').reset_index(drop=True)
+                # Sort by timestamp and enforce consistent column order
+                final_df = self._batch_df[FIELDS].sort_values('timestamp').reset_index(drop=True)
                 # Use existing row group size if detected, otherwise let pandas decide
                 if self._row_group_size is not None:
                     final_df.to_parquet(self.file_path, index=False, engine='pyarrow', row_group_size=self._row_group_size)

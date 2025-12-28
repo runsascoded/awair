@@ -1,5 +1,6 @@
 """Configuration and utility functions for Awair CLI."""
 
+import json
 import re
 import time
 from functools import cache, partial
@@ -10,6 +11,28 @@ import requests
 from click import echo, option
 
 err = partial(echo, err=True)
+
+
+def get_device_overrides() -> dict:
+    """Load device property overrides from ~/.awair/device-names.json.
+
+    File format:
+        {
+            "137506": {"name": "RT"},
+            "17617": {"name": "Gym"}
+        }
+
+    Returns:
+        Dict mapping device ID (as string) to override properties
+    """
+    overrides_path = expanduser('~/.awair/device-names.json')
+    if exists(overrides_path):
+        try:
+            with open(overrides_path) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError) as e:
+            err(f'Warning: Failed to load device overrides from {overrides_path}: {e}')
+    return {}
 
 # API endpoints
 V1 = 'https://developer-apis.awair.is/v1'
@@ -116,6 +139,14 @@ def get_devices(force_refresh: bool = False):
     # Fetch fresh data from API
     res = get(DEVICES)
     devices = res['devices']
+
+    # Apply local overrides (e.g., custom names)
+    overrides = get_device_overrides()
+    if overrides:
+        for device in devices:
+            device_id_str = str(device['deviceId'])
+            if device_id_str in overrides:
+                device.update(overrides[device_id_str])
 
     # Convert to DataFrame and add metadata
     df = pd.DataFrame(devices)

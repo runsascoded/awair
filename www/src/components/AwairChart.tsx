@@ -374,6 +374,7 @@ export const AwairChart = memo(function AwairChart(
   // Devices
   useAction('device:gym', { label: 'Toggle Gym', group: 'Devices', defaultBindings: ['g'], handler: () => toggleDeviceByPattern('gym') })
   useAction('device:br', { label: 'Toggle BR', group: 'Devices', defaultBindings: ['b'], keywords: ['bedroom'], handler: () => toggleDeviceByPattern('br') })
+  useAction('device:rt', { label: 'Toggle RT', group: 'Devices', defaultBindings: ['r'], handler: () => toggleDeviceByPattern('rt') })
 
   // Handle responsive plot height and viewport width using matchMedia
   useEffect(() => {
