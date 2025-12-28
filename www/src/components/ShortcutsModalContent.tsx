@@ -27,67 +27,6 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
   // Access shortcuts state from context
   const { registry, conflicts, hasConflicts } = useHotkeysContext()
 
-  // Build ordered list of all editable actions for Tab navigation
-  const editableActions = useMemo(() => {
-    const allActions = Array.from(registry.actions.keys())
-    const actions: string[] = []
-    // Y-Axis metrics (left then right per row)
-    const metricSuffixes = ['temp', 'co2', 'humid', 'pm25', 'voc', 'autorange']
-    for (const metric of metricSuffixes) {
-      actions.push(`left:${metric}`, `right:${metric}`)
-    }
-    actions.push('right:none')
-    // Time range actions (sorted)
-    const timeActions = allActions
-      .filter(a => a.startsWith('time:'))
-      .sort()
-    actions.push(...timeActions)
-    // Device actions
-    const deviceActions = allActions
-      .filter(a => a.startsWith('device:'))
-    actions.push(...deviceActions)
-    // Table navigation (prev/next pairs)
-    actions.push('table:prev-page', 'table:next-page')
-    actions.push('table:prev-plot-page', 'table:next-plot-page')
-    actions.push('table:first-page', 'table:last-page')
-    // Other
-    const otherActions = allActions
-      .filter(a => a.startsWith('modal:') || a.startsWith('omnibar:'))
-    actions.push(...otherActions)
-    return actions
-  }, [registry.actions])
-
-  // Navigate to next/previous action in the list
-  const navigateToAction = useCallback((direction: 'next' | 'prev') => {
-    const currentAction = editingAction || addingAction
-    if (!currentAction) return
-
-    const currentIndex = editableActions.indexOf(currentAction)
-    if (currentIndex === -1) return
-
-    const newIndex = direction === 'next'
-      ? (currentIndex + 1) % editableActions.length
-      : (currentIndex - 1 + editableActions.length) % editableActions.length
-
-    const newAction = editableActions[newIndex]
-
-    // Get the first binding for the new action (or null if none)
-    const bindings = registry.getBindingsForAction(newAction)
-    const firstKey = bindings.length > 0 ? bindings[0] : null
-
-    // Start editing the new action's first key (or adding if no bindings)
-    if (firstKey) {
-      setEditingAction(newAction)
-      setEditingKey(firstKey)
-      setAddingAction(null)
-    } else {
-      // No existing bindings, switch to adding mode
-      setEditingAction(null)
-      setEditingKey(null)
-      setAddingAction(newAction)
-    }
-  }, [editingAction, addingAction, editableActions, registry])
-
   // Track pending conflict state - initially false, updated after pendingKeys changes
   const [hasPendingConflict, setHasPendingConflict] = useState(false)
 
@@ -124,12 +63,9 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
       setEditingKey(null)
       setAddingAction(null)
     }, []),
-    // Tab navigation: onCapture is called first (by useRecordHotkey) with pending keys,
-    // then onTab/onShiftTab moves to next/prev action
-    onTab: useCallback(() => navigateToAction('next'), [navigateToAction]),
-    onShiftTab: useCallback(() => navigateToAction('prev'), [navigateToAction]),
     // Pause timeout when there's a pending conflict - gives user time to refine
     pauseTimeout: hasPendingConflict,
+    // Tab navigation uses native browser focus - kbd elements have tabIndex={0}
   })
 
   // Restart timeout animation when pendingKeys changes
@@ -458,7 +394,9 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
       <span className="key-with-remove">
         <kbd
           className={classes}
+          tabIndex={0}
           onClick={() => startEditing(action, key)}
+          onFocus={() => startEditing(action, key)}
           title={title}
         >
           {displayKey || '-'}
@@ -505,6 +443,7 @@ export function ShortcutsModalContent({ groups, close }: ShortcutsModalContentPr
       <button
         className="add-key-btn"
         onClick={() => startAdding(action)}
+        onFocus={() => startAdding(action)}
         title="Add another shortcut"
       >
         +
