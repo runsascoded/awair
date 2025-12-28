@@ -205,7 +205,9 @@ class ParquetStorage:
             if parquet_file.metadata.num_row_groups > 0:
                 # Use the size of the first row group as the target size
                 first_row_group = parquet_file.metadata.row_group(0)
-                self._row_group_size = first_row_group.num_rows
+                num_rows = first_row_group.num_rows
+                # Only use detected size if > 0 (empty files have 0 rows)
+                self._row_group_size = num_rows if num_rows > 0 else None
             else:
                 self._row_group_size = None
         except Exception:
