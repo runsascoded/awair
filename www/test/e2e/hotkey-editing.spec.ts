@@ -111,6 +111,68 @@ test.describe('Hotkey Editing', () => {
     await expect(modal.locator('h2')).toHaveText('Keyboard Shortcuts')
   })
 
+  test('shortcuts modal has opaque background in light mode', async ({ page }) => {
+    // Open shortcuts modal (default is light mode)
+    await page.locator('body').click({ position: { x: 10, y: 10 } })
+    await page.keyboard.press('?')
+    await page.waitForSelector('.kbd-modal', { timeout: 5000 })
+
+    const modal = page.locator('.kbd-modal')
+
+    // Get computed background color
+    const bgColor = await modal.evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor
+    })
+
+    // Background should be opaque (not transparent)
+    const rgbaMatch = bgColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/)
+    expect(rgbaMatch).not.toBeNull()
+    const alpha = rgbaMatch![4] !== undefined ? parseFloat(rgbaMatch![4]) : 1
+    expect(alpha).toBe(1)
+  })
+
+  test('shortcuts modal has opaque background in dark mode', async ({ page }) => {
+    // Set dark mode before navigating (awair uses 'awair-theme' key)
+    await page.addInitScript(() => {
+      localStorage.setItem('awair-theme', 'dark')
+    })
+
+    // Re-navigate to apply theme
+    await page.goto('/?y=th&d=gym&t=251129T1740')
+    await page.waitForSelector('.js-plotly-plot', { timeout: 30000 })
+
+    // Verify dark mode is active
+    const dataTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'))
+    expect(dataTheme).toBe('dark')
+
+    // Open shortcuts modal
+    await page.locator('body').click({ position: { x: 10, y: 10 } })
+    await page.keyboard.press('?')
+    await page.waitForSelector('.kbd-modal', { timeout: 5000 })
+
+    const modal = page.locator('.kbd-modal')
+
+    // Get computed background color
+    const bgColor = await modal.evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor
+    })
+
+    // Background should be opaque (not transparent)
+    const rgbaMatch = bgColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/)
+    expect(rgbaMatch).not.toBeNull()
+    const alpha = rgbaMatch![4] !== undefined ? parseFloat(rgbaMatch![4]) : 1
+    expect(alpha).toBe(1)
+
+    // In dark mode, should be dark color (low RGB values), not white fallback
+    const r = parseInt(rgbaMatch![1])
+    const g = parseInt(rgbaMatch![2])
+    const b = parseInt(rgbaMatch![3])
+
+    // Dark mode background should be dark (sum of RGB < 200 typically)
+    // #1a1a1a = rgb(26, 26, 26) = 78
+    expect(r + g + b).toBeLessThan(200)
+  })
+
   test('can edit a hotkey by clicking and pressing a new key', async ({ page }) => {
     // Click to focus, then open shortcuts modal
     await page.locator('body').click({ position: { x: 10, y: 10 } })
