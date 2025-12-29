@@ -54,8 +54,8 @@ importers:
         specifier: ^1.6.32
         version: 1.6.32
       use-kbd:
-        specifier: github:runsascoded/use-kbd#95d6a27e9dc69fb1f9fa3c3755cd1f18ead759fa
-        version: https://codeload.github.com/runsascoded/use-kbd/tar.gz/95d6a27e9dc69fb1f9fa3c3755cd1f18ead759fa(react@19.2.1)
+        specifier: ^0.3.0
+        version: 0.3.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       use-session-storage-state:
         specifier: ^19.0.1
         version: 19.0.1(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -4452,9 +4452,8 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
-  use-kbd@https://codeload.github.com/runsascoded/use-kbd/tar.gz/95d6a27e9dc69fb1f9fa3c3755cd1f18ead759fa:
-    resolution: {tarball: https://codeload.github.com/runsascoded/use-kbd/tar.gz/95d6a27e9dc69fb1f9fa3c3755cd1f18ead759fa}
-    version: 0.3.0-dist.dc3aaec
+  use-kbd@0.3.0:
+    resolution: {integrity: sha512-AkR5zbUoNPgq3Y4u0Uk8PvIsc0E7jjRA8top54MxQ7pBJNDVIAt6hAdC2jTGOqwrgqaIPlZU/xYJxZAuHrNTGA==}
     peerDependencies:
       react: '>=18.0.0'
 
@@ -10085,9 +10084,12 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  use-kbd@https://codeload.github.com/runsascoded/use-kbd/tar.gz/95d6a27e9dc69fb1f9fa3c3755cd1f18ead759fa(react@19.2.1):
+  use-kbd@0.3.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1):
     dependencies:
+      '@rdub/base': 0.8.1(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       react: 19.2.1
+    transitivePeerDependencies:
+      - react-dom
 
   use-local-storage-state@19.5.0(react-dom@19.2.1(react@18.3.1))(react@18.3.1):
     dependencies:
