@@ -243,8 +243,7 @@ test.describe('Hotkey Editing', () => {
     await expect(yAxisDropdown).toHaveValue('temp')
   })
 
-  // TODO: Investigate conflict detection behavior with use-kbd
-  test.skip('assigning key that conflicts shows warning and disables both', async ({ page }) => {
+  test('assigning key that conflicts shows warning and disables both', async ({ page }) => {
     // Click to focus, open modal
     await page.locator('body').click({ position: { x: 10, y: 10 } })
     await page.keyboard.press('?')
@@ -269,28 +268,26 @@ test.describe('Hotkey Editing', () => {
     // Now assign 'x' to Temperature
     await leftKbd.click()
     await page.keyboard.press('x')
-    await page.waitForTimeout(500)
 
-    // Verify Temperature shows 'X...' with pending-conflict styling (recording paused due to conflict)
-    await expect(leftKbd).toHaveText(/^X/)
-    await expect(leftKbd).toHaveClass(/pending-conflict/)
+    // Wait for sequence timeout (1000ms) + buffer for conflict detection
+    await page.waitForTimeout(1200)
 
-    // Press Tab to force-commit the conflicting key (timeout is paused during conflict)
-    await page.keyboard.press('Tab')
+    // use-kbd shows conflict warning banner after sequence timeout
+    const warningBanner = page.locator('.kbd-conflict-warning')
+    await expect(warningBanner).toBeVisible()
+    await expect(warningBanner).toContainText('already bound to')
+
+    // Click Override to commit the conflicting binding
+    await warningBanner.locator('button', { hasText: 'Override' }).click()
     await page.waitForTimeout(300)
 
-    // Verify Temperature now shows just 'X' (committed)
+    // Verify Temperature now shows 'X' (committed)
     await expect(leftKbd).toContainText('X')
     await expect(leftKbd).toHaveClass(/conflict/)
 
     // CRITICAL: Verify Full history ALSO shows 'X' (same key, because both are bound to 'x')
     await expect(fullHistoryKbd).toContainText('X')
     await expect(fullHistoryKbd).toHaveClass(/conflict/)
-
-    // Verify the conflict warning banner is shown
-    const warningBanner = page.locator('.kbd-conflict-warning')
-    await expect(warningBanner).toBeVisible()
-    await expect(warningBanner).toContainText('conflicts')
 
     // Close modal
     await page.keyboard.press('Escape')
