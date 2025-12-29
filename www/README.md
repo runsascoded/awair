@@ -16,6 +16,7 @@ A real-time air quality monitoring dashboard for Awair sensors, built with React
 - **Latest Mode**: Auto-update charts when new data arrives
 - **Table View**: Paginated data table with navigation controls
 - **Dark/Light Mode**: Theme toggle with system preference support
+- **Keyboard Shortcuts**: Quick navigation and metric selection
 - **Responsive Design**: Mobile-friendly interface
 
 ## Development
@@ -60,6 +61,7 @@ The app is automatically deployed to GitHub Pages on push to `main` branch when 
 - `useAwairData`: Fetches and caches Parquet data from S3 per device
 - `useLatestMode`: Manages auto-update functionality
 - `useDataAggregation`: Adaptive data aggregation logic
+- Keyboard shortcuts powered by [use-kbd] (configured in `config/hotkeyConfig.ts`)
 
 ### Data Flow
 
@@ -79,6 +81,28 @@ The app uses a `DataSource` interface (`src/services/dataSource.ts`) to enable b
 - **cfw** (planned): CloudFlare Worker endpoint for edge filtering
 
 Each implementation reports timing metrics (network, parse, bytes transferred) for comparison.
+
+## Keyboard Shortcuts
+
+Press `?` to open the shortcuts modal, or `⌘K` / `Ctrl+K` for the command palette.
+
+Keyboard shortcuts are powered by [use-kbd].
+
+### Metrics
+- `t`: Temperature
+- `c`: CO₂
+- `h`: Humidity
+- `p`: PM2.5
+- `v`: VOC
+
+### Time Range
+- `1`: 1 day view
+- `3`: 3 days view
+- `7`: 7 days view
+- `a`: All data view
+- `l`: Latest mode toggle
+
+[use-kbd]: https://github.com/runsascoded/use-kbd
 
 ## Configuration
 

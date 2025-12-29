@@ -1,0 +1,13 @@
+// Map awair theme variables to use-kbd CSS custom properties
+.kbd-modal,
+.kbd-omnibar,
+.kbd-sequence {
+  --kbd-bg: var(--bg-primary);
+  --kbd-bg-secondary: var(--bg-secondary);
+  --kbd-text: var(--text-primary);
+  --kbd-text-secondary: var(--text-secondary);
+  --kbd-border: var(--border-color);
+  --kbd-kbd-bg: var(--bg-tertiary, var(--bg-secondary));
+  --kbd-kbd-border: var(--border-color);
+  --kbd-kbd-text: var(--text-primary);
+}
