@@ -61,7 +61,7 @@ The app is automatically deployed to GitHub Pages on push to `main` branch when 
 - `useAwairData`: Fetches and caches Parquet data from S3 per device
 - `useLatestMode`: Manages auto-update functionality
 - `useDataAggregation`: Adaptive data aggregation logic
-- Keyboard shortcuts powered by [use-kbd] (configured in `src/config/hotkeyConfig.ts`)
+- Keyboard shortcuts powered by [use-kbd] (configured in `config/hotkeyConfig.ts`)
 
 ### Data Flow
 

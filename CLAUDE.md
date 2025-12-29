@@ -212,7 +212,7 @@ React + TypeScript + Vite application:
   - `useLatestMode.ts`: Auto-update when new data arrives
 
 - **Keyboard shortcuts**: Powered by [use-kbd] library (not a local hook)
-  - Configured in `src/config/hotkeyConfig.ts`
+  - Configured in `www/src/config/hotkeyConfig.ts`
   - Press `?` to open shortcuts modal, `⌘K` / `Ctrl+K` for command palette
 
 [use-kbd]: https://github.com/runsascoded/use-kbd
@@ -262,16 +262,6 @@ with atomic_edit(bucket, key, create_ok=True, download=True) as tmp_path:
 This ensures no data loss even if multiple Lambda invocations occur (though reserved concurrency prevents this).
 
 ## Development Workflow
-
-### use-kbd Development
-
-From `/Users/ryan/c/awair/www`:
-- `pds l kbd` - use local use-kbd from `/Users/ryan/c/js/use-kbd`
-- `pds gh kbd` - switch to use-kbd GitHub `dist` branch
-
-To release use-kbd changes:
-1. Push to main: `git -C /Users/ryan/c/js/use-kbd push`
-2. Dispatch build-dist GHA: `gh workflow run build-dist.yml -R runsascoded/use-kbd`
 
 ### Making Changes to Lambda
 

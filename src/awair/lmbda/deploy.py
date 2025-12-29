@@ -140,8 +140,8 @@ def create_lambda_package(package_type: str = 'source', version: str = None) -> 
 
             print('Copying source files...')
             # Copy awair module (excluding lmbda directory)
-            # Path: /Users/ryan/c/380nwk/awair/src/awair/lmbda/deploy.py
-            # We want: /Users/ryan/c/380nwk/awair/src/awair
+            # This file is at: src/awair/lmbda/deploy.py
+            # We want the parent: src/awair/
             awair_src = Path(__file__).parent.parent
             awair_dest = package_dir / 'awair'
 

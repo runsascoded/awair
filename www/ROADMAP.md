@@ -16,31 +16,15 @@
 
 ---
 
-## 2. Hotkey Library (`use-hotkeys` or similar)
+## 2. Hotkey Library
 
-**Goal:** Standalone library for vim-style keyboard shortcuts with customization UI.
+**✅ Completed:** [use-kbd](https://github.com/runsascoded/use-kbd) - standalone library for vim-style keyboard shortcuts.
 
-**Requirements:**
+**Features:**
 - Multi-key sequences ("d g" for Gym, "d b" for BR)
 - Runtime-editable keybindings with capture UI
-- Built-in popup showing all shortcuts
-- React hooks API
-
-**Research findings:**
-| Library | Sequences | Runtime Edit | UI | Status |
-|---------|-----------|--------------|-----|--------|
-| tinykeys | Yes | No | No | Active, tiny |
-| react-hotkeys | Yes | Yes (`recordKeyCombination`) | Yes | Unmaintained 6yr |
-| react-hotkeys-hook | No | No | Partial | Active, popular |
-| mousetrap | Yes | Yes | No | Unmaintained 6yr |
-| kbar/cmdk | No | Via props | Yes (palette) | Active |
-
-**Recommendation:** Build new library combining:
-- tinykeys' sequence parsing (or similar)
-- react-hotkeys' `recordKeyCombination` concept
-- Built-in `<ShortcutsModal>` and `<KeybindingEditor>` components
-
-**Gap:** No actively-maintained library has all three: sequences + runtime editing + UI.
+- Built-in `<ShortcutsModal>`, `<Omnibar>`, `<SequenceModal>` components
+- React hooks API (`useAction`, `useHotkeysContext`)
 
 ---
 
