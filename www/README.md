@@ -84,16 +84,25 @@ Each implementation reports timing metrics (network, parse, bytes transferred) f
 
 ## Keyboard Shortcuts
 
+Press `?` to open the shortcuts modal, or `⌘K` / `Ctrl+K` for the command palette.
+
+Keyboard shortcuts are powered by [use-kbd].
+
+### Metrics
 - `t`: Temperature
 - `c`: CO₂
 - `h`: Humidity
 - `p`: PM2.5
 - `v`: VOC
+
+### Time Range
 - `1`: 1 day view
 - `3`: 3 days view
 - `7`: 7 days view
-- `l`: Latest mode toggle
 - `a`: All data view
+- `l`: Latest mode toggle
+
+[use-kbd]: https://github.com/runsascoded/use-kbd
 
 ## Configuration
 
