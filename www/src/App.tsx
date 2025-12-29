@@ -1,7 +1,7 @@
 import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Omnibar, SequenceModal, ShortcutsModal, useHotkeysContext } from 'use-kbd'
+import { HotkeysProvider, Omnibar, SequenceModal, ShortcutsModal, useHotkeysContext } from 'use-kbd'
 import 'use-kbd/styles.css'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
@@ -12,7 +12,6 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
 import { queryClient } from './lib/queryClient'
 import { boolParam, deviceIdsParam, timeRangeParam, refetchIntervalParam } from './lib/urlParams'
-import { AwairHotkeysProvider } from './providers/AwairHotkeysProvider'
 import './App.scss'
 
 // Custom group renderers for ShortcutsModal
@@ -210,9 +209,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AwairHotkeysProvider>
+        <HotkeysProvider>
           <AppContent />
-        </AwairHotkeysProvider>
+        </HotkeysProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )
