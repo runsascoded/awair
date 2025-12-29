@@ -27,7 +27,7 @@
     "@fortawesome/fontawesome-free": "^6.7.2",
     "@observablehq/plot": "^0.6.17",
     "@rdub/base": "^0.8.1",
-    "use-kbd": "github:runsascoded/use-kbd#e087c2fe636f293f505f0b9bd96afe0b9d17c29f",
+    "use-kbd": "github:runsascoded/use-kbd#2fab15e106cdfe396a603e298d556de7c568d598",
     "@rdub/use-url-params": "^0.1.2",
     "@tanstack/react-query": "^5.83.0",
     "d3": "^7.9.0",
