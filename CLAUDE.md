@@ -211,12 +211,6 @@ React + TypeScript + Vite application:
   - `useMetrics.ts`: URL-persisted Y-axis metric selection
   - `useLatestMode.ts`: Auto-update when new data arrives
 
-- **Keyboard shortcuts**: Powered by [use-kbd] library (not a local hook)
-  - Configured in `www/src/config/hotkeyConfig.ts`
-  - Press `?` to open shortcuts modal, `⌘K` / `Ctrl+K` for command palette
-
-[use-kbd]: https://github.com/runsascoded/use-kbd
-
 ### Lambda Deployment Process
 
 1. **Package Creation** (`deploy.py:create_lambda_package()`):

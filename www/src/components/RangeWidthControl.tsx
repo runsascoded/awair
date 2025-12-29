@@ -51,8 +51,7 @@ export function RangeWidthControl({
 
   const tooltipContent = <div><ul>
     <li><b>Current:</b> {rangeText}</li>
-    <li><b>▶|:</b> "Latest" mode; auto-follow newest data (hotkey: l)</li>
-    <li><b>Hotkeys:</b> 1=1d, 2=2wk, 3=3d, 7=1wk, x=All, ?=more</li>
+    <li><b>▶|:</b> "Latest" mode; auto-follow newest data</li>
   </ul></div>
 
   return (
