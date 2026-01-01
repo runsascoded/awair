@@ -1,0 +1,18 @@
+// Map awair theme variables to use-kbd CSS custom properties
+// Since awair's --bg-primary etc. change based on [data-theme],
+// use-kbd components automatically get the right colors.
+:root {
+  --kbd-bg: var(--bg-primary);
+  --kbd-bg-secondary: var(--bg-secondary);
+  --kbd-text: var(--text-primary);
+  --kbd-text-secondary: var(--text-secondary);
+  --kbd-border: var(--border-primary);
+  --kbd-kbd-bg: var(--bg-tertiary, var(--bg-secondary));
+  --kbd-kbd-border: var(--border-primary);
+  --kbd-kbd-text: var(--text-primary);
+}
+
+// Override table header styling in shortcuts modal
+.kbd-shortcuts-modal th {
+  background: transparent;
+}

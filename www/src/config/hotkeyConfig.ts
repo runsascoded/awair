@@ -1,10 +1,7 @@
-// Group display names for ShortcutsModal
-// Both 'left' and 'right' map to same group for 2-column layout
+// Group display names for ShortcutsModal (prefix fallbacks, not used when action has explicit group)
 export const HOTKEY_GROUPS: Record<string, string> = {
-  'left': 'Y-Axis Metrics',
-  'right': 'Y-Axis Metrics',
   'time': 'Time Range',
-  'device': 'Devices',
+  'device': 'Toggle devices on/off',
   'table': 'Table Navigation',
 }
 
@@ -12,6 +9,6 @@ export const HOTKEY_GROUPS: Record<string, string> = {
 export const HOTKEY_GROUP_ORDER = [
   'Y-Axis Metrics',
   'Time Range',
-  'Devices',
+  'Toggle devices on/off',
   'Table Navigation',
 ]

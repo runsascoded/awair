@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Air quality monitor icon: stylized wave/breath pattern -->
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4aa3df"/>
+      <stop offset="100%" style="stop-color:#2ecc71"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect x="2" y="2" width="28" height="28" rx="6" fill="#1a1a1a"/>
+  <!-- Three wavy lines representing air/breath -->
+  <path d="M6 11 Q10 8, 14 11 T22 11 T26 11" stroke="url(#grad)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M6 16 Q10 13, 14 16 T22 16 T26 16" stroke="url(#grad)" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <path d="M6 21 Q10 18, 14 21 T22 21 T26 21" stroke="url(#grad)" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.4"/>
+</svg>
