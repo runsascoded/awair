@@ -36,7 +36,7 @@ export interface HsvConfig {
 const DEFAULT_HSV_CONFIG: HsvConfig = {
   hueStep: 0,
   saturationStep: 0,
-  lightnessStep: 12,
+  lightnessStep: 15,
 }
 
 /**

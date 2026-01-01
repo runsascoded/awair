@@ -40,7 +40,8 @@ export async function fetchDevices(): Promise<Device[]> {
   try {
     const url = getDevicesUrl()
     console.log('🔄 Fetching devices list from S3...')
-    const response = await fetch(url)
+    // Use no-cache to bypass browser HTTP cache - ensures fresh data when React Query refetches
+    const response = await fetch(url, { cache: 'no-cache' })
     if (!response.ok) {
       throw new Error(`Failed to fetch devices: ${response.status}`)
     }

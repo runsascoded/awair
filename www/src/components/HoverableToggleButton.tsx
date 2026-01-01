@@ -4,6 +4,7 @@ interface HoverableToggleButtonProps {
   value: boolean
   onChange: (value: boolean) => void
   onDisplayChange?: (displayValue: boolean) => void
+  onDoubleClick?: () => void
   activeLabel?: string
   inactiveLabel?: string
   children: ReactNode
@@ -34,6 +35,7 @@ export function HoverableToggleButton({
   value,
   onChange,
   onDisplayChange,
+  onDoubleClick,
   children,
   className = '',
   title
@@ -78,6 +80,7 @@ export function HoverableToggleButton({
     <button
       className={classes}
       onClick={handleClick}
+      onDoubleClick={onDoubleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       title={title}

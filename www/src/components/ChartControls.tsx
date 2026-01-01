@@ -39,6 +39,8 @@ interface ChartControlsProps {
   devices: Device[]
   selectedDeviceIds: number[]
   onDeviceSelectionChange: (deviceIds: number[]) => void
+  onPreviewDeviceIds?: (deviceIds: number[] | null) => void
+  onHoverDeviceId?: (deviceId: number | null) => void
   // Aggregation control
   selectedWindow: TimeWindow
   validWindows: TimeWindow[]
@@ -86,6 +88,8 @@ export function ChartControls({
   devices,
   selectedDeviceIds,
   onDeviceSelectionChange,
+  onPreviewDeviceIds,
+  onHoverDeviceId,
   selectedWindow,
   validWindows,
   onWindowChange,
@@ -132,6 +136,8 @@ export function ChartControls({
         devices={devices}
         selectedDeviceIds={selectedDeviceIds}
         onDeviceSelectionChange={onDeviceSelectionChange}
+        onPreviewDeviceIds={onPreviewDeviceIds}
+        onHoverDeviceId={onHoverDeviceId}
         deviceRenderStrategy={deviceRenderStrategy}
         setDeviceRenderStrategy={setDeviceRenderStrategy}
         hsvConfig={hsvConfig}

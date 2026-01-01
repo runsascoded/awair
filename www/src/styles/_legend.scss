@@ -57,6 +57,22 @@
       }
     }
 
+    .floor-edit-input {
+      width: 4rem;
+      padding: 0.15rem 0.25rem;
+      font-size: 0.85rem;
+      border: 1px solid var(--accent-primary);
+      border-radius: 4px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      text-align: center;
+
+      &:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+      }
+    }
+
     .metric-unit {
       font-size: 0.85rem;
       color: var(--text-primary); // Match y-tick color
@@ -118,6 +134,13 @@
       .legend-labels-row {
         flex-direction: row-reverse;
       }
+    }
+  }
+
+  // Single device: wider line samples since there's more space
+  &.single-device {
+    .legend-labels-row > .legend-line-sample {
+      width: 3rem;
     }
   }
 

@@ -11,7 +11,7 @@ import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
-import { deviceRenderStrategyParam, hsvConfigParam, intFromList, xGroupingParam } from '../lib/urlParams'
+import { deviceRenderStrategyParam, hsvConfigParam, intFromList, rangeFloorsParam, xGroupingParam } from '../lib/urlParams'
 import { getFileBounds } from '../services/awairService'
 import { formatForPlotly } from '../utils/dateFormat'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
@@ -42,6 +42,7 @@ interface Props {
   devices: Device[]
   selectedDeviceIds: number[]
   onDeviceSelectionChange: (deviceIds: number[]) => void
+  onHoverDeviceId?: (deviceId: number | null) => void
   timeRange: { timestamp: Date | null; duration: number }
   setTimeRange: (range: { timestamp: Date | null; duration: number }) => void
   isOgMode?: boolean
@@ -54,6 +55,7 @@ export const AwairChart = memo(function AwairChart(
     devices,
     selectedDeviceIds,
     onDeviceSelectionChange,
+    onHoverDeviceId,
     timeRange: timeRangeFromProps,
     setTimeRange: setTimeRangeFromProps,
     isOgMode = false,
@@ -83,6 +85,17 @@ export const AwairChart = memo(function AwairChart(
   // X-axis grouping: auto mode (px values) or fixed window mode (time labels)
   const [xGrouping, setXGrouping] = useUrlParam('x', xGroupingParam)
 
+  // Custom range floors per metric (e.g., ?f=t32 for temp floor=32°F)
+  const [rangeFloors, setRangeFloors] = useUrlParam('f', rangeFloorsParam)
+
+  // Helper to get effective floor (custom or default from metricConfig)
+  const getEffectiveFloor = useCallback((metric: Metric) => {
+    if (rangeFloors[metric] !== undefined) {
+      return rangeFloors[metric]!
+    }
+    return getRangeFloor(metric)
+  }, [rangeFloors])
+
   // Derive targetPx and overrideWindow from unified xGrouping state
   const targetPx = xGrouping.mode === 'auto' ? xGrouping.targetPx : null
   const overrideWindow = useMemo(() => {
@@ -104,6 +117,12 @@ export const AwairChart = memo(function AwairChart(
   // Auto-range button display state - what the buttons are currently showing (including preview)
   const [leftAutoRangeDisplay, setLeftAutoRangeDisplay] = useState(l.autoRange)
   const [rightAutoRangeDisplay, setRightAutoRangeDisplay] = useState(r.autoRange)
+
+  // Device preview state - for showing what would happen if a device checkbox is toggled
+  const [previewDeviceIds, setPreviewDeviceIds] = useState<number[] | null>(null)
+
+  // Use preview device IDs when available, otherwise actual selected IDs
+  const displayDeviceIds = previewDeviceIds ?? selectedDeviceIds
 
   // Refs for handling programmatic updates
   const ignoreNextRelayoutRef = useRef(false)
@@ -159,12 +178,19 @@ export const AwairChart = memo(function AwairChart(
     { containerWidth: viewportWidth, overrideWindow, targetPx }
   )
 
+  // Filter device aggregations for display (when previewing a device checkbox toggle)
+  const displayDeviceAggregations = useMemo(() => {
+    return deviceAggregations.filter(d => displayDeviceIds.includes(d.deviceId))
+  }, [deviceAggregations, displayDeviceIds])
+
   // Track which device to show in the DataTable (defaults to first device)
   const [selectedDeviceIdForTable, setSelectedDeviceIdForTable] = useState<number | undefined>(undefined)
 
-  // Auto-select first device when deviceAggregations changes
+  // Auto-select first device when deviceAggregations changes, or reset if selected device no longer available
   useEffect(() => {
-    if (deviceAggregations.length > 0 && selectedDeviceIdForTable === undefined) {
+    if (deviceAggregations.length === 0) return
+    const selectedStillAvailable = deviceAggregations.some(d => d.deviceId === selectedDeviceIdForTable)
+    if (!selectedStillAvailable) {
       setSelectedDeviceIdForTable(deviceAggregations[0].deviceId)
     }
   }, [deviceAggregations, selectedDeviceIdForTable])
@@ -343,21 +369,21 @@ export const AwairChart = memo(function AwairChart(
   // ===== Register actions with useAction =====
 
   // Left Y-axis metrics
-  useAction('left:temp', { label: 'Temperature', group: 'Left Y-Axis', defaultBindings: ['t'], handler: () => setLeftMetric('temp') })
-  useAction('left:co2', { label: 'CO₂', group: 'Left Y-Axis', defaultBindings: ['c'], handler: () => setLeftMetric('co2') })
-  useAction('left:humid', { label: 'Humidity', group: 'Left Y-Axis', defaultBindings: ['h'], handler: () => setLeftMetric('humid') })
-  useAction('left:pm25', { label: 'PM2.5', group: 'Left Y-Axis', defaultBindings: ['p'], handler: () => setLeftMetric('pm25') })
-  useAction('left:voc', { label: 'VOC', group: 'Left Y-Axis', defaultBindings: ['v'], handler: () => setLeftMetric('voc') })
-  useAction('left:autorange', { label: 'Toggle auto-range', group: 'Left Y-Axis', defaultBindings: ['a'], handler: () => l.setAutoRange(!l.autoRange) })
+  useAction('left:temp', { label: 'Temperature', group: 'Y-Axis Metrics', defaultBindings: ['t'], handler: () => setLeftMetric('temp') })
+  useAction('left:co2', { label: 'CO₂', group: 'Y-Axis Metrics', defaultBindings: ['c'], handler: () => setLeftMetric('co2') })
+  useAction('left:humid', { label: 'Humidity', group: 'Y-Axis Metrics', defaultBindings: ['h'], handler: () => setLeftMetric('humid') })
+  useAction('left:pm25', { label: 'PM2.5', group: 'Y-Axis Metrics', defaultBindings: ['p'], handler: () => setLeftMetric('pm25') })
+  useAction('left:voc', { label: 'VOC', group: 'Y-Axis Metrics', defaultBindings: ['v'], handler: () => setLeftMetric('voc') })
+  useAction('left:autorange', { label: 'Toggle auto-range', group: 'Y-Axis Metrics', defaultBindings: ['a'], handler: () => l.setAutoRange(!l.autoRange) })
 
   // Right Y-axis metrics
-  useAction('right:temp', { label: 'Temperature', group: 'Right Y-Axis', defaultBindings: ['shift+t'], handler: () => setRightMetric('temp') })
-  useAction('right:co2', { label: 'CO₂', group: 'Right Y-Axis', defaultBindings: ['shift+c'], handler: () => setRightMetric('co2') })
-  useAction('right:humid', { label: 'Humidity', group: 'Right Y-Axis', defaultBindings: ['shift+h'], handler: () => setRightMetric('humid') })
-  useAction('right:pm25', { label: 'PM2.5', group: 'Right Y-Axis', defaultBindings: ['shift+p'], handler: () => setRightMetric('pm25') })
-  useAction('right:voc', { label: 'VOC', group: 'Right Y-Axis', defaultBindings: ['shift+v'], handler: () => setRightMetric('voc') })
-  useAction('right:none', { label: 'Clear', group: 'Right Y-Axis', defaultBindings: ['shift+n'], handler: () => r.set('none') })
-  useAction('right:autorange', { label: 'Toggle auto-range', group: 'Right Y-Axis', defaultBindings: ['shift+a'], handler: () => { if (r.val !== 'none') r.setAutoRange(!r.autoRange) } })
+  useAction('right:temp', { label: 'Temperature', group: 'Y-Axis Metrics', defaultBindings: ['shift+t'], handler: () => setRightMetric('temp') })
+  useAction('right:co2', { label: 'CO₂', group: 'Y-Axis Metrics', defaultBindings: ['shift+c'], handler: () => setRightMetric('co2') })
+  useAction('right:humid', { label: 'Humidity', group: 'Y-Axis Metrics', defaultBindings: ['shift+h'], handler: () => setRightMetric('humid') })
+  useAction('right:pm25', { label: 'PM2.5', group: 'Y-Axis Metrics', defaultBindings: ['shift+p'], handler: () => setRightMetric('pm25') })
+  useAction('right:voc', { label: 'VOC', group: 'Y-Axis Metrics', defaultBindings: ['shift+v'], handler: () => setRightMetric('voc') })
+  useAction('right:none', { label: 'Clear', group: 'Y-Axis Metrics', defaultBindings: ['shift+n'], handler: () => r.set('none') })
+  useAction('right:autorange', { label: 'Toggle auto-range', group: 'Y-Axis Metrics', defaultBindings: ['shift+a'], handler: () => { if (r.val !== 'none') r.setAutoRange(!r.autoRange) } })
 
   // Time ranges
   useAction('time:00-6h', { label: '6 hours', group: 'Time Range', defaultBindings: ['6'], keywords: ['6h', '6hr'], handler: () => handleTimeRangeClick(6) })
@@ -373,9 +399,34 @@ export const AwairChart = memo(function AwairChart(
   useAction('time:10-latest', { label: 'Latest', group: 'Time Range', defaultBindings: ['l'], keywords: ['now', 'current', 'live'], handler: toggleLatestMode })
 
   // Devices
-  useAction('device:gym', { label: 'Toggle Gym', group: 'Devices', defaultBindings: ['g'], handler: () => toggleDeviceByPattern('gym') })
-  useAction('device:br', { label: 'Toggle BR', group: 'Devices', defaultBindings: ['b'], keywords: ['bedroom'], handler: () => toggleDeviceByPattern('br') })
-  useAction('device:rt', { label: 'Toggle RT', group: 'Devices', defaultBindings: ['r'], handler: () => toggleDeviceByPattern('rt') })
+  useAction('device:gym', { label: 'Gym', group: 'Toggle devices on/off', defaultBindings: ['g'], handler: () => toggleDeviceByPattern('gym') })
+  useAction('device:br', { label: 'BR', group: 'Toggle devices on/off', defaultBindings: ['b'], keywords: ['bedroom'], handler: () => toggleDeviceByPattern('br') })
+  useAction('device:rt', { label: 'RT', group: 'Toggle devices on/off', defaultBindings: ['r'], handler: () => toggleDeviceByPattern('rt') })
+
+  // Dynamic page title: "Gym BR 🌡️ 💦" format
+  useEffect(() => {
+    const metricEmoji: Record<Metric | 'none', string> = {
+      temp: '🌡️',
+      co2: '💨',
+      humid: '💦',
+      pm25: '🌫️',
+      voc: '🧪',
+      none: '',
+    }
+
+    // Get short device names (use device name directly, should already be short like "Gym", "BR")
+    const deviceNames = selectedDeviceIds
+      .map(id => devices.find(d => d.deviceId === id)?.name)
+      .filter(Boolean)
+      .join(' ')
+
+    // Get metric emojis (left first, then right if different)
+    const leftEmoji = metricEmoji[l.val]
+    const rightEmoji = r.val !== 'none' && r.val !== l.val ? metricEmoji[r.val] : ''
+
+    const title = [deviceNames, leftEmoji, rightEmoji].filter(Boolean).join(' ') || 'Awair'
+    document.title = title
+  }, [selectedDeviceIds, devices, l.val, r.val])
 
   // Handle responsive plot height and viewport width using matchMedia
   useEffect(() => {
@@ -517,7 +568,7 @@ export const AwairChart = memo(function AwairChart(
   // Plot data preparation
   const config = metricConfig[l.val] || metricConfig.temp
   const secondaryConfig = r.val !== 'none' ? metricConfig[r.val] : null
-  const totalDevices = deviceAggregations.length
+  const totalDevices = displayDeviceAggregations.length
 
   // Helper to calculate trace opacity based on hover state
   const getTraceOpacity = useCallback((deviceIdx: number, metric: 'primary' | 'secondary'): number => {
@@ -537,7 +588,7 @@ export const AwairChart = memo(function AwairChart(
     const traces: DataWithZorder[] = []
 
     // Pre-compute data for all devices
-    const deviceData = deviceAggregations.map((deviceAgg, deviceIdx) => {
+    const deviceData = displayDeviceAggregations.map((deviceAgg, deviceIdx) => {
       const { aggregatedData: devData, deviceName } = deviceAgg
       const timestamps = devData.map(d => formatForPlotly(new Date(d.timestamp)))
 
@@ -727,7 +778,7 @@ export const AwairChart = memo(function AwairChart(
     }
 
     return traces
-  }, [deviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, deviceRenderStrategy, hsvConfig, getTraceOpacity])
+  }, [displayDeviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, deviceRenderStrategy, hsvConfig, getTraceOpacity])
 
   // Font sizes - larger in og mode for better screenshot readability
   // Note: x-axis ticks need smaller font to fit with multi-line date labels
@@ -789,7 +840,7 @@ export const AwairChart = memo(function AwairChart(
       >
         {(() => {
           // Calculate device colors for legend markers (primary metric)
-          const primaryColors = deviceAggregations.map((_, deviceIdx) => {
+          const primaryColors = displayDeviceAggregations.map((_, deviceIdx) => {
             const lineProps = getDeviceLineProps(
               config.color,
               deviceIdx,
@@ -802,7 +853,7 @@ export const AwairChart = memo(function AwairChart(
           })
           // Calculate device colors for secondary metric
           const secondaryColors = secondaryConfig
-            ? deviceAggregations.map((_, deviceIdx) => {
+            ? displayDeviceAggregations.map((_, deviceIdx) => {
               const lineProps = getDeviceLineProps(
                 secondaryConfig.color,
                 deviceIdx,
@@ -818,12 +869,15 @@ export const AwairChart = memo(function AwairChart(
             <CustomLegend
               metrics={metrics}
               isMobile={isMobile}
-              deviceNames={deviceAggregations.map(d => d.deviceName)}
+              deviceNames={displayDeviceAggregations.map(d => d.deviceName)}
               primaryColors={primaryColors}
               secondaryColors={secondaryColors}
               onHover={isOgMode ? noop : setHoverState}
               onLeftAutoRangeDisplayChange={isOgMode ? noop : setLeftAutoRangeDisplay}
               onRightAutoRangeDisplayChange={isOgMode ? noop : setRightAutoRangeDisplay}
+              getEffectiveFloor={getEffectiveFloor}
+              rangeFloors={rangeFloors}
+              setRangeFloors={setRangeFloors}
             />
           )
         })()}
@@ -866,8 +920,8 @@ export const AwairChart = memo(function AwairChart(
                 tickmode: 'array'
               })
             },
-            yaxis: createYAxisConfig('left', leftAutoRangeDisplay, getRangeFloor(l.val)),
-            ...(secondaryConfig && r.val !== 'none' && { yaxis2: createYAxisConfig('right', rightAutoRangeDisplay, getRangeFloor(r.val as Metric)) }),
+            yaxis: createYAxisConfig('left', leftAutoRangeDisplay, getEffectiveFloor(l.val)),
+            ...(secondaryConfig && r.val !== 'none' && { yaxis2: createYAxisConfig('right', rightAutoRangeDisplay, getEffectiveFloor(r.val as Metric)) }),
             // Legend is now in flow above plot, so minimal top margin needed
             margin: isOgMode
               ? { l: 50, r: 50, t: 10, b: 115 }  // Minimal top (title is absolute), extra bottom for x-axis
@@ -932,6 +986,8 @@ export const AwairChart = memo(function AwairChart(
             devices,
             selectedDeviceIds,
             onDeviceSelectionChange,
+            onPreviewDeviceIds: setPreviewDeviceIds,
+            onHoverDeviceId,
             selectedWindow,
             validWindows,
             timeRangeMinutes,

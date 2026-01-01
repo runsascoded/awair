@@ -48,6 +48,18 @@ function AppContent() {
   // Device data results from DevicePoller components
   const [deviceResults, setDeviceResults] = useState<Map<number, DeviceDataResult>>(new Map())
 
+  // Device being hovered for preview (triggers data fetch if not already loaded)
+  const [hoverDeviceId, setHoverDeviceId] = useState<number | null>(null)
+
+  // Devices to poll: selected + hovered (for preview)
+  const deviceIdsToFetch = useMemo(() => {
+    const ids = new Set(selectedDeviceIds)
+    if (hoverDeviceId !== null) {
+      ids.add(hoverDeviceId)
+    }
+    return Array.from(ids)
+  }, [selectedDeviceIds, hoverDeviceId])
+
   // Callback for DevicePoller to report results
   const handleDeviceResult = useCallback((result: DeviceDataResult) => {
     setDeviceResults(prev => {
@@ -57,10 +69,11 @@ function AppContent() {
     })
   }, [])
 
-  // Convert map to array in device order
+  // Convert map to array - include all devices with data for preview support
+  // (AwairChart's displayDeviceAggregations handles filtering for actual display)
   const deviceDataResults = useMemo(
-    () => selectedDeviceIds.map(id => deviceResults.get(id)).filter(Boolean) as DeviceDataResult[],
-    [selectedDeviceIds, deviceResults]
+    () => Array.from(deviceResults.values()),
+    [deviceResults]
   )
 
   // Combine results
@@ -118,7 +131,7 @@ function AppContent() {
           <p>Fetching air quality data from S3...</p>
         </div>
         {/* Render pollers even during loading */}
-        {selectedDeviceIds.map(deviceId => (
+        {deviceIdsToFetch.map(deviceId => (
           <DevicePoller
             key={deviceId}
             deviceId={deviceId}
@@ -140,7 +153,7 @@ function AppContent() {
           <button onClick={() => window.location.reload()}>Retry</button>
         </div>
         {/* Render pollers even during error */}
-        {selectedDeviceIds.map(deviceId => (
+        {deviceIdsToFetch.map(deviceId => (
           <DevicePoller
             key={deviceId}
             deviceId={deviceId}
@@ -156,7 +169,7 @@ function AppContent() {
   return (
     <div className="app">
       {/* Headless device pollers - one per selected device */}
-      {selectedDeviceIds.map(deviceId => (
+      {deviceIdsToFetch.map(deviceId => (
         <DevicePoller
           key={deviceId}
           deviceId={deviceId}
@@ -179,6 +192,7 @@ function AppContent() {
             devices={devices}
             selectedDeviceIds={selectedDeviceIds}
             onDeviceSelectionChange={setSelectedDeviceIds}
+            onHoverDeviceId={setHoverDeviceId}
             timeRange={timeRange}
             setTimeRange={setTimeRange}
             isOgMode={isOgMode}

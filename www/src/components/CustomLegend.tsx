@@ -1,9 +1,10 @@
+import { useState, useCallback } from 'react'
 import { metricConfig, getRangeFloor } from './ChartControls'
 import { HoverableToggleButton } from './HoverableToggleButton'
 import { Tooltip } from './Tooltip'
 import type { LegendHoverState } from './AwairChart'
 import type { MetricsState } from "../hooks/useMetrics"
-import type { Metric } from "../lib/urlParams"
+import type { Metric, RangeFloors } from "../lib/urlParams"
 
 // Check if device supports hover (not a touch-only device)
 const canHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches
@@ -17,6 +18,9 @@ interface CustomLegendProps {
   onHover: (state: LegendHoverState) => void
   onLeftAutoRangeDisplayChange: (display: boolean) => void
   onRightAutoRangeDisplayChange: (display: boolean) => void
+  getEffectiveFloor: (metric: Metric) => number
+  rangeFloors: RangeFloors
+  setRangeFloors: (floors: RangeFloors) => void
 }
 
 /**
@@ -94,13 +98,58 @@ export function CustomLegend({
   secondaryColors,
   onHover,
   onLeftAutoRangeDisplayChange,
-  onRightAutoRangeDisplayChange
+  onRightAutoRangeDisplayChange,
+  getEffectiveFloor,
+  rangeFloors,
+  setRangeFloors,
 }: CustomLegendProps) {
   const hasSecondary = r.val !== 'none'
 
+  // Floor editing state
+  const [editingFloor, setEditingFloor] = useState<'left' | 'right' | null>(null)
+  const [editValue, setEditValue] = useState('')
+
+  // Start editing a floor value
+  const startEditingFloor = useCallback((axis: 'left' | 'right') => {
+    const metric = axis === 'left' ? l.val : r.val
+    if (metric === 'none') return
+    setEditingFloor(axis)
+    setEditValue(getEffectiveFloor(metric as Metric).toString())
+  }, [l.val, r.val, getEffectiveFloor])
+
+  // Save the edited floor value
+  const saveFloor = useCallback(() => {
+    if (!editingFloor) return
+    const metric = editingFloor === 'left' ? l.val : r.val
+    if (metric === 'none') return
+
+    const newValue = parseInt(editValue, 10)
+    if (isNaN(newValue)) {
+      setEditingFloor(null)
+      return
+    }
+
+    // If same as default, remove from custom floors
+    const defaultFloor = getRangeFloor(metric as Metric)
+    if (newValue === defaultFloor) {
+      const { [metric]: _, ...rest } = rangeFloors
+      setRangeFloors(rest)
+    } else {
+      setRangeFloors({ ...rangeFloors, [metric]: newValue })
+    }
+    setEditingFloor(null)
+  }, [editingFloor, l.val, r.val, editValue, rangeFloors, setRangeFloors])
+
+  // Cancel editing
+  const cancelEditingFloor = useCallback(() => {
+    setEditingFloor(null)
+  }, [])
+
+  const isSingleDevice = deviceNames.length <= 1
+
   return (
     <div
-      className="custom-legend-controls"
+      className={`custom-legend-controls${isSingleDevice ? ' single-device' : ''}`}
       onMouseOver={(e) => {
         // Reset to all traces when mouse is directly over container (not a child)
         if (e.currentTarget === e.target) onHover(null)
@@ -122,19 +171,35 @@ export function CustomLegend({
               >
                 {Object.entries(metricConfig).map(([key, cfg]) => (
                   <option key={key} value={key}>
-                    {cfg.shortLabel}
+                    {cfg.emoji} {cfg.shortLabel}
                   </option>
                 ))}
               </select>
-              <HoverableToggleButton
-                value={!l.autoRange}
-                onChange={(active) => l.setAutoRange(!active)}
-                onDisplayChange={(display) => onLeftAutoRangeDisplayChange(!display)}
-                className="range-mode-btn"
-                title={l.autoRange ? `Click for range ≥${getRangeFloor(l.val)}` : `Range starts at ${getRangeFloor(l.val)} (click for auto-range)`}
-              >
-                ≥{getRangeFloor(l.val)}
-              </HoverableToggleButton>
+              {editingFloor === 'left' ? (
+                <input
+                  type="number"
+                  className="floor-edit-input"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={saveFloor}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveFloor()
+                    if (e.key === 'Escape') cancelEditingFloor()
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <HoverableToggleButton
+                  value={!l.autoRange}
+                  onChange={(active) => l.setAutoRange(!active)}
+                  onDisplayChange={(display) => onLeftAutoRangeDisplayChange(!display)}
+                  onDoubleClick={() => startEditingFloor('left')}
+                  className="range-mode-btn"
+                  title={l.autoRange ? `Click to set floor ≥${getEffectiveFloor(l.val)}; double-click to edit` : `Floor: ${getEffectiveFloor(l.val)} (double-click to edit)`}
+                >
+                  ≥{getEffectiveFloor(l.val)}
+                </HoverableToggleButton>
+              )}
             </>
           ) : (
             <>
@@ -146,21 +211,37 @@ export function CustomLegend({
                 >
                   {Object.entries(metricConfig).map(([key, cfg]) => (
                     <option key={key} value={key}>
-                      {cfg.shortLabel}
+                      {cfg.emoji} {cfg.shortLabel}
                     </option>
                   ))}
                 </select>
               </Tooltip>
-              <Tooltip content={l.autoRange ? 'Auto-range (a to toggle)' : `Range ≥${getRangeFloor(l.val)} (a to toggle)`}>
-                <HoverableToggleButton
-                  value={!l.autoRange}
-                  onChange={(active) => l.setAutoRange(!active)}
-                  onDisplayChange={(display) => onLeftAutoRangeDisplayChange(!display)}
-                  className="range-mode-btn"
-                >
-                  ≥{getRangeFloor(l.val)}
-                </HoverableToggleButton>
-              </Tooltip>
+              {editingFloor === 'left' ? (
+                <input
+                  type="number"
+                  className="floor-edit-input"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={saveFloor}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveFloor()
+                    if (e.key === 'Escape') cancelEditingFloor()
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <Tooltip content={l.autoRange ? `Auto-range (a to toggle); double-click to set floor` : `Floor ≥${getEffectiveFloor(l.val)} (a to toggle); double-click to edit`}>
+                  <HoverableToggleButton
+                    value={!l.autoRange}
+                    onChange={(active) => l.setAutoRange(!active)}
+                    onDisplayChange={(display) => onLeftAutoRangeDisplayChange(!display)}
+                    onDoubleClick={() => startEditingFloor('left')}
+                    className="range-mode-btn"
+                  >
+                    ≥{getEffectiveFloor(l.val)}
+                  </HoverableToggleButton>
+                </Tooltip>
+              )}
             </>
           )}
         </div>
@@ -200,15 +281,31 @@ export function CustomLegend({
           <div className="legend-controls-row">
             {isMobile ? (
               <>
-                <HoverableToggleButton
-                  value={!r.autoRange}
-                  onChange={(active) => r.setAutoRange(!active)}
-                  onDisplayChange={(display) => onRightAutoRangeDisplayChange(!display)}
-                  className="range-mode-btn"
-                  title={r.autoRange ? `Click for range ≥${getRangeFloor(r.val as Metric)}` : `Range starts at ${getRangeFloor(r.val as Metric)} (click for auto-range)`}
-                >
-                  ≥{getRangeFloor(r.val as Metric)}
-                </HoverableToggleButton>
+                {editingFloor === 'right' ? (
+                  <input
+                    type="number"
+                    className="floor-edit-input"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={saveFloor}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveFloor()
+                      if (e.key === 'Escape') cancelEditingFloor()
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  <HoverableToggleButton
+                    value={!r.autoRange}
+                    onChange={(active) => r.setAutoRange(!active)}
+                    onDisplayChange={(display) => onRightAutoRangeDisplayChange(!display)}
+                    onDoubleClick={() => startEditingFloor('right')}
+                    className="range-mode-btn"
+                    title={r.autoRange ? `Click to set floor ≥${getEffectiveFloor(r.val as Metric)}; double-click to edit` : `Floor: ${getEffectiveFloor(r.val as Metric)} (double-click to edit)`}
+                  >
+                    ≥{getEffectiveFloor(r.val as Metric)}
+                  </HoverableToggleButton>
+                )}
                 <select
                   value={r.val}
                   onChange={(e) => r.set(e.target.value as Metric | 'none')}
@@ -218,7 +315,7 @@ export function CustomLegend({
                   {Object.entries(metricConfig).map(([key, cfg]) => (
                     key !== l.val ? (
                       <option key={key} value={key}>
-                        {cfg.shortLabel}
+                        {cfg.emoji} {cfg.shortLabel}
                       </option>
                     ) : null
                   ))}
@@ -226,16 +323,32 @@ export function CustomLegend({
               </>
             ) : (
               <>
-                <Tooltip content={r.autoRange ? 'Auto-range (Shift+A to toggle)' : `Range ≥${getRangeFloor(r.val as Metric)} (Shift+A to toggle)`}>
-                  <HoverableToggleButton
-                    value={!r.autoRange}
-                    onChange={(active) => r.setAutoRange(!active)}
-                    onDisplayChange={(display) => onRightAutoRangeDisplayChange(!display)}
-                    className="range-mode-btn"
-                  >
-                    ≥{getRangeFloor(r.val as Metric)}
-                  </HoverableToggleButton>
-                </Tooltip>
+                {editingFloor === 'right' ? (
+                  <input
+                    type="number"
+                    className="floor-edit-input"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={saveFloor}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveFloor()
+                      if (e.key === 'Escape') cancelEditingFloor()
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  <Tooltip content={r.autoRange ? `Auto-range (Shift+A to toggle); double-click to set floor` : `Floor ≥${getEffectiveFloor(r.val as Metric)} (Shift+A to toggle); double-click to edit`}>
+                    <HoverableToggleButton
+                      value={!r.autoRange}
+                      onChange={(active) => r.setAutoRange(!active)}
+                      onDisplayChange={(display) => onRightAutoRangeDisplayChange(!display)}
+                      onDoubleClick={() => startEditingFloor('right')}
+                      className="range-mode-btn"
+                    >
+                      ≥{getEffectiveFloor(r.val as Metric)}
+                    </HoverableToggleButton>
+                  </Tooltip>
+                )}
                 <Tooltip content="Right Y-axis metric (Keyboard: Shift+T, Shift+C, Shift+H, Shift+P, Shift+V, Shift+N=None)">
                   <select
                     value={r.val}
@@ -246,7 +359,7 @@ export function CustomLegend({
                     {Object.entries(metricConfig).map(([key, cfg]) => (
                       key !== l.val ? (
                         <option key={key} value={key}>
-                          {cfg.shortLabel}
+                          {cfg.emoji} {cfg.shortLabel}
                         </option>
                       ) : null
                     ))}

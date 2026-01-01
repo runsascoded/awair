@@ -421,6 +421,47 @@ export const refetchIntervalParam: Param<number | undefined> = {
 }
 
 /**
+ * Range floors param - custom Y-axis minimum values per metric
+ *
+ * Format: comma-separated metric codes with values
+ * Examples:
+ *   ?f=t32     → temp floor=32
+ *   ?f=c350    → co2 floor=350
+ *   ?f=t32,c350 → temp=32, co2=350
+ *
+ * Metric codes: t=temp, c=co2, h=humid, p=pm25, v=voc
+ */
+export type RangeFloors = Partial<Record<Metric, number>>
+
+export const rangeFloorsParam: Param<RangeFloors> = {
+  encode: (floors) => {
+    const parts = Object.entries(floors)
+      .filter(([_, v]) => v !== undefined)
+      .map(([metric, value]) => `${metricToChar[metric as Metric]}${value}`)
+    return parts.length > 0 ? parts.join(',') : undefined
+  },
+  decode: (encoded) => {
+    if (!encoded) return {}
+
+    const floors: RangeFloors = {}
+    const parts = encoded.split(',')
+
+    for (const part of parts) {
+      const match = part.match(/^([tcphv])(-?\d+)$/)
+      if (match) {
+        const [, char, valueStr] = match
+        const metric = charToMetric[char]
+        if (metric) {
+          floors[metric] = parseInt(valueStr, 10)
+        }
+      }
+    }
+
+    return floors
+  },
+}
+
+/**
  * Re-export common param builders from use-url-params
  */
 export { boolParam, enumParam, intParam, stringParam } from '@rdub/use-url-params'

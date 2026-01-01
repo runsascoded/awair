@@ -32,6 +32,31 @@
         cursor: not-allowed;
       }
 
+      // Preview state when hovering - shows what would happen on click
+      &.preview {
+        opacity: 0.6;
+
+        // Previewing adding a device (currently unchecked, will become checked)
+        &:not(.checked) {
+          background: var(--accent-tertiary);
+          border-color: var(--accent-primary);
+
+          .name {
+            color: var(--text-primary);
+          }
+        }
+
+        // Previewing removing a device (currently checked, will become unchecked)
+        &.checked {
+          background: var(--bg-secondary);
+          border-color: var(--border-primary);
+
+          .name {
+            color: var(--text-secondary);
+          }
+        }
+      }
+
       input[type="checkbox"] {
         width: 14px;
         height: 14px;
