@@ -272,46 +272,89 @@ export function CustomLegend({
         </div>
       </div>
 
-      {/* Secondary metric control (right) */}
-      {hasSecondary && (
-        <div
-          className="legend-metric-control legend-metric-right"
-          onMouseOver={(e) => { if (e.currentTarget === e.target) onHover(null) }}
-        >
-          <div className="legend-controls-row">
-            {isMobile ? (
-              <>
-                {editingFloor === 'right' ? (
-                  <input
-                    type="number"
-                    className="floor-edit-input"
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onBlur={saveFloor}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') saveFloor()
-                      if (e.key === 'Escape') cancelEditingFloor()
-                    }}
-                    autoFocus
-                  />
-                ) : (
+      {/* Secondary metric control (right) - dropdown always visible */}
+      <div
+        className="legend-metric-control legend-metric-right"
+        onMouseOver={(e) => { if (e.currentTarget === e.target) onHover(null) }}
+      >
+        <div className="legend-controls-row">
+          {isMobile ? (
+            <>
+              {hasSecondary && (editingFloor === 'right' ? (
+                <input
+                  type="number"
+                  className="floor-edit-input"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={saveFloor}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveFloor()
+                    if (e.key === 'Escape') cancelEditingFloor()
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <HoverableToggleButton
+                  value={!r.autoRange}
+                  onChange={(active) => r.setAutoRange(!active)}
+                  onDisplayChange={(display) => onRightAutoRangeDisplayChange(!display)}
+                  onDoubleClick={() => startEditingFloor('right')}
+                  className="range-mode-btn"
+                  title={r.autoRange ? `Click to set floor ≥${getEffectiveFloor(r.val as Metric)}; double-click to edit` : `Floor: ${getEffectiveFloor(r.val as Metric)} (double-click to edit)`}
+                >
+                  ≥{getEffectiveFloor(r.val as Metric)}
+                </HoverableToggleButton>
+              ))}
+              <select
+                value={r.val}
+                onChange={(e) => r.set(e.target.value as Metric | 'none')}
+                onMouseEnter={canHover ? () => onHover({ type: 'metric', metric: 'secondary' }) : undefined}
+              >
+                <option value="none">-</option>
+                {Object.entries(metricConfig).map(([key, cfg]) => (
+                  key !== l.val ? (
+                    <option key={key} value={key}>
+                      {cfg.emoji} {cfg.shortLabel}
+                    </option>
+                  ) : null
+                ))}
+              </select>
+            </>
+          ) : (
+            <>
+              {hasSecondary && (editingFloor === 'right' ? (
+                <input
+                  type="number"
+                  className="floor-edit-input"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={saveFloor}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveFloor()
+                    if (e.key === 'Escape') cancelEditingFloor()
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <Tooltip content={r.autoRange ? `Auto-range (Shift+A to toggle); double-click to set floor` : `Floor ≥${getEffectiveFloor(r.val as Metric)} (Shift+A to toggle); double-click to edit`}>
                   <HoverableToggleButton
                     value={!r.autoRange}
                     onChange={(active) => r.setAutoRange(!active)}
                     onDisplayChange={(display) => onRightAutoRangeDisplayChange(!display)}
                     onDoubleClick={() => startEditingFloor('right')}
                     className="range-mode-btn"
-                    title={r.autoRange ? `Click to set floor ≥${getEffectiveFloor(r.val as Metric)}; double-click to edit` : `Floor: ${getEffectiveFloor(r.val as Metric)} (double-click to edit)`}
                   >
                     ≥{getEffectiveFloor(r.val as Metric)}
                   </HoverableToggleButton>
-                )}
+                </Tooltip>
+              ))}
+              <Tooltip content="Right Y-axis metric (Keyboard: Shift+T, Shift+C, Shift+H, Shift+P, Shift+V, Shift+N=None)">
                 <select
                   value={r.val}
                   onChange={(e) => r.set(e.target.value as Metric | 'none')}
                   onMouseEnter={canHover ? () => onHover({ type: 'metric', metric: 'secondary' }) : undefined}
                 >
-                  <option value="none">None</option>
+                  <option value="none">-</option>
                   {Object.entries(metricConfig).map(([key, cfg]) => (
                     key !== l.val ? (
                       <option key={key} value={key}>
@@ -320,56 +363,13 @@ export function CustomLegend({
                     ) : null
                   ))}
                 </select>
-              </>
-            ) : (
-              <>
-                {editingFloor === 'right' ? (
-                  <input
-                    type="number"
-                    className="floor-edit-input"
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onBlur={saveFloor}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') saveFloor()
-                      if (e.key === 'Escape') cancelEditingFloor()
-                    }}
-                    autoFocus
-                  />
-                ) : (
-                  <Tooltip content={r.autoRange ? `Auto-range (Shift+A to toggle); double-click to set floor` : `Floor ≥${getEffectiveFloor(r.val as Metric)} (Shift+A to toggle); double-click to edit`}>
-                    <HoverableToggleButton
-                      value={!r.autoRange}
-                      onChange={(active) => r.setAutoRange(!active)}
-                      onDisplayChange={(display) => onRightAutoRangeDisplayChange(!display)}
-                      onDoubleClick={() => startEditingFloor('right')}
-                      className="range-mode-btn"
-                    >
-                      ≥{getEffectiveFloor(r.val as Metric)}
-                    </HoverableToggleButton>
-                  </Tooltip>
-                )}
-                <Tooltip content="Right Y-axis metric (Keyboard: Shift+T, Shift+C, Shift+H, Shift+P, Shift+V, Shift+N=None)">
-                  <select
-                    value={r.val}
-                    onChange={(e) => r.set(e.target.value as Metric | 'none')}
-                    onMouseEnter={canHover ? () => onHover({ type: 'metric', metric: 'secondary' }) : undefined}
-                  >
-                    <option value="none">None</option>
-                    {Object.entries(metricConfig).map(([key, cfg]) => (
-                      key !== l.val ? (
-                        <option key={key} value={key}>
-                          {cfg.emoji} {cfg.shortLabel}
-                        </option>
-                      ) : null
-                    ))}
-                  </select>
-                </Tooltip>
-              </>
-            )}
-          </div>
-          {/* Labels row: unit + line samples (with device names when multi-device) */}
-          {/* Note: row-reverse in CSS, so DOM order is: unit, then line samples */}
+              </Tooltip>
+            </>
+          )}
+        </div>
+        {/* Labels row: unit + line samples (with device names when multi-device) */}
+        {/* Note: row-reverse in CSS, so DOM order is: unit, then line samples */}
+        {hasSecondary && (
           <div className="legend-labels-row">
             <span
               className="metric-unit right-unit"
@@ -394,8 +394,8 @@ export function CustomLegend({
               </div>
             ) : null}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

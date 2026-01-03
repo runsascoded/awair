@@ -16,3 +16,8 @@
 .kbd-shortcuts-modal th {
   background: transparent;
 }
+
+// Left-align disabled cell content ("-") to match key sequences
+.kbd-table td {
+  justify-content: flex-start;
+}
