@@ -335,10 +335,12 @@ test.describe('Hotkey Editing', () => {
 
     await page.keyboard.press('x')
 
-    // Wait for sequence timeout (1000ms) + buffer for conflict detection
-    await page.waitForTimeout(1200)
+    // use-kbd pauses timeout when conflict detected during recording,
+    // so we need to press Enter to explicitly commit and trigger warning
+    await page.waitForTimeout(200) // Brief wait for conflict detection
+    await page.keyboard.press('Enter')
 
-    // use-kbd shows conflict warning banner after sequence timeout
+    // use-kbd shows conflict warning banner after explicit commit
     const warningBanner = page.locator('.kbd-conflict-warning')
     await expect(warningBanner).toBeVisible()
     await expect(warningBanner).toContainText('already bound to')
