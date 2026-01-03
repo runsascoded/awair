@@ -30,7 +30,7 @@ export const YAxisMetricsRenderer = createTwoColumnRenderer({
   headers: ['Metric', 'Left', 'Right'],
   getRows: () => METRICS.map(m => ({
     label: METRIC_LABELS[m] ?? m,
-    leftAction: m === 'none' ? null : `left:${m}`,
+    leftAction: (m === 'none' ? null : `left:${m}`) as string,
     rightAction: `right:${m}`,
   })),
 })
