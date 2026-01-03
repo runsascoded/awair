@@ -1,4 +1,3 @@
-import { abs } from "@rdub/base"
 import { parquetRead } from 'hyparquet'
 import { describe, it, expect } from 'vitest'
 
@@ -23,8 +22,10 @@ describe('Timezone Conversion', () => {
     const asUTC = new Date(utcTimestamp + 'Z')
     console.log('As UTC:', asUTC.toString())
 
-    // In EDT (UTC-4), 20:17 UTC should be 16:17 local
-    const expectedHour = 16 // 20 - 4 = 16
+    // UTC hour is 20, local hour depends on timezone offset for *that date*
+    // (getTimezoneOffset returns offset for the specific date, accounting for DST)
+    const timezoneOffsetHours = asUTC.getTimezoneOffset() / 60
+    const expectedHour = (20 - timezoneOffsetHours + 24) % 24
     expect(asUTC.getHours()).toBe(expectedHour)
   })
 
@@ -40,13 +41,11 @@ describe('Timezone Conversion', () => {
     console.log('Method 1 (add Z - UTC):', method1.toString())
     console.log('Method 2 (no Z - local):', method2.toString())
 
-    const timezoneOffset = new Date().getTimezoneOffset() // minutes
+    // Use the timezone offset for *that date* (accounts for DST)
+    const timezoneOffset = method1.getTimezoneOffset() // minutes
     console.log('Timezone offset:', timezoneOffset, 'minutes')
 
-    // In summer (EDT), timezone offset should be 240 minutes (4 hours)
-    expect(abs(timezoneOffset)).toBe(240)
-
-    // The difference between them should be the timezone offset
+    // The difference between parsing with/without 'Z' should equal the timezone offset
     const expectedDiff = timezoneOffset * 60 * 1000 // convert to milliseconds
     const actualDiff = method2.getTime() - method1.getTime()
     expect(actualDiff).toBe(expectedDiff)
