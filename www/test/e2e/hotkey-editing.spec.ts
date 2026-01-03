@@ -329,6 +329,10 @@ test.describe('Hotkey Editing', () => {
 
     // Now assign 'x' to Temperature
     await leftKbd.click()
+
+    // Wait for editing mode before pressing key (prevents race with hotkey handler)
+    await expect(leftKbd).toHaveClass(/editing/)
+
     await page.keyboard.press('x')
 
     // Wait for sequence timeout (1000ms) + buffer for conflict detection
