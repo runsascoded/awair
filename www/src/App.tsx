@@ -1,7 +1,7 @@
 import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { HotkeysProvider, Omnibar, SequenceModal, ShortcutsModal, useHotkeysContext } from 'use-kbd'
+import { HotkeysProvider, LookupModal, Omnibar, SequenceModal, ShortcutsModal, useHotkeysContext } from 'use-kbd'
 import 'use-kbd/styles.css'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
@@ -212,6 +212,7 @@ function AppContent() {
               hint="Click any key to customize"
             />
             <Omnibar placeholder="Search actions..." maxResults={15} />
+            <LookupModal />
             <SequenceModal />
           </>
       }
