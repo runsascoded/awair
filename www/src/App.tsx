@@ -76,11 +76,13 @@ function AppContent() {
     [deviceResults]
   )
 
-  // Combine results
+  // Combine results - only consider actively fetched devices for loading state
   const { combinedData, combinedSummary, isInitialLoad, error } = useMemo(() => {
     const allData = deviceDataResults.flatMap(r => r.data)
-    const anyInitialLoad = deviceDataResults.some(r => r.isInitialLoad)
-    const firstError = deviceDataResults.find(r => r.error)?.error || null
+    // Only check isInitialLoad for devices we're actively fetching (not stale results from hover previews)
+    const activeResults = deviceDataResults.filter(r => deviceIdsToFetch.includes(r.deviceId))
+    const anyInitialLoad = activeResults.some(r => r.isInitialLoad)
+    const firstError = activeResults.find(r => r.error)?.error || null
 
     // Combine summaries - take the widest date range
     let combinedSummary = null
@@ -120,7 +122,7 @@ function AppContent() {
       isInitialLoad: anyInitialLoad,
       error: firstError,
     }
-  }, [deviceDataResults])
+  }, [deviceDataResults, deviceIdsToFetch])
 
   // Show full-screen loading only on initial load (no data yet)
   if (isInitialLoad && combinedData.length === 0) {
@@ -224,7 +226,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <HotkeysProvider>
+        <HotkeysProvider config={{ sequenceTimeout: Infinity }}>
           <AppContent />
         </HotkeysProvider>
       </ThemeProvider>
