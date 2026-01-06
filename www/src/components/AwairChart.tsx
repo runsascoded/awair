@@ -9,6 +9,7 @@ import { DataTable } from './DataTable'
 import { TIME_WINDOWS, getWindowForDuration } from '../hooks/useDataAggregation'
 import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics'
+import { useMobile } from '../hooks/useMobile'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
 import { deviceRenderStrategyParam, hsvConfigParam, intFromList, rangeFloorsParam, xGroupingParam } from '../lib/urlParams'
@@ -105,10 +106,7 @@ export const AwairChart = memo(function AwairChart(
     return undefined
   }, [xGrouping])
 
-  const [isMobile, setIsMobile] = useState(() => {
-    const mobileQuery = window.matchMedia('(max-width: 767px) or (max-height: 599px)')
-    return mobileQuery.matches
-  })
+  const isMobile = useMobile()
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth)
 
   // Legend hover state - tracks what is currently hovered
@@ -395,13 +393,19 @@ export const AwairChart = memo(function AwairChart(
   useAction('time:06-31d', { label: '1 month', group: 'Time Range', defaultBindings: ['m 1'], keywords: ['31d', '1mo', '1m', 'month'], handler: () => handleTimeRangeClick(24 * 31) })
   useAction('time:07-62d', { label: '2 months', group: 'Time Range', defaultBindings: ['m 2'], keywords: ['62d', '2mo', '2m'], handler: () => handleTimeRangeClick(24 * 62) })
   useAction('time:08-92d', { label: '3 months', group: 'Time Range', defaultBindings: ['m 3'], keywords: ['92d', '3mo', '3m', 'quarter'], handler: () => handleTimeRangeClick(24 * 92) })
-  useAction('time:09-all', { label: 'Full history', group: 'Time Range', defaultBindings: ['x'], keywords: ['all', 'everything', 'max'], handler: handleAllClick })
+  useAction('time:09-all', { label: 'Full history', group: 'Time Range', defaultBindings: ['f'], keywords: ['all', 'everything', 'max', 'full'], handler: handleAllClick })
   useAction('time:10-latest', { label: 'Latest', group: 'Time Range', defaultBindings: ['l'], keywords: ['now', 'current', 'live'], handler: toggleLatestMode })
 
   // Devices
   useAction('device:gym', { label: 'Gym', group: 'Toggle devices on/off', defaultBindings: ['g'], handler: () => toggleDeviceByPattern('gym') })
   useAction('device:br', { label: 'BR', group: 'Toggle devices on/off', defaultBindings: ['b'], keywords: ['bedroom'], handler: () => toggleDeviceByPattern('br') })
   useAction('device:rt', { label: 'RT', group: 'Toggle devices on/off', defaultBindings: ['r'], handler: () => toggleDeviceByPattern('rt') })
+
+  // X-axis grouping (aggregation)
+  useAction('agg:1px', { label: '1px', group: 'X Grouping', defaultBindings: ['x 1'], keywords: ['1px', 'auto', 'aggregation'], handler: () => setXGrouping({ mode: 'auto', targetPx: 1 }) })
+  useAction('agg:2px', { label: '2px', group: 'X Grouping', defaultBindings: ['x 2'], keywords: ['2px', 'auto', 'aggregation'], handler: () => setXGrouping({ mode: 'auto', targetPx: 2 }) })
+  useAction('agg:4px', { label: '4px', group: 'X Grouping', defaultBindings: ['x 4'], keywords: ['4px', 'auto', 'aggregation'], handler: () => setXGrouping({ mode: 'auto', targetPx: 4 }) })
+  useAction('agg:8px', { label: '8px', group: 'X Grouping', defaultBindings: ['x 8'], keywords: ['8px', 'auto', 'aggregation'], handler: () => setXGrouping({ mode: 'auto', targetPx: 8 }) })
 
   // Dynamic page title: "Gym BR 🌡️ 💦" format
   useEffect(() => {
@@ -428,24 +432,16 @@ export const AwairChart = memo(function AwairChart(
     document.title = title
   }, [selectedDeviceIds, devices, l.val, r.val])
 
-  // Handle responsive plot height and viewport width using matchMedia
+  // Track viewport width for responsive layout
   useEffect(() => {
-    const mobileQuery = window.matchMedia('(max-width: 767px) or (max-height: 599px)')
-
-    const handleMediaQueryChange = (e: MediaQueryListEvent) => {
-      setIsMobile(e.matches)
-    }
-
     const handleResize = () => {
       setViewportWidth(window.innerWidth)
     }
 
-    mobileQuery.addEventListener('change', handleMediaQueryChange)
     window.addEventListener('resize', handleResize)
     window.addEventListener('orientationchange', handleResize)
 
     return () => {
-      mobileQuery.removeEventListener('change', handleMediaQueryChange)
       window.removeEventListener('resize', handleResize)
       window.removeEventListener('orientationchange', handleResize)
     }

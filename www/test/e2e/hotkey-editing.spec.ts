@@ -311,7 +311,7 @@ test.describe('Hotkey Editing', () => {
     await page.keyboard.press('?')
     await page.waitForSelector('.kbd-modal', { timeout: 5000 })
 
-    // Change temp hotkey to 'x' which is already bound to 'time:06-all' (Full history) in defaults
+    // Change temp hotkey to 'f' which is already bound to 'time:09-all' (Full history) in defaults
     const tempRow = page.locator('.kbd-table tbody tr').first()
     const leftKbd = tempRow.locator('td:nth-child(2) kbd').first()
 
@@ -324,16 +324,16 @@ test.describe('Hotkey Editing', () => {
     const fullHistoryAction = timeRangeGroup.locator('.kbd-action', { hasText: 'Full history' })
     const fullHistoryKbd = fullHistoryAction.locator('kbd')
 
-    // Verify initial state: Full history is 'X'
-    await expect(fullHistoryKbd).toContainText('X')
+    // Verify initial state: Full history is 'F'
+    await expect(fullHistoryKbd).toContainText('F')
 
-    // Now assign 'x' to Temperature
+    // Now assign 'f' to Temperature
     await leftKbd.click()
 
     // Wait for editing mode before pressing key (prevents race with hotkey handler)
     await expect(leftKbd).toHaveClass(/editing/)
 
-    await page.keyboard.press('x')
+    await page.keyboard.press('f')
 
     // use-kbd pauses timeout when conflict detected during recording,
     // so we need to press Enter to explicitly commit and trigger warning
@@ -349,12 +349,12 @@ test.describe('Hotkey Editing', () => {
     await warningBanner.locator('button', { hasText: 'Override' }).click()
     await page.waitForTimeout(300)
 
-    // Verify Temperature now shows 'X' (committed)
-    await expect(leftKbd).toContainText('X')
+    // Verify Temperature now shows 'F' (committed)
+    await expect(leftKbd).toContainText('F')
     await expect(leftKbd).toHaveClass(/conflict/)
 
-    // CRITICAL: Verify Full history ALSO shows 'X' (same key, because both are bound to 'x')
-    await expect(fullHistoryKbd).toContainText('X')
+    // CRITICAL: Verify Full history ALSO shows 'F' (same key, because both are bound to 'f')
+    await expect(fullHistoryKbd).toContainText('F')
     await expect(fullHistoryKbd).toHaveClass(/conflict/)
 
     // Close modal
@@ -368,11 +368,11 @@ test.describe('Hotkey Editing', () => {
     const yAxisDropdown = page.locator('.legend-metric-control select').first()
     await expect(yAxisDropdown).toHaveValue('temp')
 
-    // Press 'x' - should NOT switch because it's disabled due to conflict
-    await page.keyboard.press('x')
+    // Press 'f' - should NOT switch because it's disabled due to conflict
+    await page.keyboard.press('f')
     await page.waitForTimeout(300)
 
-    // Should still be temp (x is disabled)
+    // Should still be temp (f is disabled)
     await expect(yAxisDropdown).toHaveValue('temp')
   })
 

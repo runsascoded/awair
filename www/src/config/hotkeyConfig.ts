@@ -9,6 +9,7 @@ export const HOTKEY_GROUPS: Record<string, string> = {
 export const HOTKEY_GROUP_ORDER = [
   'Y-Axis Metrics',
   'Time Range',
+  'X Grouping',
   'Toggle devices on/off',
   'Table Navigation',
 ]
