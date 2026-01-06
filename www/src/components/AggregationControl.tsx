@@ -1,4 +1,5 @@
 import { ceil, round } from "@rdub/base"
+import { KbdModal } from 'use-kbd'
 import { Tooltip } from './Tooltip'
 import type { TimeWindow } from '../hooks/useDataAggregation'
 
@@ -46,11 +47,13 @@ export function AggregationControl({
     <div className="control-group aggregation-section">
       <div className="header">
         <label className="unselectable">X grouping:</label>
-        <Tooltip content={<div><ul>
+        <Tooltip content={<ul>
           <li>Raw data arrives 1/min.</li>
           <li>Points are grouped into time windows for visualization.</li>
           <li>Smaller windows show more detail, but may be noisier visually.</li>
-        </ul></div>}>
+          <li><b>Auto:</b> dynamically selects window to achieve target px/point.</li>
+          <li>Press <KbdModal /> for keyboard shortcuts</li>
+        </ul>}>
           <span className="info-icon">?</span>
         </Tooltip>
       </div>
@@ -95,23 +98,18 @@ export function AggregationControl({
           />
           <span>Auto:</span>
         </label>
-        <Tooltip content="Auto mode dynamically selects the time window to achieve the target pixels per data point.">
-          <span className="info-icon">?</span>
-        </Tooltip>
-        <Tooltip content="Target pixels per aggregated data point. Lower values show more detail.">
-          <select
-            value={targetPx ?? 1}
-            disabled={!isAutoMode}
-            onChange={(e) => {
-              onTargetPxChange(Number(e.target.value) as PxOption)
-            }}
-            className="px-select"
-          >
-            {PX_OPTIONS.map(px => (
-              <option key={px} value={px}>{px}px</option>
-            ))}
-          </select>
-        </Tooltip>
+        <select
+          value={targetPx ?? 1}
+          disabled={!isAutoMode}
+          onChange={(e) => {
+            onTargetPxChange(Number(e.target.value) as PxOption)
+          }}
+          className="px-select"
+        >
+          {PX_OPTIONS.map(px => (
+            <option key={px} value={px}>{px}px</option>
+          ))}
+        </select>
       </div>
     </div>
   )

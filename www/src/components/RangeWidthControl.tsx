@@ -1,3 +1,4 @@
+import { KbdModal } from 'use-kbd'
 import { Tooltip } from './Tooltip'
 import { formatDuration } from '../hooks/useTimeRangeParam'
 import { formatFullDate } from "../utils/dateFormat"
@@ -49,11 +50,11 @@ export function RangeWidthControl({
     ? `${formatFullDate(new Date(xAxisRange[0]))} → ${formatFullDate(new Date(xAxisRange[1]))}`
     : 'All data'
 
-  const tooltipContent = <div><ul>
+  const tooltipContent = <ul>
     <li><b>Current:</b> {rangeText}</li>
-    <li><b>▶|:</b> "Latest" mode; auto-follow newest data (hotkey: l)</li>
-    <li><b>Hotkeys:</b> 1=1d, 2=2wk, 3=3d, 7=1wk, x=All, ?=more</li>
-  </ul></div>
+    <li><b>▶|:</b> "Latest" mode; auto-follow newest data</li>
+    <li>Press <KbdModal /> for keyboard shortcuts</li>
+  </ul>
 
   return (
     <div className="control-group range-width-section no-footer">
@@ -112,14 +113,12 @@ export function RangeWidthControl({
           })()}
         </select>
 
-        <Tooltip content="Latest mode: auto-follow newest data (l)">
-          <button
-            className={`latest-btn${latestModeIntended ? ' active' : ''}`}
-            onClick={handleLatestButtonClick}
-          >
-            <i className="fas fa-forward-step"></i>
-          </button>
-        </Tooltip>
+        <button
+          className={`latest-btn${latestModeIntended ? ' active' : ''}`}
+          onClick={handleLatestButtonClick}
+        >
+          <i className="fas fa-forward-step"></i>
+        </button>
       </div>
     </div>
   )

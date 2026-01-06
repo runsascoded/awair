@@ -27,7 +27,7 @@
     "@fortawesome/fontawesome-free": "^6.7.2",
     "@observablehq/plot": "^0.6.17",
     "@rdub/base": "https://gitlab.com/runsascoded/js/base/-/archive/d25db27a5640bdbb1e451955194694b62d5bcf39/base-d25db27a5640bdbb1e451955194694b62d5bcf39.tar.gz",
-    "use-kbd": "github:runsascoded/use-kbd#73ed4b7be428184b831d2a16fd65c4a790c234c4",
+    "use-kbd": "github:runsascoded/use-kbd#e2a007fc44f6b4ce3ee652a10982e2a60770dbfa",
     "@rdub/use-url-params": "^0.1.2",
     "@tanstack/react-query": "^5.83.0",
     "d3": "^7.9.0",
