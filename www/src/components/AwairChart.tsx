@@ -269,6 +269,43 @@ export const AwairChart = memo(function AwairChart(
     }
   }, [data])
 
+  // Single-tap to dismiss hover on mobile
+  // Tap 1: show hover (normal Plotly behavior)
+  // Tap 2: dismiss hover (stop propagation prevents Plotly from re-showing)
+  // Tap 3: show hover again, etc.
+  useEffect(() => {
+    if (!isMobile) return
+    const container = plotContainerRef.current
+    if (!container) return
+
+    // Simple toggle: true = next tap should dismiss, false = next tap should show
+    let shouldDismissOnNextTap = false
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (shouldDismissOnNextTap) {
+        // Stop propagation to prevent Plotly's touchend handler from firing.
+        // This prevents Fx.click from being called, which would re-show hover.
+        e.stopPropagation()
+
+        // Query plotEl at call time (it may not exist when effect first runs)
+        const plotEl = container.querySelector('.js-plotly-plot') as HTMLElement | null
+        const Plotly = (window as unknown as { Plotly?: { Fx: { unhover: (gd: HTMLElement) => void } } }).Plotly
+        if (plotEl && Plotly?.Fx?.unhover) {
+          Plotly.Fx.unhover(plotEl)
+        }
+        shouldDismissOnNextTap = false
+      } else {
+        // Let Plotly show hover naturally
+        shouldDismissOnNextTap = true
+      }
+    }
+
+    container.addEventListener('touchend', handleTouchEnd)
+    return () => {
+      container.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [isMobile])
+
   // "All" handler - show full data extent from file bounds
   const handleAllClick = useCallback(() => {
     const allBounds = getAllDeviceBounds()
