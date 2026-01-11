@@ -29,10 +29,9 @@ def verify(
 def test_data_info_command():
     """Test the data info command output."""
     verify(['data', 'info', '-d', TEST_DATA_PATH], [
-        f'Data file: {TEST_DATA_PATH}',
-        'Total records: 46797',
+        f'Data source: {TEST_DATA_PATH}',
+        'Total records: 46,797',
         'Date range: 2025-06-05 18:00:58 to 2025-07-08 10:05:06.948000',
-        'File size: 0.68 MB'
     ])
 
 
@@ -139,9 +138,8 @@ def test_flexible_date_parsing():
 def test_nonexistent_file():
     """Test behavior with nonexistent data file."""
     verify(['data', 'info', '-d', 'nonexistent.parquet'], [
-        'Data file: nonexistent.parquet',
-        'Total records: 0',
-        'No data in file'
+        'Data source: nonexistent.parquet',
+        'No data found',
     ])
 
 

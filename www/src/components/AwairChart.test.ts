@@ -1,7 +1,7 @@
 import { parquetRead } from 'hyparquet'
 import { describe, it, expect } from 'vitest'
 
-const S3_PARQUET_URL = 'https://380nwk.s3.amazonaws.com/awair-17617.parquet'
+const S3_PARQUET_URL = 'https://380nwk.s3.amazonaws.com/awair-17617/2025-11.parquet'
 
 // Mock data that matches the structure we expect
 const mockData = [

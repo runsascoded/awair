@@ -23,8 +23,8 @@ const hyparquetSource = new HyparquetSource()
 /**
  * S3 root for all data storage.
  * Structure:
- *   {S3_ROOT}/devices.parquet      - Device registry
- *   {S3_ROOT}/awair-{id}.parquet   - Device data files
+ *   {S3_ROOT}/devices.parquet           - Device registry
+ *   {S3_ROOT}/awair-{id}/{YYYY-MM}.parquet - Monthly device data files
  */
 const S3_ROOT = 'https://380nwk.s3.amazonaws.com'
 
@@ -32,6 +32,45 @@ export function getDevicesUrl(): string {
   return `${S3_ROOT}/devices.parquet`
 }
 
+/**
+ * Get URL for a specific monthly data file.
+ * @param deviceId Device ID
+ * @param yearMonth Year-month string (e.g., "2025-01")
+ */
+export function getMonthlyDataUrl(deviceId: number, yearMonth: string): string {
+  return `${S3_ROOT}/awair-${deviceId}/${yearMonth}.parquet`
+}
+
+/**
+ * Get all year-month strings that overlap a date range.
+ * Returns strings like ["2024-12", "2025-01", "2025-02"].
+ */
+export function getMonthsInRange(from: Date, to: Date): string[] {
+  const months: string[] = []
+  const current = new Date(from.getFullYear(), from.getMonth(), 1)
+  const end = new Date(to.getFullYear(), to.getMonth(), 1)
+
+  while (current <= end) {
+    const year = current.getFullYear()
+    const month = String(current.getMonth() + 1).padStart(2, '0')
+    months.push(`${year}-${month}`)
+    current.setMonth(current.getMonth() + 1)
+  }
+
+  return months
+}
+
+/**
+ * Get all monthly data URLs for a device within a date range.
+ */
+export function getMonthlyDataUrls(deviceId: number, from: Date, to: Date): string[] {
+  return getMonthsInRange(from, to).map(ym => getMonthlyDataUrl(deviceId, ym))
+}
+
+/**
+ * Legacy: Get URL for single-file data (deprecated).
+ * Used only for backward compatibility during migration.
+ */
 export function getDataUrl(deviceId: number): string {
   return `${S3_ROOT}/awair-${deviceId}.parquet`
 }
@@ -89,24 +128,7 @@ export async function fetchDevices(): Promise<Device[]> {
 }
 
 export function getFileBounds(deviceId: number): { earliest: Date; latest: Date } | null {
-  const url = getDataUrl(deviceId)
-  const cache = hyparquetSource.getCache(url)
-  if (!cache) return null
-
-  const rgInfos = cache.getRowGroupInfos()
-  if (rgInfos.length === 0) return null
-
-  const earliest = rgInfos.reduce((min, rg) =>
-    rg.minTimestamp && (!min || rg.minTimestamp < min) ? rg.minTimestamp : min,
-    null as Date | null
-  )
-  const latest = rgInfos.reduce((max, rg) =>
-    rg.maxTimestamp && (!max || rg.maxTimestamp > max) ? rg.maxTimestamp : max,
-    null as Date | null
-  )
-
-  if (!earliest || !latest) return null
-  return { earliest, latest }
+  return hyparquetSource.getFileBounds(deviceId)
 }
 
 export async function fetchAwairData(

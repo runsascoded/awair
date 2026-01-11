@@ -24,10 +24,23 @@ test.describe('Hotkey Editing', () => {
       const method = request.method()
 
       let filePath: string | null = null
-      if (url.includes('awair-17617.parquet')) {
+      // Monthly sharded format: awair-17617/2025-11.parquet
+      // Test data spans June-November 2025, serve test file for those months
+      const testDataMonths = ['2025-06', '2025-07', '2025-08', '2025-09', '2025-10', '2025-11']
+      const isTestDataMonth = testDataMonths.some(m => url.includes(`/${m}.parquet`))
+
+      if (url.includes('awair-17617/') && isTestDataMonth) {
         filePath = path.join(__dirname, '../../test-data/awair-17617.parquet')
-      } else if (url.includes('awair-137496.parquet')) {
+      } else if (url.includes('awair-17617/')) {
+        // Months outside test data range - return 404
+        await route.fulfill({ status: 404 })
+        return
+      } else if (url.includes('awair-137496/') && isTestDataMonth) {
         filePath = path.join(__dirname, '../../test-data/awair-137496.parquet')
+      } else if (url.includes('awair-137496/')) {
+        // Months outside test data range - return 404
+        await route.fulfill({ status: 404 })
+        return
       } else if (url.includes('devices.parquet')) {
         filePath = path.join(__dirname, '../../test-data/devices.parquet')
       }
@@ -198,8 +211,9 @@ test.describe('Hotkey Editing', () => {
     // Press a new key - use 'q' (not already bound in DEFAULT_HOTKEY_MAP)
     await page.keyboard.press('q')
 
-    // Wait for sequence timeout (SEQUENCE_TIMEOUT_MS = 1000ms) + buffer
-    await page.waitForTimeout(1200)
+    // Press Enter to confirm the key (sequenceTimeout is Infinity, so no auto-exit)
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(300)
 
     // Verify the key was replaced (T -> Q)
     const leftCell = tempRow.locator('td:nth-child(2)')
@@ -232,7 +246,8 @@ test.describe('Hotkey Editing', () => {
 
     await leftKbd.click()
     await page.keyboard.press('q')
-    await page.waitForTimeout(1200)  // Wait for sequence timeout
+    await page.keyboard.press('Enter')  // Confirm the key (sequenceTimeout is Infinity)
+    await page.waitForTimeout(300)
 
     // Verify the key was replaced (T -> Q)
     const leftCell = tempRow.locator('td:nth-child(2)')
@@ -283,7 +298,8 @@ test.describe('Hotkey Editing', () => {
     // Click and press '9'
     await leftKbd.click()
     await page.keyboard.press('9')
-    await page.waitForTimeout(1200)  // Wait for sequence timeout
+    await page.keyboard.press('Enter')  // Confirm the key (sequenceTimeout is Infinity)
+    await page.waitForTimeout(300)
 
     // Verify update (text includes × remove button)
     await expect(leftKbd).toContainText('9')
@@ -299,8 +315,10 @@ test.describe('Hotkey Editing', () => {
     const yAxisDropdown = page.locator('.legend-metric-control select').first()
     await expect(yAxisDropdown).toHaveValue('co2')
 
-    // Now press '9' - should switch to temperature
+    // Now press '9' - shows completion modal because '9' is prefix for '9 d', '9 h', etc.
+    // Press Enter to select the first option (Temperature)
     await page.keyboard.press('9')
+    await page.keyboard.press('Enter')
     await page.waitForTimeout(300)
     await expect(yAxisDropdown).toHaveValue('temp')
   })
@@ -394,18 +412,18 @@ test.describe('Hotkey Editing', () => {
     const addButton = leftCell.locator('.kbd-add-btn')
     await addButton.click()
     await page.keyboard.press('q')
-    await page.waitForTimeout(1200)  // Wait for sequence timeout
+    await page.keyboard.press('Enter')  // Confirm the key (sequenceTimeout is Infinity)
+    await page.waitForTimeout(300)
 
     // Now should have both T and Q
     await expect(leftCell.locator('kbd', { hasText: 'T' })).toBeVisible()
     await expect(leftCell.locator('kbd', { hasText: 'Q' })).toBeVisible()
 
     // Add 'y' as well using the + button
-    // Note: 'w' can't be used because it's a prefix of 'w 1' and 'w 2' sequences,
-    // which creates a prefix conflict that pauses the timeout
     await addButton.click()
     await page.keyboard.press('y')
-    await page.waitForTimeout(1200)
+    await page.keyboard.press('Enter')  // Confirm the key (sequenceTimeout is Infinity)
+    await page.waitForTimeout(300)
 
     // Should have T, Q, and Y
     await expect(leftCell.locator('kbd', { hasText: 'T' })).toBeVisible()
@@ -434,7 +452,8 @@ test.describe('Hotkey Editing', () => {
     const addButton = leftCell.locator('.kbd-add-btn')
     await addButton.click()
     await page.keyboard.press('z')
-    await page.waitForTimeout(1200)  // Wait for sequence timeout
+    await page.keyboard.press('Enter')  // Confirm the key (sequenceTimeout is Infinity)
+    await page.waitForTimeout(300)
     await expect(leftCell.locator('kbd', { hasText: 'Z' })).toBeVisible()
 
     // Verify we now have both T and Z

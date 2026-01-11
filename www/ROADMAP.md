@@ -32,34 +32,32 @@
 
 **Goal:** Efficient incremental fetching with row-group-level caching.
 
-### File Layout Analysis (2025-11-28)
+### File Layout Analysis (2025-01-11)
 
-**Current file structure** (`awair-17617.parquet`, 3.9MB, 25 row groups):
+**Current file structure** (monthly shards, e.g. `awair-17617/2026-01.parquet`):
 ```
-[RG0][RG1]...[RG24][Footer]
- ^--- immutable ---^  ^-- last RG may grow
+{S3_ROOT}/awair-{deviceId}/
+├── 2025-06.parquet   # ~36k rows, immutable
+├── 2025-07.parquet   # ~43k rows, immutable
+├── ...
+└── 2026-01.parquet   # ~14k rows (current month, growing)
 
-Each RG: ~10k rows (~7 days), ~90-160KB, all columns contiguous
-Footer: ~24KB (now using 128KB initial fetch instead of 512KB default)
+Each monthly file: ~40-44k rows max, 8-9 row groups
+Each RG: ~5k rows (~3.5 days), ~80KB, all columns contiguous
+Footer: ~24KB
 ```
 
-**Key findings:**
-- Row groups ARE contiguous (no gaps between columns or RGs)
-- Footer is only ~24KB; hyparquet default was 512KB but is configurable
-- 128KB initial fetch includes footer + ~1 recent RG (~7 days of data)
-- For views >7 days: coalesced Range request fetches additional needed RGs
-- Immutable RGs promoted to blob cache (LRU eviction for memory management)
-
-**Interval analysis:**
-- 99.93% of intervals are >1 min (slow drift), 0.07% are <1 min (fast drift)
-- Average interval: 1.005 min → ~10,028 rows per 7 days
-- Reduced `SAFETY_MARGIN` from 1.5 to 1.01
+**Monthly sharding benefits:**
+- Lambda only downloads/uploads current month (~14-44k rows vs full history)
+- ~20x reduction in write amplification
+- Historical months are immutable (never modified)
+- Frontend fetches multiple months in parallel for longer time ranges
 
 **RG size tuning:**
-- ✅ **Current: 10,200 rows = ~7.1 days** (already optimal!)
-- Drift analysis: 99.93% slow (>1min), 0.07% fast (<1min), avg 1.005 min/row
-- Margin accommodates rare sub-minute drift spikes
-- Each RG: ~150-160KB, well-sized for single Range requests
+- ✅ **Current: 5,000 rows = ~3.5 days** (optimized for monthly files)
+- Monthly files: ~40-44k rows max = 8-9 row groups
+- Each RG: ~80KB, well-sized for single Range requests
+- Good cache granularity for partial month views
 
 ### Implementation Status
 

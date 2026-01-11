@@ -50,6 +50,10 @@ class AwairLambdaStack(Stack):
         if not s3_bucket or not s3_key:
             raise ValueError(f'Invalid S3 path: {data_path}. Expected format: s3://bucket/key')
 
+        # Normalize key for IAM (remove .parquet suffix if present)
+        # Monthly sharding uses directory structure: awair-{deviceId}/{YYYY-MM}.parquet
+        s3_key_base = s3_key[:-8] if s3_key.endswith('.parquet') else s3_key
+
         # IAM role for Lambda
         lambda_role = iam.Role(
             self, "LambdaExecutionRole",
@@ -67,12 +71,18 @@ class AwairLambdaStack(Stack):
                                 "s3:PutObject",
                                 "s3:DeleteObject"
                             ],
-                            resources=[f"arn:aws:s3:::{s3_bucket}/{s3_key}"]
+                            # Wildcard for all monthly files: awair-{id}/*.parquet
+                            resources=[f"arn:aws:s3:::{s3_bucket}/{s3_key_base}/*"]
                         ),
                         iam.PolicyStatement(
                             effect=iam.Effect.ALLOW,
                             actions=["s3:ListBucket"],
-                            resources=[f"arn:aws:s3:::{s3_bucket}"]
+                            resources=[f"arn:aws:s3:::{s3_bucket}"],
+                            conditions={
+                                "StringLike": {
+                                    "s3:prefix": [f"{s3_key_base}/*"]
+                                }
+                            }
                         )
                     ]
                 )

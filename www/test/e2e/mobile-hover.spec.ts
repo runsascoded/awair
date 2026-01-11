@@ -24,10 +24,23 @@ test.describe('Mobile Hover Dismiss', () => {
       const method = request.method()
 
       let filePath: string | null = null
-      if (url.includes('awair-17617.parquet')) {
+      // Monthly sharded format: awair-17617/2025-11.parquet
+      // Test data spans June-November 2025, serve test file for those months
+      const testDataMonths = ['2025-06', '2025-07', '2025-08', '2025-09', '2025-10', '2025-11']
+      const isTestDataMonth = testDataMonths.some(m => url.includes(`/${m}.parquet`))
+
+      if (url.includes('awair-17617/') && isTestDataMonth) {
         filePath = path.join(__dirname, '../../test-data/awair-17617.parquet')
-      } else if (url.includes('awair-137496.parquet')) {
+      } else if (url.includes('awair-17617/')) {
+        // Months outside test data range - return 404
+        await route.fulfill({ status: 404 })
+        return
+      } else if (url.includes('awair-137496/') && isTestDataMonth) {
         filePath = path.join(__dirname, '../../test-data/awair-137496.parquet')
+      } else if (url.includes('awair-137496/')) {
+        // Months outside test data range - return 404
+        await route.fulfill({ status: 404 })
+        return
       } else if (url.includes('devices.parquet')) {
         filePath = path.join(__dirname, '../../test-data/devices.parquet')
       }

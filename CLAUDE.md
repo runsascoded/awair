@@ -80,14 +80,22 @@ pnpm run test                 # Run tests
 ```
 Awair API
     ↓
-Lambda (every 1 min) → S3 (device-specific parquet files)
+Lambda (every 1 min) → S3 (monthly parquet shards)
     ↑                    ↓
 Python CLI         Web Dashboard (reads directly from S3)
 
 Multi-Device Example:
-  Gym (17617):  EventBridge (1min) → Lambda → s3://380nwk/awair-17617.parquet
-  BR (137496):   EventBridge (1min) → Lambda → s3://380nwk/awair-137496.parquet
+  Gym (17617):  EventBridge (1min) → Lambda → s3://380nwk/awair-17617/{YYYY-MM}.parquet
+  BR (137496):  EventBridge (1min) → Lambda → s3://380nwk/awair-137496/{YYYY-MM}.parquet
 ```
+
+### Monthly Sharding
+
+Data is stored in monthly shards to reduce Lambda write amplification:
+- Each Lambda invocation only downloads/uploads the current month's file (~14-44k rows)
+- Historical months are immutable (never modified after month ends)
+- Frontend fetches from multiple monthly files in parallel for longer time ranges
+- CLI commands auto-detect and aggregate across monthly files
 
 ### Key Components
 
@@ -149,8 +157,12 @@ All data files follow a fixed structure under the S3 root:
 ```
 {S3_ROOT}/
 ├── devices.parquet             # Device registry (cached from API)
-├── awair-17617.parquet         # Device data files
-├── awair-137496.parquet
+├── awair-17617/                # Device data (monthly shards)
+│   ├── 2025-06.parquet
+│   ├── 2025-07.parquet
+│   └── ...
+├── awair-137496/
+│   └── ...
 └── ...
 ```
 

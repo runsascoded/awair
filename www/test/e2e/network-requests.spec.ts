@@ -30,9 +30,9 @@ interface ParquetRequest {
 test.describe('Network Request Behavior', () => {
   let parquetRequests: ParquetRequest[] = []
 
-  // Helper to extract device ID from URL
+  // Helper to extract device ID from URL (format: awair-17617/2025-11.parquet)
   const getDeviceId = (url: string): number | null => {
-    const match = url.match(/awair-(\d+)\.parquet/)
+    const match = url.match(/awair-(\d+)\//)
     return match ? parseInt(match[1]) : null
   }
 
@@ -89,10 +89,23 @@ test.describe('Network Request Behavior', () => {
       const method = request.method()
 
       let filePath: string | null = null
-      if (url.includes('awair-17617.parquet')) {
+      // Monthly sharded format: awair-17617/2025-11.parquet
+      // Test data spans June-November 2025, serve test file for those months
+      const testDataMonths = ['2025-06', '2025-07', '2025-08', '2025-09', '2025-10', '2025-11']
+      const isTestDataMonth = testDataMonths.some(m => url.includes(`/${m}.parquet`))
+
+      if (url.includes('awair-17617/') && isTestDataMonth) {
         filePath = path.join(__dirname, '../../test-data/awair-17617.parquet')
-      } else if (url.includes('awair-137496.parquet')) {
+      } else if (url.includes('awair-17617/')) {
+        // Months outside test data range - return 404
+        await route.fulfill({ status: 404 })
+        return
+      } else if (url.includes('awair-137496/') && isTestDataMonth) {
         filePath = path.join(__dirname, '../../test-data/awair-137496.parquet')
+      } else if (url.includes('awair-137496/')) {
+        // Months outside test data range - return 404
+        await route.fulfill({ status: 404 })
+        return
       } else if (url.includes('devices.parquet')) {
         filePath = path.join(__dirname, '../../test-data/devices.parquet')
       }
@@ -326,7 +339,7 @@ test.describe('Network Request Behavior', () => {
       expect(headRequests).toHaveLength(0)
     })
 
-    test('forward navigation does not trigger HEAD requests', async ({ page }) => {
+    test('forward navigation does not trigger unnecessary data fetches', async ({ page }) => {
       // First go back
       await page.keyboard.type('<')
       await waitForNetworkSettle(page)
@@ -340,9 +353,11 @@ test.describe('Network Request Behavior', () => {
       await waitForNetworkSettle(page)
 
       const gymRequests = getRequests(17617)
-      const headRequests = gymRequests.filter(r => r.method === 'HEAD')
+      // With monthly sharding, HEAD requests to discover new monthly files are expected.
+      // We only check that no new Range (data) requests are made to already-cached data.
+      const dataRequests = gymRequests.filter(r => r.range && r.url.includes('2025-11'))
 
-      expect(headRequests).toHaveLength(0)
+      expect(dataRequests).toHaveLength(0)
     })
   })
 })

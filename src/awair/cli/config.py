@@ -63,8 +63,16 @@ def get_devices_path() -> str:
 
 
 def get_data_path(device_id: int) -> str:
-    """Get path to device data parquet file."""
+    """Get path to device data parquet file (legacy single-file format)."""
     return f'{get_s3_root()}/awair-{device_id}.parquet'
+
+
+def get_data_base_path(device_id: int) -> str:
+    """Get base path for device data (directory for monthly shards).
+
+    Monthly files are stored as: {base_path}/{YYYY-MM}.parquet
+    """
+    return f'{get_s3_root()}/awair-{device_id}'
 
 
 def parse_s3_path(s3_path: str) -> tuple[str, str]:
@@ -83,6 +91,65 @@ def parse_s3_path(s3_path: str) -> tuple[str, str]:
         raise ValueError(f'Invalid S3 path: {s3_path}. Missing key/object name')
 
     return bucket, key
+
+
+def list_monthly_files(base_path: str) -> list[str]:
+    """List all monthly parquet files in a device data directory.
+
+    Args:
+        base_path: Base path for device data (e.g., s3://bucket/awair-17617 or ./awair-17617)
+
+    Returns:
+        Sorted list of paths to monthly parquet files (e.g., ['s3://.../2024-11.parquet', ...])
+    """
+    import re
+
+    # Strip trailing slash if present
+    base_path = base_path.rstrip('/')
+
+    if base_path.startswith('s3://'):
+        import boto3
+        bucket, prefix = parse_s3_path(f'{base_path}/placeholder')
+        prefix = prefix.rsplit('/', 1)[0] + '/'  # Get directory prefix
+
+        s3 = boto3.client('s3')
+        response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
+
+        files = []
+        for obj in response.get('Contents', []):
+            key = obj['Key']
+            # Match YYYY-MM.parquet pattern
+            if re.match(r'.*/\d{4}-\d{2}\.parquet$', key):
+                files.append(f's3://{bucket}/{key}')
+        return sorted(files)
+    else:
+        from pathlib import Path
+        base = Path(base_path)
+        if not base.is_dir():
+            return []
+        files = [str(f) for f in base.glob('*.parquet') if re.match(r'\d{4}-\d{2}\.parquet$', f.name)]
+        return sorted(files)
+
+
+def load_monthly_data(base_path: str):
+    """Load and combine all monthly parquet files into a single DataFrame.
+
+    Args:
+        base_path: Base path for device data (e.g., s3://bucket/awair-17617)
+
+    Returns:
+        Combined DataFrame sorted by timestamp
+    """
+    import pandas as pd
+
+    files = list_monthly_files(base_path)
+    if not files:
+        return pd.DataFrame()
+
+    dfs = [pd.read_parquet(f) for f in files]
+    combined = pd.concat(dfs, ignore_index=True)
+    combined = combined.sort_values('timestamp').reset_index(drop=True)
+    return combined
 
 
 def get_default_data_path(device_id: int | None = None) -> str:
