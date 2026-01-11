@@ -509,6 +509,26 @@ export const stddevOpacityParam: Param<number> = {
 }
 
 /**
+ * Raw line opacity param - controls visibility of raw data when smoothing overlay is active
+ *
+ * Examples:
+ *   ?ro=0   → hidden (0% opacity)
+ *   ?ro=50  → default (50% opacity, omitted from URL)
+ *   ?ro=100 → fully opaque (same as smoothed)
+ *
+ * Range: 0-100 (percent)
+ * Default: 50
+ */
+export const rawOpacityParam: Param<number> = {
+  encode: (value) => value === 90 ? undefined : String(value),
+  decode: (encoded) => {
+    if (!encoded) return 90
+    const num = parseInt(encoded, 10)
+    return isNaN(num) ? 90 : Math.max(0, Math.min(100, num))
+  },
+}
+
+/**
  * Re-export common param builders from use-url-params
  */
 export { boolParam, enumParam, intParam, stringParam } from '@rdub/use-url-params'

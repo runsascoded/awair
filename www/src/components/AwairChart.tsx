@@ -13,7 +13,7 @@ import { useMobile } from '../hooks/useMobile'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { usePlotlyHoverDismiss } from '../hooks/usePlotlyHoverDismiss'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
-import { deviceRenderStrategyParam, hsvConfigParam, intFromList, rangeFloorsParam, smoothingParam, stddevOpacityParam, xGroupingParam } from '../lib/urlParams'
+import { deviceRenderStrategyParam, hsvConfigParam, intFromList, rangeFloorsParam, rawOpacityParam, smoothingParam, stddevOpacityParam, xGroupingParam } from '../lib/urlParams'
 import { getFileBounds } from '../services/awairService'
 import { formatForPlotly } from '../utils/dateFormat'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
@@ -95,6 +95,9 @@ export const AwairChart = memo(function AwairChart(
 
   // Stddev band opacity (0-100%)
   const [stddevOpacity, setStddevOpacity] = useUrlParam('so', stddevOpacityParam)
+
+  // Raw line opacity when smoothing enabled (0-100%)
+  const [rawOpacity, setRawOpacity] = useUrlParam('ro', rawOpacityParam)
 
   // Helper to get effective floor (custom or default from metricConfig)
   const getEffectiveFloor = useCallback((metric: Metric) => {
@@ -592,44 +595,70 @@ export const AwairChart = memo(function AwairChart(
     return value.toString(16).padStart(2, '0')
   }, [stddevOpacity])
 
+  // Check if smoothing is enabled (any device has smoothedData)
+  const hasSmoothing = displayDeviceAggregations.some(d => d.smoothedData !== null)
+
   // Generate traces for all devices, grouped by metric for better hover ordering
   const plotTraces = useMemo(() => {
     const traces: DataWithZorder[] = []
 
-    // Pre-compute data for all devices
+    // Pre-compute data for all devices (raw and smoothed)
     const deviceData = displayDeviceAggregations.map((deviceAgg, deviceIdx) => {
-      const { aggregatedData: devData, deviceName } = deviceAgg
-      const timestamps = devData.map(d => formatForPlotly(new Date(d.timestamp)))
+      const { aggregatedData: rawData, smoothedData, deviceName } = deviceAgg
+      const timestamps = rawData.map(d => formatForPlotly(new Date(d.timestamp)))
+      const smoothedTimestamps = smoothedData?.map(d => formatForPlotly(new Date(d.timestamp))) ?? []
 
-      // Get line props for primary metric
+      // Line width: thin for raw when smoothing, normal otherwise
+      const rawLineWidth = hasSmoothing ? 1 : 2
+      const smoothedLineWidth = 3
+
+      // Get line props for primary metric (raw data)
       const primaryLineProps = getDeviceLineProps(
         config.color,
         deviceIdx,
         totalDevices,
         deviceRenderStrategy,
-        2,
+        rawLineWidth,
         hsvConfig
       )
 
-      // Primary metric data
-      const avgValues = devData.map(d => d[`${l.val}_avg` as keyof typeof d] as number)
-      const stddevValues = devData.map(d => d[`${l.val}_stddev` as keyof typeof d] as number)
-      const upperValues = avgValues.map((avg, i) => avg + stddevValues[i])
-      const lowerValues = avgValues.map((avg, i) => avg - stddevValues[i])
+      // Get line props for smoothed overlay (thicker)
+      const primarySmoothedLineProps = hasSmoothing ? getDeviceLineProps(
+        config.color,
+        deviceIdx,
+        totalDevices,
+        deviceRenderStrategy,
+        smoothedLineWidth,
+        hsvConfig
+      ) : null
 
-      // Secondary metric data
+      // Primary metric - raw data
+      const avgValues = rawData.map(d => d[`${l.val}_avg` as keyof typeof d] as number)
+      const stddevValues = rawData.map(d => d[`${l.val}_stddev` as keyof typeof d] as number)
+
+      // Primary metric - smoothed data (for overlay and stddev bands)
+      const smoothedAvgValues = smoothedData?.map(d => d[`${l.val}_avg` as keyof typeof d] as number) ?? []
+      const smoothedStddevValues = smoothedData?.map(d => d[`${l.val}_stddev` as keyof typeof d] as number) ?? []
+      const upperValues = smoothedAvgValues.map((avg, i) => avg + smoothedStddevValues[i])
+      const lowerValues = smoothedAvgValues.map((avg, i) => avg - smoothedStddevValues[i])
+
+      // Secondary metric - raw data
       const secondaryAvgValues = secondaryConfig && r.val !== 'none'
-        ? devData.map(d => d[`${r.val}_avg` as keyof typeof d] as number)
+        ? rawData.map(d => d[`${r.val}_avg` as keyof typeof d] as number)
         : []
       const secondaryStddevValues = secondaryConfig && r.val !== 'none'
-        ? devData.map(d => d[`${r.val}_stddev` as keyof typeof d] as number)
+        ? rawData.map(d => d[`${r.val}_stddev` as keyof typeof d] as number)
         : []
-      const secondaryUpperValues = secondaryConfig
-        ? secondaryAvgValues.map((avg, i) => avg + secondaryStddevValues[i])
+
+      // Secondary metric - smoothed data
+      const secondarySmoothedAvgValues = secondaryConfig && smoothedData
+        ? smoothedData.map(d => d[`${r.val}_avg` as keyof typeof d] as number)
         : []
-      const secondaryLowerValues = secondaryConfig
-        ? secondaryAvgValues.map((avg, i) => avg - secondaryStddevValues[i])
+      const secondarySmoothedStddevValues = secondaryConfig && smoothedData
+        ? smoothedData.map(d => d[`${r.val}_stddev` as keyof typeof d] as number)
         : []
+      const secondaryUpperValues = secondarySmoothedAvgValues.map((avg, i) => avg + secondarySmoothedStddevValues[i])
+      const secondaryLowerValues = secondarySmoothedAvgValues.map((avg, i) => avg - secondarySmoothedStddevValues[i])
 
       // Get line props for secondary metric
       const secondaryLineProps = secondaryConfig
@@ -638,7 +667,18 @@ export const AwairChart = memo(function AwairChart(
           deviceIdx,
           totalDevices,
           deviceRenderStrategy,
-          2,
+          rawLineWidth,
+          hsvConfig
+        )
+        : null
+
+      const secondarySmoothedLineProps = secondaryConfig && hasSmoothing
+        ? getDeviceLineProps(
+          secondaryConfig.color,
+          deviceIdx,
+          totalDevices,
+          deviceRenderStrategy,
+          smoothedLineWidth,
           hsvConfig
         )
         : null
@@ -647,9 +687,9 @@ export const AwairChart = memo(function AwairChart(
       const legendName = totalDevices > 1 ? deviceName : ''
 
       return {
-        devData, deviceName, deviceIdx, timestamps, legendName,
-        primaryLineProps, avgValues, stddevValues, upperValues, lowerValues,
-        secondaryLineProps, secondaryAvgValues, secondaryStddevValues, secondaryUpperValues, secondaryLowerValues,
+        rawData, smoothedData, deviceName, deviceIdx, timestamps, smoothedTimestamps, legendName,
+        primaryLineProps, primarySmoothedLineProps, avgValues, stddevValues, smoothedAvgValues, smoothedStddevValues, upperValues, lowerValues,
+        secondaryLineProps, secondarySmoothedLineProps, secondaryAvgValues, secondaryStddevValues, secondarySmoothedAvgValues, secondarySmoothedStddevValues, secondaryUpperValues, secondaryLowerValues,
       }
     })
 
@@ -666,28 +706,50 @@ export const AwairChart = memo(function AwairChart(
       })
     }
 
-    // PRIMARY METRIC traces for all devices (grouped together in hover)
-    // NOTE: zorder removed due to Plotly resize bug - traces with zorder don't
-    // resize correctly when container width changes below max-width threshold
+    // PRIMARY METRIC traces for all devices
+    // When smoothing: thin raw lines (reduced opacity) + thick smoothed overlay
+    // Without smoothing: normal lines
     deviceData.forEach((d) => {
+      // Raw data trace (thin when smoothing enabled)
       traces.push({
         x: d.timestamps,
         y: d.avgValues,
         mode: 'lines',
         line: d.primaryLineProps,
-        opacity: getTraceOpacity(d.deviceIdx, 'primary'),
+        opacity: hasSmoothing ? (rawOpacity / 100) * getTraceOpacity(d.deviceIdx, 'primary') : getTraceOpacity(d.deviceIdx, 'primary'),
         name: d.legendName || `${config.label} (${config.unit})`,
         legendgroup: 'primary',
+        showlegend: !hasSmoothing,  // Hide legend for raw when smoothing (smoothed trace shows legend)
         ...(isRawData ? {
           hovertemplate: `${d.deviceName}: %{y:.1f}<extra></extra>`
+        } : hasSmoothing ? {
+          hoverinfo: 'skip' as const,  // Skip hover on raw when showing smoothed overlay
         } : {
-          customdata: d.devData.map((rec, i) => ([
+          customdata: d.rawData.map((rec, i) => ([
             d.stddevValues[i],
             rec.count
           ])),
           hovertemplate: `${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
         })
       })
+
+      // Smoothed overlay trace (thick) - only when smoothing enabled
+      if (d.smoothedData && d.primarySmoothedLineProps) {
+        traces.push({
+          x: d.smoothedTimestamps,
+          y: d.smoothedAvgValues,
+          mode: 'lines',
+          line: d.primarySmoothedLineProps,
+          opacity: getTraceOpacity(d.deviceIdx, 'primary'),
+          name: d.legendName || `${config.label} (${config.unit})`,
+          legendgroup: 'primary',
+          customdata: d.smoothedData.map((rec, i) => ([
+            d.smoothedStddevValues[i],
+            rec.count
+          ])),
+          hovertemplate: `${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
+        })
+      }
     })
 
     // Synthetic header trace for secondary metric (invisible line, provides metric header in hover)
@@ -704,90 +766,126 @@ export const AwairChart = memo(function AwairChart(
       })
     }
 
-    // SECONDARY METRIC traces for all devices (grouped together in hover)
-    // NOTE: zorder removed due to Plotly resize bug
+    // SECONDARY METRIC traces for all devices
     if (secondaryConfig) {
       deviceData.forEach((d) => {
         if (d.secondaryLineProps) {
+          // Raw data trace
           traces.push({
             x: d.timestamps,
             y: d.secondaryAvgValues,
             mode: 'lines',
             line: d.secondaryLineProps,
-            opacity: getTraceOpacity(d.deviceIdx, 'secondary'),
+            opacity: hasSmoothing ? (rawOpacity / 100) * getTraceOpacity(d.deviceIdx, 'secondary') : getTraceOpacity(d.deviceIdx, 'secondary'),
             name: d.legendName || `${secondaryConfig.label} (${secondaryConfig.unit})`,
             legendgroup: 'secondary',
             legend: 'legend2',
             yaxis: 'y2',
+            showlegend: !hasSmoothing,
             ...(isRawData ? {
               hovertemplate: `${d.deviceName}: %{y:.1f}<extra></extra>`
+            } : hasSmoothing ? {
+              hoverinfo: 'skip' as const,
             } : {
-              customdata: d.devData.map((rec, i) => ([
+              customdata: d.rawData.map((rec, i) => ([
                 d.secondaryStddevValues[i],
                 rec.count
               ])),
               hovertemplate: `${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
             })
           })
+
+          // Smoothed overlay trace
+          if (d.smoothedData && d.secondarySmoothedLineProps) {
+            traces.push({
+              x: d.smoothedTimestamps,
+              y: d.secondarySmoothedAvgValues,
+              mode: 'lines',
+              line: d.secondarySmoothedLineProps,
+              opacity: getTraceOpacity(d.deviceIdx, 'secondary'),
+              name: d.legendName || `${secondaryConfig.label} (${secondaryConfig.unit})`,
+              legendgroup: 'secondary',
+              legend: 'legend2',
+              yaxis: 'y2',
+              customdata: d.smoothedData.map((rec, i) => ([
+                d.secondarySmoothedStddevValues[i],
+                rec.count
+              ])),
+              hovertemplate: `${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
+            })
+          }
         }
       })
     }
 
-    // Stddev fill regions (±σ shaded areas) - added after main traces so hover swatches align
+    // Stddev fill regions (±σ shaded areas) - from smoothed data when available
     // Primary stddev region (only for first device)
     if (!isRawData && deviceData.length > 0) {
       const d = deviceData[0]
-      traces.push({
-        x: d.timestamps,
-        y: d.lowerValues,
-        mode: 'lines',
-        line: { color: 'transparent' },
-        name: `${config.label} Lower`,
-        showlegend: false,
-        hoverinfo: 'skip',
-      })
-      traces.push({
-        x: d.timestamps,
-        y: d.upperValues,
-        fill: 'tonexty',
-        fillcolor: `${d.primaryLineProps.color}${opacityHex}`,
-        line: { color: 'transparent' },
-        mode: 'lines',
-        name: `±σ ${config.label}`,
-        showlegend: false,
-        hoverinfo: 'skip',
-      })
+      // Use smoothed data for bands when smoothing enabled, otherwise raw
+      const bandTimestamps = hasSmoothing ? d.smoothedTimestamps : d.timestamps
+      const bandUpper = hasSmoothing ? d.upperValues : d.avgValues.map((avg, i) => avg + d.stddevValues[i])
+      const bandLower = hasSmoothing ? d.lowerValues : d.avgValues.map((avg, i) => avg - d.stddevValues[i])
+
+      if (bandTimestamps.length > 0) {
+        traces.push({
+          x: bandTimestamps,
+          y: bandLower,
+          mode: 'lines',
+          line: { color: 'transparent' },
+          name: `${config.label} Lower`,
+          showlegend: false,
+          hoverinfo: 'skip',
+        })
+        traces.push({
+          x: bandTimestamps,
+          y: bandUpper,
+          fill: 'tonexty',
+          fillcolor: `${d.primaryLineProps.color}${opacityHex}`,
+          line: { color: 'transparent' },
+          mode: 'lines',
+          name: `±σ ${config.label}`,
+          showlegend: false,
+          hoverinfo: 'skip',
+        })
+      }
     }
 
     // Secondary stddev region (only for first device)
     if (secondaryConfig && !isRawData && deviceData.length > 0) {
       const d = deviceData[0]
-      traces.push({
-        x: d.timestamps,
-        y: d.secondaryLowerValues,
-        mode: 'lines',
-        line: { color: 'transparent' },
-        name: `${secondaryConfig.label} Lower`,
-        showlegend: false,
-        hoverinfo: 'skip',
-        yaxis: 'y2',
-      })
-      traces.push({
-        x: d.timestamps,
-        y: d.secondaryUpperValues,
-        fill: 'tonexty',
-        fillcolor: `${d.secondaryLineProps?.color}${opacityHex}`,
-        line: { color: 'transparent' },
-        mode: 'lines',
-        name: `±σ ${secondaryConfig.label}`,
-        showlegend: false,
-        hoverinfo: 'skip',
-        yaxis: 'y2',
-      })
+      const bandTimestamps = hasSmoothing ? d.smoothedTimestamps : d.timestamps
+      const bandUpper = hasSmoothing ? d.secondaryUpperValues : d.secondaryAvgValues.map((avg, i) => avg + d.secondaryStddevValues[i])
+      const bandLower = hasSmoothing ? d.secondaryLowerValues : d.secondaryAvgValues.map((avg, i) => avg - d.secondaryStddevValues[i])
+
+      if (bandTimestamps.length > 0) {
+        traces.push({
+          x: bandTimestamps,
+          y: bandLower,
+          mode: 'lines',
+          line: { color: 'transparent' },
+          name: `${secondaryConfig.label} Lower`,
+          showlegend: false,
+          hoverinfo: 'skip',
+          yaxis: 'y2',
+        })
+        traces.push({
+          x: bandTimestamps,
+          y: bandUpper,
+          fill: 'tonexty',
+          fillcolor: `${d.secondaryLineProps?.color}${opacityHex}`,
+          line: { color: 'transparent' },
+          mode: 'lines',
+          name: `±σ ${secondaryConfig.label}`,
+          showlegend: false,
+          hoverinfo: 'skip',
+          yaxis: 'y2',
+        })
+      }
     }
 
     return traces
-  }, [displayDeviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, deviceRenderStrategy, hsvConfig, getTraceOpacity, opacityHex])
+  }, [displayDeviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, hasSmoothing, rawOpacity, deviceRenderStrategy, hsvConfig, getTraceOpacity, opacityHex])
 
   // Font sizes - larger in og mode for better screenshot readability
   // Note: x-axis ticks need smaller font to fit with multi-line date labels
@@ -1006,6 +1104,8 @@ export const AwairChart = memo(function AwairChart(
             onSmoothingChange: setSmoothing,
             stddevOpacity,
             onStddevOpacityChange: setStddevOpacity,
+            rawOpacity,
+            onRawOpacityChange: setRawOpacity,
           }}
           onWindowChange={window => {
             if (window) {

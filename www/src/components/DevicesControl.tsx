@@ -19,6 +19,8 @@ interface DevicesControlProps {
   setHsvConfig: (value: HsvConfig) => void
   stddevOpacity: number
   onStddevOpacityChange: (opacity: number) => void
+  rawOpacity: number
+  onRawOpacityChange: (opacity: number) => void
 }
 
 export function DevicesControl({
@@ -33,6 +35,8 @@ export function DevicesControl({
   setHsvConfig,
   stddevOpacity,
   onStddevOpacityChange,
+  rawOpacity,
+  onRawOpacityChange,
 }: DevicesControlProps) {
   const isMultiDevice = selectedDeviceIds.length > 1
   const detailsRef = useRef<HTMLDetailsElement>(null)
@@ -114,8 +118,8 @@ export function DevicesControl({
           <div className="render-settings-panel">
             {/* Stddev band opacity - always visible */}
             <div className="setting-row">
-              <Tooltip content="Opacity of ±σ standard deviation bands around the mean">
-                <label>±σ Bands:</label>
+              <Tooltip content="Opacity of ±σ standard deviation bands around the smoothed mean">
+                <label>±σ band α:</label>
               </Tooltip>
               <input
                 type="range"
@@ -126,6 +130,22 @@ export function DevicesControl({
                 onChange={(e) => onStddevOpacityChange(Number(e.target.value))}
               />
               <span className="setting-value">{stddevOpacity}%</span>
+            </div>
+
+            {/* Unsmoothed line opacity - only visible when smoothing would be active */}
+            <div className="setting-row">
+              <Tooltip content="Opacity of unsmoothed data lines when smoothing overlay is active">
+                <label>unsmoothed α:</label>
+              </Tooltip>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={rawOpacity}
+                onChange={(e) => onRawOpacityChange(Number(e.target.value))}
+              />
+              <span className="setting-value">{rawOpacity}%</span>
             </div>
 
             {/* Device strategy - only for multi-device */}

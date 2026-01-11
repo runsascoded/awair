@@ -7,7 +7,8 @@ import type { SmoothingMinutes } from '../lib/urlParams'
 export interface DeviceAggregatedData {
   deviceId: number
   deviceName: string
-  aggregatedData: AggregatedData[]
+  aggregatedData: AggregatedData[]       // Raw/unsmoothed data
+  smoothedData: AggregatedData[] | null  // Smoothed overlay (when smoothing > 1)
   isRawData: boolean
 }
 
@@ -46,29 +47,41 @@ export function useMultiDeviceAggregation(
       const device = devices.find(d => d.deviceId === result.deviceId)
       const deviceName = device?.name || `Device ${result.deviceId}`
 
-      // Apply smoothing first (on full data for accurate edge values)
-      const smoothedData = smoothingMinutes > 1
-        ? applyRollingAverage(result.data, smoothingMinutes)
-        : result.data
-
-      // Filter to time range
-      let dataToAggregate = smoothedData
-
+      // Filter raw data to time range
+      let rawDataInRange = result.data
       if (xAxisRange) {
         const startTime = new Date(xAxisRange[0]).getTime()
         const endTime = new Date(xAxisRange[1]).getTime()
-        dataToAggregate = smoothedData.filter(d => {
+        rawDataInRange = result.data.filter(d => {
           const timestamp = new Date(d.timestamp).getTime()
           return timestamp >= startTime && timestamp <= endTime
         })
       }
 
-      const aggregatedData = aggregateData(dataToAggregate, selectedWindow.minutes)
+      // Aggregate raw data
+      const aggregatedData = aggregateData(rawDataInRange, selectedWindow.minutes)
+
+      // Apply smoothing for overlay (on full data for accurate edge values, then filter)
+      let smoothedData: AggregatedData[] | null = null
+      if (smoothingMinutes > 1) {
+        const smoothedRecords = applyRollingAverage(result.data, smoothingMinutes)
+        let smoothedInRange = smoothedRecords
+        if (xAxisRange) {
+          const startTime = new Date(xAxisRange[0]).getTime()
+          const endTime = new Date(xAxisRange[1]).getTime()
+          smoothedInRange = smoothedRecords.filter(d => {
+            const timestamp = new Date(d.timestamp).getTime()
+            return timestamp >= startTime && timestamp <= endTime
+          })
+        }
+        smoothedData = aggregateData(smoothedInRange, selectedWindow.minutes)
+      }
 
       return {
         deviceId: result.deviceId,
         deviceName,
         aggregatedData,
+        smoothedData,
         isRawData,
       }
     })

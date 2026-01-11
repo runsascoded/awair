@@ -57,6 +57,9 @@ interface ChartControlsProps {
   // Stddev opacity control
   stddevOpacity: number
   onStddevOpacityChange: (opacity: number) => void
+  // Raw line opacity when smoothing enabled
+  rawOpacity: number
+  onRawOpacityChange: (opacity: number) => void
 }
 
 const metricConfig = {
@@ -109,6 +112,8 @@ export function ChartControls({
   onSmoothingChange,
   stddevOpacity,
   onStddevOpacityChange,
+  rawOpacity,
+  onRawOpacityChange,
 }: ChartControlsProps) {
   const handleTimeRangeButtonClick = (hours: number) => {
     const activeRange = getActiveTimeRange()
@@ -156,6 +161,8 @@ export function ChartControls({
         setHsvConfig={setHsvConfig}
         stddevOpacity={stddevOpacity}
         onStddevOpacityChange={onStddevOpacityChange}
+        rawOpacity={rawOpacity}
+        onRawOpacityChange={onRawOpacityChange}
       />
 
       <RangeWidthControl

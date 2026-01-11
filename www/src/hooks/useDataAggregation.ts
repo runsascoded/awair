@@ -35,59 +35,80 @@ export interface SmoothedRecord extends AwairRecord {
 }
 
 /**
- * Apply a trailing rolling average to raw data.
- * Each output point is the average of the preceding windowMinutes of data.
+ * Apply a centered rolling average to raw data.
+ * Each output point is the average of data within ±windowMinutes/2 of the timestamp.
+ * At edges (start/end of data), uses asymmetric window with available data.
  * Also computes rolling stddev for each metric.
- * Data must be sorted chronologically (oldest first) for correct results.
  */
 export function applyRollingAverage(data: AwairRecord[], windowMinutes: number): SmoothedRecord[] {
   if (windowMinutes <= 1 || data.length === 0) return data
 
-  const windowMs = windowMinutes * 60 * 1000
+  const halfWindowMs = (windowMinutes * 60 * 1000) / 2
 
   // Sort oldest-first for sliding window
   const sorted = [...data].sort((a, b) =>
     new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
   )
 
-  // Sliding window for O(n) mean computation
-  // For stddev, we need to keep track of values in window (or use Welford's algorithm)
-  let windowStart = 0
+  // Two-pointer approach for O(n) centered window
+  // Window contains indices [left, right) with timestamps in [T - halfWindow, T + halfWindow]
+  let left = 0
+  let right = 0
   let tempSum = 0, co2Sum = 0, humidSum = 0, pm25Sum = 0, vocSum = 0
-  let count = 0
 
-  // Keep window values for stddev calculation
+  // Keep window values for stddev calculation (queue: front=left, back=right-1)
   const windowValues: { temp: number; co2: number; humid: number; pm25: number; voc: number }[] = []
 
-  return sorted.map((record, i) => {
+  return sorted.map((record) => {
     const currentTime = new Date(record.timestamp).getTime()
-    const windowStartTime = currentTime - windowMs
+    const windowStartTime = currentTime - halfWindowMs
+    const windowEndTime = currentTime + halfWindowMs
 
-    // Add current record to window
-    tempSum += record.temp
-    co2Sum += record.co2
-    humidSum += record.humid
-    pm25Sum += record.pm25
-    vocSum += record.voc
-    windowValues.push({
-      temp: record.temp,
-      co2: record.co2,
-      humid: record.humid,
-      pm25: record.pm25,
-      voc: record.voc,
-    })
-    count++
+    // Expand right to include all points with timestamp <= windowEndTime
+    while (right < sorted.length) {
+      const rightTime = new Date(sorted[right].timestamp).getTime()
+      if (rightTime > windowEndTime) break
+      const r = sorted[right]
+      tempSum += r.temp
+      co2Sum += r.co2
+      humidSum += r.humid
+      pm25Sum += r.pm25
+      vocSum += r.voc
+      windowValues.push({
+        temp: r.temp,
+        co2: r.co2,
+        humid: r.humid,
+        pm25: r.pm25,
+        voc: r.voc,
+      })
+      right++
+    }
 
-    // Remove records that fall outside the window
-    while (windowStart < i && new Date(sorted[windowStart].timestamp).getTime() < windowStartTime) {
+    // Shrink left to exclude points with timestamp < windowStartTime
+    while (left < right) {
+      const leftTime = new Date(sorted[left].timestamp).getTime()
+      if (leftTime >= windowStartTime) break
       const removed = windowValues.shift()!
       tempSum -= removed.temp
       co2Sum -= removed.co2
       humidSum -= removed.humid
       pm25Sum -= removed.pm25
       vocSum -= removed.voc
-      count--
-      windowStart++
+      left++
+    }
+
+    const count = windowValues.length
+
+    // Edge case: no points in window (shouldn't happen)
+    if (count === 0) {
+      return {
+        ...record,
+        temp_stddev: 0,
+        co2_stddev: 0,
+        humid_stddev: 0,
+        pm25_stddev: 0,
+        voc_stddev: 0,
+      }
     }
 
     // Compute means
