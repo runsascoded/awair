@@ -17,6 +17,8 @@ interface DevicesControlProps {
   setDeviceRenderStrategy: (value: DeviceRenderStrategy) => void
   hsvConfig: HsvConfig
   setHsvConfig: (value: HsvConfig) => void
+  stddevOpacity: number
+  onStddevOpacityChange: (opacity: number) => void
 }
 
 export function DevicesControl({
@@ -28,7 +30,9 @@ export function DevicesControl({
   deviceRenderStrategy,
   setDeviceRenderStrategy,
   hsvConfig,
-  setHsvConfig
+  setHsvConfig,
+  stddevOpacity,
+  onStddevOpacityChange,
 }: DevicesControlProps) {
   const isMultiDevice = selectedDeviceIds.length > 1
   const detailsRef = useRef<HTMLDetailsElement>(null)
@@ -90,7 +94,7 @@ export function DevicesControl({
 
   const tooltipContent = <div>
     <p>Select devices to display on the chart (at least one device must be selected).</p>
-    {isMultiDevice ? <p>🎨: Configure how devices are visually distinguished (HSL color shifts, dashed lines, or none).</p> : null}
+    <p>🎨: Configure band opacity{isMultiDevice ? ' and device visual distinction' : ''}.</p>
   </div>
 
   return (
@@ -100,83 +104,103 @@ export function DevicesControl({
         <Tooltip content={tooltipContent}>
           <span className="info-icon">?</span>
         </Tooltip>
-        {isMultiDevice && (
-          <details
-            ref={detailsRef}
-            className="render-settings-details"
-          >
-            <summary>
-              <span className="settings-icon">🎨</span>
-            </summary>
-            <div className="render-settings-panel">
-              <div className="setting-row">
-                <label>Strategy:</label>
-                <Tooltip content="How to visually distinguish different devices">
-                  <select
-                    value={deviceRenderStrategy}
-                    onChange={(e) => setDeviceRenderStrategy(e.target.value as DeviceRenderStrategy)}
-                  >
-                    <option value="hsv-nudge">HSL Nudge</option>
-                    <option value="dash">Dashed</option>
-                    <option value="none">None</option>
-                  </select>
-                </Tooltip>
-                <Tooltip content={
-                  deviceRenderStrategy === 'hsv-nudge'
-                    ? "Shift hue, saturation, and lightness for each device"
-                    : deviceRenderStrategy === 'dash'
-                      ? "Use dashed lines for secondary devices"
-                      : "No visual distinction between devices"
-                }>
-                  <span className="info-icon">?</span>
-                </Tooltip>
-              </div>
-
-              {deviceRenderStrategy === 'hsv-nudge' && (
-                <>
-                  <div className="setting-row">
-                    <label title="Hue rotation per device (0-60°)">Hue:</label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="60"
-                      step="5"
-                      value={hsvConfig.hueStep}
-                      onChange={(e) => setHsvConfig({ ...hsvConfig, hueStep: Number(e.target.value) })}
-                    />
-                    <span className="setting-value">{hsvConfig.hueStep}°</span>
-                  </div>
-
-                  <div className="setting-row">
-                    <label title="Saturation adjustment per device (0-100%)">Saturation:</label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="50"
-                      step="5"
-                      value={hsvConfig.saturationStep}
-                      onChange={(e) => setHsvConfig({ ...hsvConfig, saturationStep: Number(e.target.value) })}
-                    />
-                    <span className="setting-value">{hsvConfig.saturationStep}%</span>
-                  </div>
-
-                  <div className="setting-row">
-                    <label title="Lightness adjustment per device (0-100%)">Lightness:</label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="40"
-                      step="1"
-                      value={hsvConfig.lightnessStep}
-                      onChange={(e) => setHsvConfig({ ...hsvConfig, lightnessStep: Number(e.target.value) })}
-                    />
-                    <span className="setting-value">{hsvConfig.lightnessStep}%</span>
-                  </div>
-                </>
-              )}
+        <details
+          ref={detailsRef}
+          className="render-settings-details"
+        >
+          <summary>
+            <span className="settings-icon">🎨</span>
+          </summary>
+          <div className="render-settings-panel">
+            {/* Stddev band opacity - always visible */}
+            <div className="setting-row">
+              <Tooltip content="Opacity of ±σ standard deviation bands around the mean">
+                <label>±σ Bands:</label>
+              </Tooltip>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={stddevOpacity}
+                onChange={(e) => onStddevOpacityChange(Number(e.target.value))}
+              />
+              <span className="setting-value">{stddevOpacity}%</span>
             </div>
-          </details>
-        )}
+
+            {/* Device strategy - only for multi-device */}
+            {isMultiDevice && (
+              <>
+                <hr className="settings-divider" />
+                <div className="setting-row">
+                  <label>Strategy:</label>
+                  <Tooltip content="How to visually distinguish different devices">
+                    <select
+                      value={deviceRenderStrategy}
+                      onChange={(e) => setDeviceRenderStrategy(e.target.value as DeviceRenderStrategy)}
+                    >
+                      <option value="hsv-nudge">HSL Nudge</option>
+                      <option value="dash">Dashed</option>
+                      <option value="none">None</option>
+                    </select>
+                  </Tooltip>
+                  <Tooltip content={
+                    deviceRenderStrategy === 'hsv-nudge'
+                      ? "Shift hue, saturation, and lightness for each device"
+                      : deviceRenderStrategy === 'dash'
+                        ? "Use dashed lines for secondary devices"
+                        : "No visual distinction between devices"
+                  }>
+                    <span className="info-icon">?</span>
+                  </Tooltip>
+                </div>
+
+                {deviceRenderStrategy === 'hsv-nudge' && (
+                  <>
+                    <div className="setting-row">
+                      <label title="Hue rotation per device (0-60°)">Hue:</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="60"
+                        step="5"
+                        value={hsvConfig.hueStep}
+                        onChange={(e) => setHsvConfig({ ...hsvConfig, hueStep: Number(e.target.value) })}
+                      />
+                      <span className="setting-value">{hsvConfig.hueStep}°</span>
+                    </div>
+
+                    <div className="setting-row">
+                      <label title="Saturation adjustment per device (0-100%)">Saturation:</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="50"
+                        step="5"
+                        value={hsvConfig.saturationStep}
+                        onChange={(e) => setHsvConfig({ ...hsvConfig, saturationStep: Number(e.target.value) })}
+                      />
+                      <span className="setting-value">{hsvConfig.saturationStep}%</span>
+                    </div>
+
+                    <div className="setting-row">
+                      <label title="Lightness adjustment per device (0-100%)">Lightness:</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="40"
+                        step="1"
+                        value={hsvConfig.lightnessStep}
+                        onChange={(e) => setHsvConfig({ ...hsvConfig, lightnessStep: Number(e.target.value) })}
+                      />
+                      <span className="setting-value">{hsvConfig.lightnessStep}%</span>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </details>
       </div>
 
       <div className="body device-checkboxes">

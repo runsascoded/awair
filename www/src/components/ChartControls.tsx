@@ -1,10 +1,12 @@
 import { AggregationControl } from './AggregationControl'
 import { DevicesControl } from './DevicesControl'
 import { RangeWidthControl } from './RangeWidthControl'
+import { SmoothingControl } from './SmoothingControl'
 import { formatForPlotly } from "../utils/dateFormat"
 import type { PxOption } from './AggregationControl'
 import type { TimeWindow } from '../hooks/useDataAggregation'
 import type { MetricsState } from "../hooks/useMetrics"
+import type { SmoothingMinutes } from '../lib/urlParams'
 import type { Device } from '../services/awairService'
 import type { AwairRecord, DataSummary } from '../types/awair'
 import type { DeviceRenderStrategy, HsvConfig } from '../utils/deviceRenderStrategy'
@@ -49,6 +51,12 @@ interface ChartControlsProps {
   onTargetPxChange: (px: PxOption | null) => void
   timeRangeMinutes?: number
   containerWidth?: number
+  // Smoothing control
+  smoothing: SmoothingMinutes
+  onSmoothingChange: (smoothing: SmoothingMinutes) => void
+  // Stddev opacity control
+  stddevOpacity: number
+  onStddevOpacityChange: (opacity: number) => void
 }
 
 const metricConfig = {
@@ -97,6 +105,10 @@ export function ChartControls({
   onTargetPxChange,
   timeRangeMinutes,
   containerWidth,
+  smoothing,
+  onSmoothingChange,
+  stddevOpacity,
+  onStddevOpacityChange,
 }: ChartControlsProps) {
   const handleTimeRangeButtonClick = (hours: number) => {
     const activeRange = getActiveTimeRange()
@@ -142,6 +154,8 @@ export function ChartControls({
         setDeviceRenderStrategy={setDeviceRenderStrategy}
         hsvConfig={hsvConfig}
         setHsvConfig={setHsvConfig}
+        stddevOpacity={stddevOpacity}
+        onStddevOpacityChange={onStddevOpacityChange}
       />
 
       <RangeWidthControl
@@ -162,6 +176,11 @@ export function ChartControls({
         onTargetPxChange={onTargetPxChange}
         timeRangeMinutes={timeRangeMinutes}
         containerWidth={containerWidth}
+      />
+
+      <SmoothingControl
+        smoothing={smoothing}
+        onSmoothingChange={onSmoothingChange}
       />
     </div>
   )

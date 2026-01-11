@@ -6,11 +6,11 @@ export default [
   ...config,
   ...tseslint.configs.recommended,
   {
-    ignores: ['test-*.mjs', 'test-*.html'],
+    ignores: ['test-*.mjs', 'test-*.html', 'tmp/**'],
   },
   // Node.js scripts
   {
-    files: ['har-test/**/*.mjs', 'test/**/*.mjs', 'tmp/**/*.mjs'],
+    files: ['har-test/**/*.mjs', 'test/**/*.mjs'],
     languageOptions: {
       globals: {
         ...globals.node,

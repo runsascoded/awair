@@ -136,6 +136,19 @@
       .info-icon {
         @extend %info-icon-base;
       }
+
+      .setting-value {
+        font-size: 0.8rem;
+        min-width: 2.5rem;
+        text-align: right;
+        color: var(--text-secondary);
+      }
+    }
+
+    .settings-divider {
+      border: none;
+      border-top: 1px solid var(--border-primary);
+      margin: 0.75rem 0;
     }
   }
 }

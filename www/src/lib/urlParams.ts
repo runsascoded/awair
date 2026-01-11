@@ -462,6 +462,53 @@ export const rangeFloorsParam: Param<RangeFloors> = {
 }
 
 /**
+ * Smoothing window param - rolling average window size in minutes
+ *
+ * Examples:
+ *   ?s=5   → 5-minute rolling average
+ *   ?s=15  → 15-minute rolling average
+ *   ?s=60  → 1-hour rolling average
+ *   ?s=1440 → 1-day rolling average
+ *
+ * Default: 1 (no smoothing / raw data, omitted from URL)
+ * Valid values: 1 (off), 5, 10, 15, 30, 60, 120, 240, 360, 720, 1440
+ */
+export const SMOOTHING_OPTIONS = [1, 5, 10, 15, 30, 60, 120, 240, 360, 720, 1440] as const
+export type SmoothingMinutes = typeof SMOOTHING_OPTIONS[number]
+
+export const smoothingParam: Param<SmoothingMinutes> = {
+  encode: (value) => value === 1 ? undefined : String(value),
+  decode: (encoded) => {
+    if (!encoded) return 1
+    const num = parseInt(encoded, 10)
+    return SMOOTHING_OPTIONS.includes(num as SmoothingMinutes)
+      ? (num as SmoothingMinutes)
+      : 1
+  },
+}
+
+/**
+ * Stddev band opacity param - controls visibility of ±σ shaded regions
+ *
+ * Examples:
+ *   ?so=0   → hidden (0% opacity)
+ *   ?so=30  → default (30% opacity, omitted from URL)
+ *   ?so=50  → more visible (50% opacity)
+ *   ?so=100 → fully opaque
+ *
+ * Range: 0-100 (percent)
+ * Default: 30
+ */
+export const stddevOpacityParam: Param<number> = {
+  encode: (value) => value === 30 ? undefined : String(value),
+  decode: (encoded) => {
+    if (!encoded) return 30
+    const num = parseInt(encoded, 10)
+    return isNaN(num) ? 30 : Math.max(0, Math.min(100, num))
+  },
+}
+
+/**
  * Re-export common param builders from use-url-params
  */
 export { boolParam, enumParam, intParam, stringParam } from '@rdub/use-url-params'

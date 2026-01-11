@@ -11,7 +11,7 @@ import { HOTKEY_GROUPS, HOTKEY_GROUP_ORDER } from './config/hotkeyConfig'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
 import { queryClient } from './lib/queryClient'
-import { boolParam, deviceIdsParam, timeRangeParam, refetchIntervalParam } from './lib/urlParams'
+import { boolParam, deviceIdsParam, timeRangeParam, refetchIntervalParam, smoothingParam } from './lib/urlParams'
 import './App.scss'
 
 // Custom group renderers for ShortcutsModal
@@ -44,6 +44,9 @@ function AppContent() {
   // Smart polling can be disabled with ?ri=0
   const [refetchIntervalOverride] = useUrlParam('ri', refetchIntervalParam)
   const smartPolling = refetchIntervalOverride !== 0
+
+  // Smoothing window for rolling averages (extends fetch range for edge accuracy)
+  const [smoothing] = useUrlParam('s', smoothingParam)
 
   // Device data results from DevicePoller components
   const [deviceResults, setDeviceResults] = useState<Map<number, DeviceDataResult>>(new Map())
@@ -138,6 +141,7 @@ function AppContent() {
             key={deviceId}
             deviceId={deviceId}
             timeRange={timeRange}
+            lookbackMinutes={smoothing}
             smartPolling={smartPolling}
             onResult={handleDeviceResult}
           />
@@ -160,6 +164,7 @@ function AppContent() {
             key={deviceId}
             deviceId={deviceId}
             timeRange={timeRange}
+            lookbackMinutes={smoothing}
             smartPolling={smartPolling}
             onResult={handleDeviceResult}
           />
@@ -176,6 +181,7 @@ function AppContent() {
           key={deviceId}
           deviceId={deviceId}
           timeRange={timeRange}
+          lookbackMinutes={smoothing}
           smartPolling={smartPolling}
           onResult={handleDeviceResult}
         />

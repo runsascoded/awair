@@ -13,7 +13,7 @@ import { useMobile } from '../hooks/useMobile'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { usePlotlyHoverDismiss } from '../hooks/usePlotlyHoverDismiss'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
-import { deviceRenderStrategyParam, hsvConfigParam, intFromList, rangeFloorsParam, xGroupingParam } from '../lib/urlParams'
+import { deviceRenderStrategyParam, hsvConfigParam, intFromList, rangeFloorsParam, smoothingParam, stddevOpacityParam, xGroupingParam } from '../lib/urlParams'
 import { getFileBounds } from '../services/awairService'
 import { formatForPlotly } from '../utils/dateFormat'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
@@ -89,6 +89,12 @@ export const AwairChart = memo(function AwairChart(
 
   // Custom range floors per metric (e.g., ?f=t32 for temp floor=32°F)
   const [rangeFloors, setRangeFloors] = useUrlParam('f', rangeFloorsParam)
+
+  // Smoothing: rolling average window size in minutes (0 = off)
+  const [smoothing, setSmoothing] = useUrlParam('s', smoothingParam)
+
+  // Stddev band opacity (0-100%)
+  const [stddevOpacity, setStddevOpacity] = useUrlParam('so', stddevOpacityParam)
 
   // Helper to get effective floor (custom or default from metricConfig)
   const getEffectiveFloor = useCallback((metric: Metric) => {
@@ -174,7 +180,8 @@ export const AwairChart = memo(function AwairChart(
     deviceDataResults,
     devices,
     xAxisRange,
-    { containerWidth: viewportWidth, overrideWindow, targetPx }
+    { containerWidth: viewportWidth, overrideWindow, targetPx },
+    smoothing
   )
 
   // Filter device aggregations for display (when previewing a device checkbox toggle)
@@ -579,6 +586,12 @@ export const AwairChart = memo(function AwairChart(
     return hoverState.metric === metric ? 1.0 : 0.2
   }, [hoverState])
 
+  // Convert opacity percent (0-100) to 2-char hex (00-ff)
+  const opacityHex = useMemo(() => {
+    const value = Math.round((stddevOpacity / 100) * 255)
+    return value.toString(16).padStart(2, '0')
+  }, [stddevOpacity])
+
   // Generate traces for all devices, grouped by metric for better hover ordering
   const plotTraces = useMemo(() => {
     const traces: DataWithZorder[] = []
@@ -737,7 +750,7 @@ export const AwairChart = memo(function AwairChart(
         x: d.timestamps,
         y: d.upperValues,
         fill: 'tonexty',
-        fillcolor: `${d.primaryLineProps.color}20`,
+        fillcolor: `${d.primaryLineProps.color}${opacityHex}`,
         line: { color: 'transparent' },
         mode: 'lines',
         name: `±σ ${config.label}`,
@@ -763,7 +776,7 @@ export const AwairChart = memo(function AwairChart(
         x: d.timestamps,
         y: d.secondaryUpperValues,
         fill: 'tonexty',
-        fillcolor: `${d.secondaryLineProps?.color}20`,
+        fillcolor: `${d.secondaryLineProps?.color}${opacityHex}`,
         line: { color: 'transparent' },
         mode: 'lines',
         name: `±σ ${secondaryConfig.label}`,
@@ -774,7 +787,7 @@ export const AwairChart = memo(function AwairChart(
     }
 
     return traces
-  }, [displayDeviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, deviceRenderStrategy, hsvConfig, getTraceOpacity])
+  }, [displayDeviceAggregations, l.val, r.val, config, secondaryConfig, totalDevices, isRawData, deviceRenderStrategy, hsvConfig, getTraceOpacity, opacityHex])
 
   // Font sizes - larger in og mode for better screenshot readability
   // Note: x-axis ticks need smaller font to fit with multi-line date labels
@@ -989,6 +1002,10 @@ export const AwairChart = memo(function AwairChart(
             selectedWindow,
             validWindows,
             timeRangeMinutes,
+            smoothing,
+            onSmoothingChange: setSmoothing,
+            stddevOpacity,
+            onStddevOpacityChange: setStddevOpacity,
           }}
           onWindowChange={window => {
             if (window) {

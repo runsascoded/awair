@@ -19,6 +19,7 @@ export interface DeviceDataResult {
 export interface DevicePollerProps {
   deviceId: number
   timeRange: TimeRange
+  lookbackMinutes?: number  // Extra time to fetch before range start (for rolling averages)
   smartPolling?: boolean
   onResult: (result: DeviceDataResult) => void
 }
@@ -30,6 +31,7 @@ export interface DevicePollerProps {
 export function DevicePoller({
   deviceId,
   timeRange,
+  lookbackMinutes = 0,
   smartPolling = true,
   onResult,
 }: DevicePollerProps) {
@@ -40,8 +42,8 @@ export function DevicePoller({
   const isLatestMode = useMemo(() => timeRange.timestamp === null, [timeRange.timestamp])
 
   const query = useQuery({
-    queryKey: ['awair-data', deviceId, encodeTimeRange(timeRange)],
-    queryFn: () => fetchAwairData(deviceId, timeRange),
+    queryKey: ['awair-data', deviceId, encodeTimeRange(timeRange), lookbackMinutes],
+    queryFn: () => fetchAwairData(deviceId, timeRange, lookbackMinutes),
     enabled: deviceId !== undefined,
   })
 

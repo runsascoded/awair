@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
-import { useDataAggregation, aggregateData } from './useDataAggregation'
+import { useDataAggregation, aggregateData, applyRollingAverage } from './useDataAggregation'
 import type { AggregatedData, TimeWindow, UseDataAggregationOptions } from './useDataAggregation'
 import type { DeviceDataResult } from '../components/DevicePoller'
+import type { SmoothingMinutes } from '../lib/urlParams'
 
 export interface DeviceAggregatedData {
   deviceId: number
@@ -20,12 +21,14 @@ interface MultiDeviceAggregationResult {
 /**
  * Aggregates data for multiple devices using a shared time window.
  * The window is determined by the combined data range.
+ * Optional smoothing applies a rolling average before aggregation.
  */
 export function useMultiDeviceAggregation(
   deviceDataResults: DeviceDataResult[],
   devices: { deviceId: number; name: string }[],
   xAxisRange: [string, string] | null,
   options: UseDataAggregationOptions,
+  smoothingMinutes: SmoothingMinutes = 1,
 ): MultiDeviceAggregationResult {
   // Combine all data to determine optimal window
   const allData = useMemo(() => {
@@ -43,13 +46,18 @@ export function useMultiDeviceAggregation(
       const device = devices.find(d => d.deviceId === result.deviceId)
       const deviceName = device?.name || `Device ${result.deviceId}`
 
-      // Filter and aggregate this device's data
-      let dataToAggregate = result.data
+      // Apply smoothing first (on full data for accurate edge values)
+      const smoothedData = smoothingMinutes > 1
+        ? applyRollingAverage(result.data, smoothingMinutes)
+        : result.data
+
+      // Filter to time range
+      let dataToAggregate = smoothedData
 
       if (xAxisRange) {
         const startTime = new Date(xAxisRange[0]).getTime()
         const endTime = new Date(xAxisRange[1]).getTime()
-        dataToAggregate = result.data.filter(d => {
+        dataToAggregate = smoothedData.filter(d => {
           const timestamp = new Date(d.timestamp).getTime()
           return timestamp >= startTime && timestamp <= endTime
         })
@@ -64,7 +72,7 @@ export function useMultiDeviceAggregation(
         isRawData,
       }
     })
-  }, [deviceDataResults, devices, xAxisRange, selectedWindow.minutes, isRawData])
+  }, [deviceDataResults, devices, xAxisRange, selectedWindow.minutes, isRawData, smoothingMinutes])
 
   return {
     deviceAggregations,

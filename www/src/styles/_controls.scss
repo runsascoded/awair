@@ -124,3 +124,23 @@
     margin-left: 0.45rem;
   }
 }
+
+// Smoothing control
+.smoothing-section {
+  .smoothing-buttons {
+    display: flex;
+    gap: 0.25rem;
+
+    .smoothing-btn {
+      @include chip;
+      font-weight: 500;
+      min-width: 2.5rem;
+
+      &.active {
+        background: var(--accent-primary);
+        border-color: var(--accent-primary);
+        color: white;
+      }
+    }
+  }
+}

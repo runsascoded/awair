@@ -22,6 +22,108 @@ interface AggregatedData {
   count: number
 }
 
+/**
+ * Result of rolling average with optional stddev.
+ * Extends AwairRecord with rolling stddev fields when computed.
+ */
+export interface SmoothedRecord extends AwairRecord {
+  temp_stddev?: number
+  co2_stddev?: number
+  humid_stddev?: number
+  pm25_stddev?: number
+  voc_stddev?: number
+}
+
+/**
+ * Apply a trailing rolling average to raw data.
+ * Each output point is the average of the preceding windowMinutes of data.
+ * Also computes rolling stddev for each metric.
+ * Data must be sorted chronologically (oldest first) for correct results.
+ */
+export function applyRollingAverage(data: AwairRecord[], windowMinutes: number): SmoothedRecord[] {
+  if (windowMinutes <= 1 || data.length === 0) return data
+
+  const windowMs = windowMinutes * 60 * 1000
+
+  // Sort oldest-first for sliding window
+  const sorted = [...data].sort((a, b) =>
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  )
+
+  // Sliding window for O(n) mean computation
+  // For stddev, we need to keep track of values in window (or use Welford's algorithm)
+  let windowStart = 0
+  let tempSum = 0, co2Sum = 0, humidSum = 0, pm25Sum = 0, vocSum = 0
+  let count = 0
+
+  // Keep window values for stddev calculation
+  const windowValues: { temp: number; co2: number; humid: number; pm25: number; voc: number }[] = []
+
+  return sorted.map((record, i) => {
+    const currentTime = new Date(record.timestamp).getTime()
+    const windowStartTime = currentTime - windowMs
+
+    // Add current record to window
+    tempSum += record.temp
+    co2Sum += record.co2
+    humidSum += record.humid
+    pm25Sum += record.pm25
+    vocSum += record.voc
+    windowValues.push({
+      temp: record.temp,
+      co2: record.co2,
+      humid: record.humid,
+      pm25: record.pm25,
+      voc: record.voc,
+    })
+    count++
+
+    // Remove records that fall outside the window
+    while (windowStart < i && new Date(sorted[windowStart].timestamp).getTime() < windowStartTime) {
+      const removed = windowValues.shift()!
+      tempSum -= removed.temp
+      co2Sum -= removed.co2
+      humidSum -= removed.humid
+      pm25Sum -= removed.pm25
+      vocSum -= removed.voc
+      count--
+      windowStart++
+    }
+
+    // Compute means
+    const tempMean = tempSum / count
+    const co2Mean = co2Sum / count
+    const humidMean = humidSum / count
+    const pm25Mean = pm25Sum / count
+    const vocMean = vocSum / count
+
+    // Compute stddev (population stddev)
+    let tempVariance = 0, co2Variance = 0, humidVariance = 0, pm25Variance = 0, vocVariance = 0
+    for (const v of windowValues) {
+      tempVariance += pow(v.temp - tempMean, 2)
+      co2Variance += pow(v.co2 - co2Mean, 2)
+      humidVariance += pow(v.humid - humidMean, 2)
+      pm25Variance += pow(v.pm25 - pm25Mean, 2)
+      vocVariance += pow(v.voc - vocMean, 2)
+    }
+
+    return {
+      timestamp: record.timestamp,
+      temp: tempMean,
+      co2: co2Mean,
+      humid: humidMean,
+      pm10: record.pm10, // pm10 not smoothed (not displayed)
+      pm25: pm25Mean,
+      voc: vocMean,
+      temp_stddev: sqrt(tempVariance / count),
+      co2_stddev: sqrt(co2Variance / count),
+      humid_stddev: sqrt(humidVariance / count),
+      pm25_stddev: sqrt(pm25Variance / count),
+      voc_stddev: sqrt(vocVariance / count),
+    }
+  })
+}
+
 export const TIME_WINDOWS: TimeWindow[] = [
   { label: '1m', minutes: 1 },
   { label: '2m', minutes: 2 },
@@ -40,33 +142,38 @@ export const TIME_WINDOWS: TimeWindow[] = [
 ]
 
 // Aggregate data into time windows for performance and visual clarity
-export function aggregateData(data: AwairRecord[], windowMinutes: number): AggregatedData[] {
+// Accepts SmoothedRecord[] (with pre-computed rolling stddev) or plain AwairRecord[]
+export function aggregateData(data: (AwairRecord | SmoothedRecord)[], windowMinutes: number): AggregatedData[] {
   if (data.length === 0) return []
 
   // For 1-minute windows, return raw data in the expected format
   // Sort ascending (oldest first) to match aggregated data behavior
+  // If data has pre-computed rolling stddev, use it
   if (windowMinutes === 1) {
     const sortedData = [...data].sort((a, b) =>
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     )
-    return sortedData.map(record => ({
-      timestamp: record.timestamp,
-      temp_avg: record.temp,
-      temp_stddev: 0,
-      co2_avg: record.co2,
-      co2_stddev: 0,
-      humid_avg: record.humid,
-      humid_stddev: 0,
-      pm25_avg: record.pm25,
-      pm25_stddev: 0,
-      voc_avg: record.voc,
-      voc_stddev: 0,
-      count: 1,
-    }))
+    return sortedData.map(record => {
+      const smoothed = record as SmoothedRecord
+      return {
+        timestamp: record.timestamp,
+        temp_avg: record.temp,
+        temp_stddev: smoothed.temp_stddev ?? 0,
+        co2_avg: record.co2,
+        co2_stddev: smoothed.co2_stddev ?? 0,
+        humid_avg: record.humid,
+        humid_stddev: smoothed.humid_stddev ?? 0,
+        pm25_avg: record.pm25,
+        pm25_stddev: smoothed.pm25_stddev ?? 0,
+        voc_avg: record.voc,
+        voc_stddev: smoothed.voc_stddev ?? 0,
+        count: 1,
+      }
+    })
   }
 
   const windowMs = windowMinutes * 60 * 1000
-  const groups: { [key: string]: AwairRecord[] } = {}
+  const groups: { [key: string]: (AwairRecord | SmoothedRecord)[] } = {}
 
   // Group data by time windows
   data.forEach(record => {
@@ -80,13 +187,30 @@ export function aggregateData(data: AwairRecord[], windowMinutes: number): Aggre
     groups[key].push(record)
   })
 
-  // Calculate standard deviation
+  // Calculate standard deviation (fallback when no pre-computed rolling stddev)
   const calculateStdDev = (values: number[]): number => {
     if (values.length <= 1) return 0
     const mean = values.reduce((a, b) => a + b, 0) / values.length
     const squaredDiffs = values.map(value => pow(value - mean, 2))
     const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / values.length
     return sqrt(avgSquaredDiff)
+  }
+
+  // Average pre-computed stddevs, or compute from values if not available
+  const getStdDev = (
+    records: (AwairRecord | SmoothedRecord)[],
+    getValue: (r: AwairRecord) => number,
+    getPrecomputed: (r: SmoothedRecord) => number | undefined
+  ): number => {
+    // Check if records have pre-computed rolling stddev
+    const smoothed = records as SmoothedRecord[]
+    const precomputed = smoothed.map(getPrecomputed).filter((v): v is number => v !== undefined)
+    if (precomputed.length === records.length && precomputed.length > 0) {
+      // Average the pre-computed rolling stddevs (preserves original variance)
+      return precomputed.reduce((a, b) => a + b, 0) / precomputed.length
+    }
+    // Fall back to computing stddev of values
+    return calculateStdDev(records.map(getValue))
   }
 
   // Aggregate each group and ensure chronological order
@@ -101,15 +225,15 @@ export function aggregateData(data: AwairRecord[], windowMinutes: number): Aggre
       return {
         timestamp: new Date(timestampKey),
         temp_avg: temps.reduce((a, b) => a + b, 0) / temps.length,
-        temp_stddev: calculateStdDev(temps),
+        temp_stddev: getStdDev(records, r => r.temp, r => r.temp_stddev),
         co2_avg: co2s.reduce((a, b) => a + b, 0) / co2s.length,
-        co2_stddev: calculateStdDev(co2s),
+        co2_stddev: getStdDev(records, r => r.co2, r => r.co2_stddev),
         humid_avg: humids.reduce((a, b) => a + b, 0) / humids.length,
-        humid_stddev: calculateStdDev(humids),
+        humid_stddev: getStdDev(records, r => r.humid, r => r.humid_stddev),
         pm25_avg: pm25s.reduce((a, b) => a + b, 0) / pm25s.length,
-        pm25_stddev: calculateStdDev(pm25s),
+        pm25_stddev: getStdDev(records, r => r.pm25, r => r.pm25_stddev),
         voc_avg: vocs.reduce((a, b) => a + b, 0) / vocs.length,
-        voc_stddev: calculateStdDev(vocs),
+        voc_stddev: getStdDev(records, r => r.voc, r => r.voc_stddev),
         count: records.length,
       }
     })

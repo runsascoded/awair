@@ -133,7 +133,8 @@ export function getFileBounds(deviceId: number): { earliest: Date; latest: Date 
 
 export async function fetchAwairData(
   deviceId: number | undefined,
-  timeRange: { timestamp: Date | null; duration: number }
+  timeRange: { timestamp: Date | null; duration: number },
+  lookbackMinutes: number = 0
 ): Promise<{ records: AwairRecord[]; summary: DataSummary; lastModified?: Date }> {
   // If no device ID provided, use first available device
   if (!deviceId) {
@@ -144,9 +145,10 @@ export async function fetchAwairData(
     deviceId = devices[0].deviceId
   }
 
-  // Calculate time range
+  // Calculate time range, extending start by lookback for rolling average edge accuracy
   const to = timeRange.timestamp || new Date()
-  const from = new Date(to.getTime() - timeRange.duration)
+  const lookbackMs = lookbackMinutes * 60 * 1000
+  const from = new Date(to.getTime() - timeRange.duration - lookbackMs)
 
   // Use HyparquetSource with caching
   const result = await hyparquetSource.fetch({
