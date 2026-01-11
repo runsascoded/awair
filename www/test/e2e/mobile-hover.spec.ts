@@ -6,9 +6,9 @@ import { test, expect, devices } from '@playwright/test'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Use iPhone 12 for mobile emulation
-const iPhone = devices['iPhone 12']
-test.use({ ...iPhone })
+// Use iPhone 12 viewport/touch settings but stay on chromium (avoid webkit dependency)
+const { defaultBrowserType: _, ...iPhone } = devices['iPhone 12']
+test.use(iPhone)
 
 test.describe('Mobile Hover Dismiss', () => {
 
