@@ -1,25 +1,18 @@
+import { KbdModal } from 'use-kbd'
+import { IntervalSelect } from './IntervalSelect'
 import { Tooltip } from './Tooltip'
-import { SMOOTHING_OPTIONS } from '../lib/urlParams'
-import type { SmoothingMinutes } from '../lib/urlParams'
+import { SMOOTHING_PRESETS } from '../lib/urlParams'
 
 interface SmoothingControlProps {
-  smoothing: SmoothingMinutes
-  onSmoothingChange: (smoothing: SmoothingMinutes) => void
+  smoothing: number
+  onSmoothingChange: (smoothing: number) => void
 }
 
-const SMOOTHING_LABELS: Record<SmoothingMinutes, string> = {
-  1: 'Off',
-  5: '5m',
-  10: '10m',
-  15: '15m',
-  30: '30m',
-  60: '1h',
-  120: '2h',
-  240: '4h',
-  360: '6h',
-  720: '12h',
-  1440: '1d',
-}
+// Convert presets to IntervalSelect format
+const SMOOTHING_OPTIONS = SMOOTHING_PRESETS.map(minutes => ({
+  label: minutes === 1 ? 'Off' : minutes < 60 ? `${minutes}m` : minutes < 1440 ? `${minutes / 60}h` : `${minutes / 1440}d`,
+  minutes,
+}))
 
 export function SmoothingControl({
   smoothing,
@@ -30,23 +23,22 @@ export function SmoothingControl({
       <div className="header">
         <label className="unselectable">Smoothing:</label>
         <Tooltip content={<ul>
-          <li>Applies a rolling average to smooth out short-term fluctuations.</li>
+          <li>Applies a centered rolling average to smooth fluctuations.</li>
           <li>Useful for seeing trends through HVAC cycling noise.</li>
-          <li>Each point becomes the average of the preceding N minutes.</li>
+          <li>Press <KbdModal /> for keyboard shortcuts (e.g., <code>4 H</code> for 4h)</li>
         </ul>}>
           <span className="info-icon">?</span>
         </Tooltip>
       </div>
-      <div className="body smoothing-buttons">
-        {SMOOTHING_OPTIONS.map(option => (
-          <button
-            key={option}
-            className={`smoothing-btn${smoothing === option ? ' active' : ''}`}
-            onClick={() => onSmoothingChange(option)}
-          >
-            {SMOOTHING_LABELS[option]}
-          </button>
-        ))}
+      <div className="body">
+        <IntervalSelect
+          value={smoothing}
+          options={SMOOTHING_OPTIONS}
+          onChange={onSmoothingChange}
+          className="smoothing-select"
+          offValue={1}
+          offLabel="Off"
+        />
       </div>
     </div>
   )

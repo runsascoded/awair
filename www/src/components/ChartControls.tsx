@@ -6,7 +6,6 @@ import { formatForPlotly } from "../utils/dateFormat"
 import type { PxOption } from './AggregationControl'
 import type { TimeWindow } from '../hooks/useDataAggregation'
 import type { MetricsState } from "../hooks/useMetrics"
-import type { SmoothingMinutes } from '../lib/urlParams'
 import type { Device } from '../services/awairService'
 import type { AwairRecord, DataSummary } from '../types/awair'
 import type { DeviceRenderStrategy, HsvConfig } from '../utils/deviceRenderStrategy'
@@ -52,8 +51,8 @@ interface ChartControlsProps {
   timeRangeMinutes?: number
   containerWidth?: number
   // Smoothing control
-  smoothing: SmoothingMinutes
-  onSmoothingChange: (smoothing: SmoothingMinutes) => void
+  smoothing: number
+  onSmoothingChange: (smoothing: number) => void
   // Stddev opacity control
   stddevOpacity: number
   onStddevOpacityChange: (opacity: number) => void

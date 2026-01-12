@@ -465,25 +465,67 @@ export const rangeFloorsParam: Param<RangeFloors> = {
  * Smoothing window param - rolling average window size in minutes
  *
  * Examples:
- *   ?s=5   → 5-minute rolling average
- *   ?s=15  → 15-minute rolling average
- *   ?s=60  → 1-hour rolling average
- *   ?s=1440 → 1-day rolling average
+ *   ?s=5m  → 5-minute rolling average
+ *   ?s=15m → 15-minute rolling average
+ *   ?s=1h  → 1-hour rolling average
+ *   ?s=6h  → 6-hour rolling average
+ *   ?s=1d  → 1-day rolling average
+ *   ?s=1d6h → 1 day + 6 hours rolling average
  *
  * Default: 1 (no smoothing / raw data, omitted from URL)
- * Valid values: 1 (off), 5, 10, 15, 30, 60, 120, 240, 360, 720, 1440
+ * Any positive duration is valid (presets are just UI convenience)
  */
-export const SMOOTHING_OPTIONS = [1, 5, 10, 15, 30, 60, 120, 240, 360, 720, 1440] as const
-export type SmoothingMinutes = typeof SMOOTHING_OPTIONS[number]
+export const SMOOTHING_PRESETS = [1, 5, 10, 15, 30, 60, 120, 240, 360, 720, 1440] as const
 
-export const smoothingParam: Param<SmoothingMinutes> = {
-  encode: (value) => value === 1 ? undefined : String(value),
+/**
+ * Parse duration string to minutes: 1d, 6h, 30m, 1d6h, etc.
+ */
+function parseDurationMinutes(duration: string): number {
+  let total = 0
+  const pattern = /(\d+)([dhm])/g
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(duration)) !== null) {
+    const value = parseInt(match[1], 10)
+    const unit = match[2]
+
+    switch (unit) {
+      case 'd': total += value * 1440; break
+      case 'h': total += value * 60; break
+      case 'm': total += value; break
+    }
+  }
+
+  return total
+}
+
+/**
+ * Encode minutes to compact duration string: 1d, 6h, 30m, 1d6h, etc.
+ */
+function encodeDurationMinutes(minutes: number): string {
+  const days = Math.floor(minutes / 1440)
+  minutes -= days * 1440
+  const hours = Math.floor(minutes / 60)
+  minutes -= hours * 60
+
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}d`)
+  if (hours > 0) parts.push(`${hours}h`)
+  if (minutes > 0) parts.push(`${minutes}m`)
+
+  return parts.length > 0 ? parts.join('') : '0m'
+}
+
+export const smoothingParam: Param<number> = {
+  encode: (value) => value === 1 ? undefined : encodeDurationMinutes(value),
   decode: (encoded) => {
     if (!encoded) return 1
+    // Try humanized format first (6h, 1d, etc.)
+    const parsed = parseDurationMinutes(encoded)
+    if (parsed > 0) return parsed
+    // Fall back to raw number for backwards compatibility
     const num = parseInt(encoded, 10)
-    return SMOOTHING_OPTIONS.includes(num as SmoothingMinutes)
-      ? (num as SmoothingMinutes)
-      : 1
+    return isNaN(num) || num < 1 ? 1 : num
   },
 }
 
@@ -520,11 +562,11 @@ export const stddevOpacityParam: Param<number> = {
  * Default: 50
  */
 export const rawOpacityParam: Param<number> = {
-  encode: (value) => value === 90 ? undefined : String(value),
+  encode: (value) => value === 65 ? undefined : String(value),
   decode: (encoded) => {
-    if (!encoded) return 90
+    if (!encoded) return 65
     const num = parseInt(encoded, 10)
-    return isNaN(num) ? 90 : Math.max(0, Math.min(100, num))
+    return isNaN(num) ? 65 : Math.max(0, Math.min(100, num))
   },
 }
 

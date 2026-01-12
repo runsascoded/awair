@@ -398,10 +398,10 @@ export const AwairChart = memo(function AwairChart(
   useAction('right:autorange', { label: 'Toggle auto-range', group: 'Y-Axis Metrics', defaultBindings: ['shift+a'], handler: () => { if (r.val !== 'none') r.setAutoRange(!r.autoRange) } })
 
   // Time ranges - dynamic with digit wildcards
-  useAction('time:hours', { label: 'N hours', group: 'Time Range', defaultBindings: ['\\d+ h', 'h \\d+'], keywords: ['hours'], handler: useCallback((_, captures) => handleTimeRangeClick(captures?.[0] ?? 1), [handleTimeRangeClick]) })
-  useAction('time:days', { label: 'N days', group: 'Time Range', defaultBindings: ['\\d+ d', 'd \\d+'], keywords: ['days'], handler: useCallback((_, captures) => handleTimeRangeClick((captures?.[0] ?? 1) * 24), [handleTimeRangeClick]) })
-  useAction('time:weeks', { label: 'N weeks', group: 'Time Range', defaultBindings: ['\\d+ w', 'w \\d+'], keywords: ['weeks'], handler: useCallback((_, captures) => handleTimeRangeClick((captures?.[0] ?? 1) * 24 * 7), [handleTimeRangeClick]) })
-  useAction('time:months', { label: 'N months', group: 'Time Range', defaultBindings: ['\\d+ m', 'm \\d+'], keywords: ['months'], handler: useCallback((_, captures) => handleTimeRangeClick((captures?.[0] ?? 1) * 24 * 31), [handleTimeRangeClick]) })
+  useAction('time:hours', { label: 'Range: N hours', group: 'Time Range', defaultBindings: ['\\d+ h', 'h \\d+'], keywords: ['hours'], handler: useCallback((_, captures) => handleTimeRangeClick(captures?.[0] ?? 1), [handleTimeRangeClick]) })
+  useAction('time:days', { label: 'Range: N days', group: 'Time Range', defaultBindings: ['\\d+ d', 'd \\d+'], keywords: ['days'], handler: useCallback((_, captures) => handleTimeRangeClick((captures?.[0] ?? 1) * 24), [handleTimeRangeClick]) })
+  useAction('time:weeks', { label: 'Range: N weeks', group: 'Time Range', defaultBindings: ['\\d+ w', 'w \\d+'], keywords: ['weeks'], handler: useCallback((_, captures) => handleTimeRangeClick((captures?.[0] ?? 1) * 24 * 7), [handleTimeRangeClick]) })
+  useAction('time:months', { label: 'Range: N months', group: 'Time Range', defaultBindings: ['\\d+ m', 'm \\d+'], keywords: ['months'], handler: useCallback((_, captures) => handleTimeRangeClick((captures?.[0] ?? 1) * 24 * 31), [handleTimeRangeClick]) })
   // Special time ranges (not digit-based)
   useAction('time:all', { label: 'Full history', group: 'Time Range', defaultBindings: ['f'], keywords: ['all', 'everything', 'max', 'full'], handler: handleAllClick })
   useAction('time:latest', { label: 'Latest', group: 'Time Range', defaultBindings: ['l'], keywords: ['now', 'current', 'live'], handler: toggleLatestMode })
@@ -416,6 +416,21 @@ export const AwairChart = memo(function AwairChart(
   useAction('agg:2px', { label: '2px', group: 'X Grouping', defaultBindings: ['x 2'], keywords: ['2px', 'auto', 'aggregation'], handler: () => setXGrouping({ mode: 'auto', targetPx: 2 }) })
   useAction('agg:4px', { label: '4px', group: 'X Grouping', defaultBindings: ['x 4'], keywords: ['4px', 'auto', 'aggregation'], handler: () => setXGrouping({ mode: 'auto', targetPx: 4 }) })
   useAction('agg:8px', { label: '8px', group: 'X Grouping', defaultBindings: ['x 8'], keywords: ['8px', 'auto', 'aggregation'], handler: () => setXGrouping({ mode: 'auto', targetPx: 8 }) })
+
+  // Smoothing (rolling average) - accepts any value, not just presets
+  useAction('smooth:minutes', { label: 'Smooth: N minutes', group: 'Smoothing', defaultBindings: ['\\d+ M', 'M \\d+'], keywords: ['smooth', 'rolling', 'average'], handler: useCallback((_, captures) => {
+    setSmoothing(captures?.[0] ?? 5)
+  }, [setSmoothing]) })
+
+  useAction('smooth:hours', { label: 'Smooth: N hours', group: 'Smoothing', defaultBindings: ['\\d+ H', 'H \\d+'], keywords: ['smooth', 'rolling', 'average'], handler: useCallback((_, captures) => {
+    setSmoothing((captures?.[0] ?? 1) * 60)
+  }, [setSmoothing]) })
+
+  useAction('smooth:days', { label: 'Smooth: N days', group: 'Smoothing', defaultBindings: ['\\d+ D', 'D \\d+'], keywords: ['smooth', 'rolling', 'average'], handler: useCallback((_, captures) => {
+    setSmoothing((captures?.[0] ?? 1) * 1440)
+  }, [setSmoothing]) })
+
+  useAction('smooth:off', { label: 'Smooth: Off', group: 'Smoothing', defaultBindings: ['0 M', 'O'], keywords: ['smooth', 'off', 'none', 'disable'], handler: () => setSmoothing(1) })
 
   // Dynamic page title: "Gym BR 🌡️ 💦" format
   useEffect(() => {

@@ -10,6 +10,7 @@ export const HOTKEY_GROUP_ORDER = [
   'Y-Axis Metrics',
   'Time Range',
   'X Grouping',
+  'Smoothing',
   'Toggle devices on/off',
   'Table Navigation',
 ]

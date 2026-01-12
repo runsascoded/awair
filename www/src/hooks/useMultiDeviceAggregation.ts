@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { useDataAggregation, aggregateData, applyRollingAverage } from './useDataAggregation'
 import type { AggregatedData, TimeWindow, UseDataAggregationOptions } from './useDataAggregation'
 import type { DeviceDataResult } from '../components/DevicePoller'
-import type { SmoothingMinutes } from '../lib/urlParams'
 
 export interface DeviceAggregatedData {
   deviceId: number
@@ -29,7 +28,7 @@ export function useMultiDeviceAggregation(
   devices: { deviceId: number; name: string }[],
   xAxisRange: [string, string] | null,
   options: UseDataAggregationOptions,
-  smoothingMinutes: SmoothingMinutes = 1,
+  smoothingMinutes: number = 1,
 ): MultiDeviceAggregationResult {
   // Combine all data to determine optimal window
   const allData = useMemo(() => {
