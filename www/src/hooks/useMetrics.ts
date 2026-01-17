@@ -1,5 +1,5 @@
-import { useUrlParam } from '@rdub/use-url-params'
 import { useCallback } from 'react'
+import { useUrlParam } from 'use-prms'
 import { defaultYAxesParam, type Metric } from '../lib/urlParams'
 
 export type MetricsState = {

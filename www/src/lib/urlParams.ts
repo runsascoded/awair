@@ -4,7 +4,7 @@
 
 import { encodeTimeRange, decodeTimeRange } from './timeRangeCodec'
 import type { Device } from '../services/awairService'
-import type { Param } from '@rdub/use-url-params'
+import type { Param } from 'use-prms'
 
 /**
  * Metric type used in charts
@@ -573,4 +573,4 @@ export const rawOpacityParam: Param<number> = {
 /**
  * Re-export common param builders from use-url-params
  */
-export { boolParam, enumParam, intParam, stringParam } from '@rdub/use-url-params'
+export { boolParam, enumParam, intParam, stringParam } from 'use-prms'

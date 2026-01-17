@@ -1,7 +1,7 @@
-import { useUrlParam } from '@rdub/use-url-params'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { HotkeysProvider, LookupModal, Omnibar, SequenceModal, ShortcutsModal, useHotkeysContext } from 'use-kbd'
+import { useUrlParam } from 'use-prms'
 import 'use-kbd/styles.css'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'

@@ -1,8 +1,8 @@
 import { abs, ceil, floor, max } from "@rdub/base"
-import { useUrlParam } from '@rdub/use-url-params'
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
 import Plot from 'react-plotly.js'
 import { useAction } from 'use-kbd'
+import { useUrlParam } from 'use-prms'
 import { ChartControls, metricConfig, getRangeFloor } from './ChartControls'
 import { CustomLegend } from './CustomLegend'
 import { DataTable } from './DataTable'
