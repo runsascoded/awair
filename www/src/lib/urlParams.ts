@@ -23,7 +23,7 @@ export type Metrics = {
  * Helper: Create a Param for an integer that must be one of a predefined set of values
  * @param values - Allowed values
  * @param defaultValue - Default value (must be in values array)
- * @returns Param object for use with useUrlParam
+ * @returns Param object for use with useUrlState
  */
 export function intFromList<T extends number>(values: readonly T[], defaultValue: T): Param<T> {
   if (!values.includes(defaultValue)) {

@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { useUrlParam } from 'use-prms'
+import { useUrlState } from 'use-prms'
 import { defaultYAxesParam, type Metric } from '../lib/urlParams'
 
 export type MetricsState = {
@@ -12,7 +12,7 @@ export type MetricsState = {
  * Persists state in URL as compact param (?y=tc for temp+CO2, ?y=tca for temp auto-range + CO2 tozero)
  */
 export function useMetrics(): MetricsState {
-  const [yAxes, setYAxes] = useUrlParam('y', defaultYAxesParam)
+  const [yAxes, setYAxes] = useUrlState('y', defaultYAxesParam)
 
   // Left (primary) axis metric
   const setLeft = useCallback((metric: Metric) => {

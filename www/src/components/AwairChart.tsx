@@ -2,7 +2,7 @@ import { abs, ceil, floor, max } from "@rdub/base"
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
 import Plot from 'react-plotly.js'
 import { useAction } from 'use-kbd'
-import { useUrlParam } from 'use-prms'
+import { useUrlState } from 'use-prms'
 import { ChartControls, metricConfig, getRangeFloor } from './ChartControls'
 import { CustomLegend } from './CustomLegend'
 import { DataTable } from './DataTable'
@@ -79,25 +79,25 @@ export const AwairChart = memo(function AwairChart(
   const { l, r } = metrics
 
   // Device render strategy: how to visually distinguish multiple devices
-  const [deviceRenderStrategy, setDeviceRenderStrategy] = useUrlParam('dr', deviceRenderStrategyParam)
+  const [deviceRenderStrategy, setDeviceRenderStrategy] = useUrlState('dr', deviceRenderStrategyParam)
 
   // HSL config for hsv-nudge strategy
-  const [hsvConfig, setHsvConfig] = useUrlParam('hsl', hsvConfigParam)
+  const [hsvConfig, setHsvConfig] = useUrlState('hsl', hsvConfigParam)
 
   // X-axis grouping: auto mode (px values) or fixed window mode (time labels)
-  const [xGrouping, setXGrouping] = useUrlParam('x', xGroupingParam)
+  const [xGrouping, setXGrouping] = useUrlState('x', xGroupingParam)
 
   // Custom range floors per metric (e.g., ?f=t32 for temp floor=32°F)
-  const [rangeFloors, setRangeFloors] = useUrlParam('f', rangeFloorsParam)
+  const [rangeFloors, setRangeFloors] = useUrlState('f', rangeFloorsParam)
 
   // Smoothing: rolling average window size in minutes (0 = off)
-  const [smoothing, setSmoothing] = useUrlParam('s', smoothingParam)
+  const [smoothing, setSmoothing] = useUrlState('s', smoothingParam)
 
   // Stddev band opacity (0-100%)
-  const [stddevOpacity, setStddevOpacity] = useUrlParam('so', stddevOpacityParam)
+  const [stddevOpacity, setStddevOpacity] = useUrlState('so', stddevOpacityParam)
 
   // Raw line opacity when smoothing enabled (0-100%)
-  const [rawOpacity, setRawOpacity] = useUrlParam('ro', rawOpacityParam)
+  const [rawOpacity, setRawOpacity] = useUrlState('ro', rawOpacityParam)
 
   // Helper to get effective floor (custom or default from metricConfig)
   const getEffectiveFloor = useCallback((metric: Metric) => {
@@ -154,7 +154,7 @@ export const AwairChart = memo(function AwairChart(
     setDuration
   } = useTimeRangeParam(data, timeRangeFromProps, setTimeRangeFromProps, windowMinutes)
 
-  // Metrics and Y-axis mode now persisted in URL params (via useUrlParam above)
+  // Metrics and Y-axis mode now persisted in URL params (via useUrlState above)
 
   // Time range handlers
   const handleTimeRangeClick = useCallback((hours: number) => {
@@ -205,7 +205,7 @@ export const AwairChart = memo(function AwairChart(
   }, [deviceAggregations, selectedDeviceIdForTable])
 
   // Table page size - persisted in URL
-  const [tablePageSize, setTablePageSize] = useUrlParam('p', intFromList([10, 20, 50, 100, 200] as const, 20))
+  const [tablePageSize, setTablePageSize] = useUrlState('p', intFromList([10, 20, 50, 100, 200] as const, 20))
 
   // Get the selected device's aggregated data for the table
   const selectedDeviceAggregation = deviceAggregations.find(d => d.deviceId === selectedDeviceIdForTable)

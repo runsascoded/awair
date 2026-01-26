@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { HotkeysProvider, LookupModal, Omnibar, SequenceModal, ShortcutsModal, useHotkeysContext } from 'use-kbd'
-import { useUrlParam } from 'use-prms'
+import { useUrlState } from 'use-prms'
 import 'use-kbd/styles.css'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
@@ -21,7 +21,7 @@ const GROUP_RENDERERS = {
 }
 
 function AppContent() {
-  const [isOgMode] = useUrlParam('og', boolParam)
+  const [isOgMode] = useUrlState('og', boolParam)
 
   // Only need openModal for ThemeToggle; ShortcutsModal uses context internally
   const { openModal } = useHotkeysContext()
@@ -36,17 +36,17 @@ function AppContent() {
 
   // Device selection persisted in URL (?d=gym+br)
   const deviceParam = useMemo(() => deviceIdsParam(devices), [devices])
-  const [selectedDeviceIds, setSelectedDeviceIds] = useUrlParam('d', deviceParam)
+  const [selectedDeviceIds, setSelectedDeviceIds] = useUrlState('d', deviceParam)
 
   // Time range persisted in URL (?t=...)
-  const [timeRange, setTimeRange] = useUrlParam('t', timeRangeParam)
+  const [timeRange, setTimeRange] = useUrlState('t', timeRangeParam)
 
   // Smart polling can be disabled with ?ri=0
-  const [refetchIntervalOverride] = useUrlParam('ri', refetchIntervalParam)
+  const [refetchIntervalOverride] = useUrlState('ri', refetchIntervalParam)
   const smartPolling = refetchIntervalOverride !== 0
 
   // Smoothing window for rolling averages (extends fetch range for edge accuracy)
-  const [smoothing] = useUrlParam('s', smoothingParam)
+  const [smoothing] = useUrlState('s', smoothingParam)
 
   // Device data results from DevicePoller components
   const [deviceResults, setDeviceResults] = useState<Map<number, DeviceDataResult>>(new Map())
