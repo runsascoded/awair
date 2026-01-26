@@ -28,6 +28,7 @@
 
   .github-link,
   .shortcuts-button,
+  .search-button,
   .theme-toggle {
     width: 3rem;
     height: 3rem;
@@ -49,7 +50,8 @@
   }
 
   .github-link,
-  .shortcuts-button {
+  .shortcuts-button,
+  .search-button {
     color: var(--text-primary);
     text-decoration: none;
 
@@ -80,6 +82,7 @@
 
     .github-link,
     .shortcuts-button,
+    .search-button,
     .theme-toggle {
       width: 2.5rem;
       height: 2.5rem;

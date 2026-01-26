@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { FaGithub, FaKeyboard } from 'react-icons/fa'
+import { FaGithub, FaKeyboard, FaSearch } from 'react-icons/fa'
 import { MdBrightnessAuto, MdLightMode, MdDarkMode } from 'react-icons/md'
+import { SearchTrigger } from 'use-kbd'
 import { useTheme } from '../contexts/ThemeContext'
 
 interface ThemeToggleProps {
@@ -90,15 +91,21 @@ export function ThemeToggle({ onOpenShortcuts }: ThemeToggleProps) {
         >
           <FaGithub />
         </a>
-        {canHover && onOpenShortcuts && (
-          <button
-            className="shortcuts-button"
-            onClick={onOpenShortcuts}
-            title="Keyboard shortcuts (?)"
-            aria-label="Show keyboard shortcuts"
-          >
-            <FaKeyboard />
-          </button>
+        {canHover ? (
+          onOpenShortcuts && (
+            <button
+              className="shortcuts-button"
+              onClick={onOpenShortcuts}
+              title="Keyboard shortcuts (?)"
+              aria-label="Show keyboard shortcuts"
+            >
+              <FaKeyboard />
+            </button>
+          )
+        ) : (
+          <SearchTrigger className="search-button" ariaLabel="Search actions">
+            <FaSearch />
+          </SearchTrigger>
         )}
         <button
           className="theme-toggle"
