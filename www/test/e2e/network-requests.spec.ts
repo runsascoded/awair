@@ -300,18 +300,20 @@ test.describe('Network Request Behavior', () => {
     })
 
     test('table page forward (.) after backward does not fetch', async ({ page }) => {
-      // Go back by table page
+      // Go back by TWO table pages (avoid triggering Latest mode on forward)
+      await page.keyboard.press(',')
+      await waitForNetworkSettle(page)
       await page.keyboard.press(',')
       await waitForNetworkSettle(page)
 
       clearRequests()
 
-      // Go forward by table page
+      // Go forward by table page (returns to previous position, not Latest)
       await page.keyboard.press('.')
       await waitForNetworkSettle(page)
 
       const gymRequests = getRequests(17617)
-      // Should have NO fetches
+      // Should have NO fetches (data was cached from initial + backward navigation)
       expect(gymRequests).toHaveLength(0)
     })
   })

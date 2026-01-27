@@ -131,21 +131,23 @@ test.describe('Table Pagination Navigation', () => {
     expect(tableText).toBe('21-40 of 254,859 × 1m')
   })
 
-  test('> button pans forward by one page (21-40 → 1-20)', async ({ page }) => {
-    // First go back one page to 21-40
+  test('> button pans forward by one page (41-60 → 21-40)', async ({ page }) => {
+    // Go back TWO pages to 41-60 (avoid triggering Latest mode on forward)
+    await page.locator('.pagination button[aria-label="Pan backward by one table page"]').click()
+    await page.waitForTimeout(500)
     await page.locator('.pagination button[aria-label="Pan backward by one table page"]').click()
     await page.waitForTimeout(500)
 
     let tableText = await page.locator('.pagination .page-info').textContent()
-    expect(tableText).toBe('21-40 of 254,859 × 1m')
+    expect(tableText).toBe('41-60 of 254,859 × 1m')
 
     // Click > button (pan forward by one table page)
     await page.locator('.pagination button[aria-label="Pan forward by one table page"]').click()
     await page.waitForTimeout(500)
 
-    // Should return to 1-20 (Latest mode)
+    // Should move forward to 21-40 (not Latest mode, since we started further back)
     tableText = await page.locator('.pagination .page-info').textContent()
-    expect(tableText).toBe('1-20 of 254,859 × 1m')
+    expect(tableText).toBe('21-40 of 254,859 × 1m')
   })
 
   test('<< button pans backward by plot width', async ({ page }) => {
@@ -163,20 +165,22 @@ test.describe('Table Pagination Navigation', () => {
   })
 
   test('>> button pans forward by plot width', async ({ page }) => {
-    // First go back by plot width
+    // Go back by TWO plot widths (avoid triggering Latest mode on forward)
+    await page.locator('.pagination button[aria-label="Pan backward by one plot width"]').click()
+    await page.waitForTimeout(500)
     await page.locator('.pagination button[aria-label="Pan backward by one plot width"]').click()
     await page.waitForTimeout(500)
 
     const backText = await page.locator('.pagination .page-info').textContent()
-    expect(backText).toBe('1,441-1,460 of 254,859 × 1m')
+    expect(backText).toBe('2,881-2,900 of 254,859 × 1m')
 
     // Click >> button (pan forward by plot width)
     await page.locator('.pagination button[aria-label="Pan forward by one plot width"]').click()
     await page.waitForTimeout(500)
 
-    // Should return to Latest mode (1-20)
+    // Should move forward by one plot width to 1,441-1,460 (not Latest mode)
     const forwardText = await page.locator('.pagination .page-info').textContent()
-    expect(forwardText).toBe('1-20 of 254,859 × 1m')
+    expect(forwardText).toBe('1,441-1,460 of 254,859 × 1m')
   })
 
   test('|< button jumps to earliest data', async ({ page }) => {
