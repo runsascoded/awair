@@ -37,8 +37,8 @@
     "react-plotly.js": "^2.6.0",
     "recharts": "^3.1.0",
     "uplot": "^1.6.32",
-    "use-kbd": "github:runsascoded/use-kbd#d51354bbde2bf134570d81a5f8eee69ed730c0d8",
-    "use-prms": "^0.4.0",
+    "use-kbd": "github:runsascoded/use-kbd#caa1afd04827fe79ff3f313cd7e01b2c08372f78",
+    "use-prms": "github:runsascoded/use-prms#cf28edc59fea41899aca2ada69499cd11604f60e",
     "use-session-storage-state": "^19.0.1"
   },
   "devDependencies": {

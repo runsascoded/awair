@@ -19,6 +19,23 @@ interface TooltipProps {
   maxWidth?: number
 }
 
+/**
+ * Adapter for use-kbd's TooltipComponent interface.
+ * Wraps children in a span to ensure cloneability.
+ */
+interface KbdTooltipProps {
+  title: string
+  children: ReactNode
+}
+
+export function KbdTooltip({ title, children }: KbdTooltipProps) {
+  return (
+    <Tooltip content={title}>
+      <span style={{ display: 'contents' }}>{children}</span>
+    </Tooltip>
+  )
+}
+
 export function Tooltip({ children, content, maxWidth = 300 }: TooltipProps) {
   const [isOpen, setIsOpen] = useState(false)
 

@@ -51,11 +51,11 @@ importers:
         specifier: ^1.6.32
         version: 1.6.32
       use-kbd:
-        specifier: github:runsascoded/use-kbd#d51354bbde2bf134570d81a5f8eee69ed730c0d8
-        version: https://codeload.github.com/runsascoded/use-kbd/tar.gz/d51354bbde2bf134570d81a5f8eee69ed730c0d8(react@19.2.3)
+        specifier: github:runsascoded/use-kbd#caa1afd04827fe79ff3f313cd7e01b2c08372f78
+        version: https://codeload.github.com/runsascoded/use-kbd/tar.gz/caa1afd04827fe79ff3f313cd7e01b2c08372f78(react@19.2.3)
       use-prms:
-        specifier: ^0.4.0
-        version: 0.4.0(react@19.2.3)
+        specifier: github:runsascoded/use-prms#cf28edc59fea41899aca2ada69499cd11604f60e
+        version: https://codeload.github.com/runsascoded/use-prms/tar.gz/cf28edc59fea41899aca2ada69499cd11604f60e(react@19.2.3)
       use-session-storage-state:
         specifier: ^19.0.1
         version: 19.0.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -4110,19 +4110,17 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
-  use-kbd@https://codeload.github.com/runsascoded/use-kbd/tar.gz/d51354bbde2bf134570d81a5f8eee69ed730c0d8:
-    resolution: {tarball: https://codeload.github.com/runsascoded/use-kbd/tar.gz/d51354bbde2bf134570d81a5f8eee69ed730c0d8}
-    version: 0.8.0-dist.2ae6d8e
+  use-kbd@https://codeload.github.com/runsascoded/use-kbd/tar.gz/caa1afd04827fe79ff3f313cd7e01b2c08372f78:
+    resolution: {tarball: https://codeload.github.com/runsascoded/use-kbd/tar.gz/caa1afd04827fe79ff3f313cd7e01b2c08372f78}
+    version: 0.8.0-dist.1f011ad
     peerDependencies:
       react: '>=18.0.0'
 
-  use-prms@0.4.0:
-    resolution: {integrity: sha512-rVcgaXJxwWNfa7ojdrkaGi+OmHtA7gvXjDoBoVT7k8HTD2av7oQ2Ii9nu6kKfDR6nwm4+tdlQ0+VEc/obildgQ==}
+  use-prms@https://codeload.github.com/runsascoded/use-prms/tar.gz/cf28edc59fea41899aca2ada69499cd11604f60e:
+    resolution: {tarball: https://codeload.github.com/runsascoded/use-prms/tar.gz/cf28edc59fea41899aca2ada69499cd11604f60e}
+    version: 0.4.0-dist.1d591ca
     peerDependencies:
-      react: ^18.0.0 || ^19.0.0
-    peerDependenciesMeta:
-      react:
-        optional: true
+      react: ^18.0.0
 
   use-session-storage-state@19.0.1:
     resolution: {integrity: sha512-TK1K+UyTGNyOPN2K3yLOt0nTfeRlYRrLlNRN0kiI4irDng3HU4P0BArSAib0eD/VaQNlYs5WCdjeoEK1y/fIZA==}
@@ -9308,12 +9306,12 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  use-kbd@https://codeload.github.com/runsascoded/use-kbd/tar.gz/d51354bbde2bf134570d81a5f8eee69ed730c0d8(react@19.2.3):
+  use-kbd@https://codeload.github.com/runsascoded/use-kbd/tar.gz/caa1afd04827fe79ff3f313cd7e01b2c08372f78(react@19.2.3):
     dependencies:
       react: 19.2.3
 
-  use-prms@0.4.0(react@19.2.3):
-    optionalDependencies:
+  use-prms@https://codeload.github.com/runsascoded/use-prms/tar.gz/cf28edc59fea41899aca2ada69499cd11604f60e(react@19.2.3):
+    dependencies:
       react: 19.2.3
 
   use-session-storage-state@19.0.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3):

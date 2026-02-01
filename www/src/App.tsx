@@ -7,6 +7,7 @@ import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
 import { TableNavigationRenderer, YAxisMetricsRenderer } from './components/groupRenderers'
 import { ThemeToggle } from './components/ThemeToggle'
+import { KbdTooltip } from './components/Tooltip'
 import { HOTKEY_GROUPS, HOTKEY_GROUP_ORDER } from './config/hotkeyConfig'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
@@ -218,6 +219,7 @@ function AppContent() {
               groupRenderers={GROUP_RENDERERS}
               editable
               hint="Click any key to customize"
+              TooltipComponent={KbdTooltip}
             />
             <Omnibar placeholder="Search actions..." maxResults={15} />
             <LookupModal />
