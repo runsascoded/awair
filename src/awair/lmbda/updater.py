@@ -87,10 +87,11 @@ def update_s3_data():
         with atomic_edit(s3_bucket, s3_key, create_ok=True, download=file_exists) as tmp_path:
             tmp_path = Path(tmp_path)
 
-            # If file doesn't exist, create empty DataFrame
+            # If file doesn't exist, create empty DataFrame with correct column order
             if not tmp_path.exists():
                 print('Creating initial parquet file')
-                empty_df = pd.DataFrame(columns=['timestamp', 'temp', 'humid', 'co2', 'voc', 'pm25'])
+                from awair.storage import FIELDS
+                empty_df = pd.DataFrame(columns=FIELDS)
                 empty_df.to_parquet(tmp_path, index=False, row_group_size=DEFAULT_ROW_GROUP_SIZE)
 
             # Use ParquetStorage to manage updates
