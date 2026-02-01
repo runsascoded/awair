@@ -459,8 +459,8 @@ test.describe('Hotkey Editing', () => {
     // Verify we now have both T and Z
     await expect(leftCell.locator('kbd', { hasText: 'T' })).toBeVisible()
 
-    // Click Reset button
-    await page.locator('.kbd-modal .kbd-reset-btn').click()
+    // Click Reset button (in footer)
+    await page.locator('.kbd-modal button:has-text("Reset")').click()
     await page.waitForTimeout(300)
 
     // Verify Z is gone and only T remains
