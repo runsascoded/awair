@@ -11,9 +11,18 @@ import { ParquetCache } from '../parquetCache'
 import type { AwairRecord } from '../../types/awair'
 import type { DataSource, FetchOptions, FetchResult, FetchTiming } from '../dataSource'
 
-// Parquet row tuple type (match column order: timestamp, temp, co2, pm10, pm25, humid, voc)
-// Note: timestamp is Date object, temp/humid are float (number), others are BigInt
-type AwairRow = [Date, number, bigint, bigint, bigint, number, bigint]
+// Parquet row object type (hyparquet returns objects when rowFormat: 'object')
+// Note: hyparquet may return numbers OR BigInts depending on parquet column types
+// We explicitly convert all numeric fields to Number on read to ensure consistency
+interface AwairRowObject {
+  timestamp: Date
+  temp: number | bigint
+  co2: number | bigint
+  pm10: number | bigint
+  pm25: number | bigint
+  humid: number | bigint
+  voc: number | bigint
+}
 
 /** Global cache manager - one ParquetCache per URL */
 const cacheManager = new Map<string, ParquetCache>()
@@ -124,23 +133,26 @@ export class HyparquetSource implements DataSource {
       }
 
       // Read rows (cache handles fetching missing RGs)
-      let rows: AwairRow[] = []
-      await cache.readRows<AwairRow>(rowStart, rowEnd, (data) => {
+      // Using rowFormat: 'object' to get column names as keys (order-independent)
+      let rows: AwairRowObject[] = []
+      await cache.readRows<AwairRowObject>(rowStart, rowEnd, (data) => {
         rows = data
       })
 
       const stats = cache.getStats()
 
       // Convert to typed records and filter by time range
+      // Explicitly convert ALL numeric fields to Number to handle BigInt from parquet
+      // Using object property access (not array index) to be independent of column order
       const records: AwairRecord[] = rows
         .map((row) => ({
-          timestamp: row[0],
-          temp: row[1],
-          co2: Number(row[2]),
-          pm10: Number(row[3]),
-          pm25: Number(row[4]),
-          humid: row[5],
-          voc: Number(row[6]),
+          timestamp: row.timestamp,
+          temp: Number(row.temp),
+          co2: Number(row.co2),
+          pm10: Number(row.pm10),
+          pm25: Number(row.pm25),
+          humid: Number(row.humid),
+          voc: Number(row.voc),
         }))
         .filter(record => {
           const ts = new Date(record.timestamp).getTime()

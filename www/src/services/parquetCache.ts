@@ -301,6 +301,7 @@ export class ParquetCache {
       metadata: this.metadata,
       rowStart,
       rowEnd,
+      rowFormat: 'object',
       onComplete: (data) => {
         if (Array.isArray(data)) {
           onComplete(data as T[])
