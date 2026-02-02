@@ -9,17 +9,67 @@ export interface TimeWindow {
 
 interface AggregatedData {
   timestamp: Date
-  temp_avg: number
-  temp_stddev: number
-  co2_avg: number
-  co2_stddev: number
-  humid_avg: number
-  humid_stddev: number
-  pm25_avg: number
-  pm25_stddev: number
-  voc_avg: number
-  voc_stddev: number
+  temp_avg: number | null
+  temp_stddev: number | null
+  co2_avg: number | null
+  co2_stddev: number | null
+  humid_avg: number | null
+  humid_stddev: number | null
+  pm25_avg: number | null
+  pm25_stddev: number | null
+  voc_avg: number | null
+  voc_stddev: number | null
   count: number
+}
+
+/**
+ * Gap threshold multiplier: a gap is detected when time between points
+ * exceeds this multiple of the expected interval.
+ */
+const GAP_THRESHOLD_MULTIPLIER = 3
+
+/**
+ * Insert null-valued records at gaps to break line continuity.
+ * A gap is detected when the time between consecutive points exceeds
+ * GAP_THRESHOLD_MULTIPLIER times the expected interval.
+ */
+function insertGapMarkers(data: AggregatedData[], windowMinutes: number): AggregatedData[] {
+  if (data.length < 2) return data
+
+  const expectedIntervalMs = windowMinutes * 60 * 1000
+  const gapThresholdMs = expectedIntervalMs * GAP_THRESHOLD_MULTIPLIER
+  const result: AggregatedData[] = []
+
+  for (let i = 0; i < data.length; i++) {
+    const current = data[i]
+    result.push(current)
+
+    // Check for gap before next point
+    if (i < data.length - 1) {
+      const next = data[i + 1]
+      const gap = next.timestamp.getTime() - current.timestamp.getTime()
+
+      if (gap > gapThresholdMs) {
+        // Insert a null marker at the midpoint of the gap
+        result.push({
+          timestamp: new Date(current.timestamp.getTime() + gap / 2),
+          temp_avg: null,
+          temp_stddev: null,
+          co2_avg: null,
+          co2_stddev: null,
+          humid_avg: null,
+          humid_stddev: null,
+          pm25_avg: null,
+          pm25_stddev: null,
+          voc_avg: null,
+          voc_stddev: null,
+          count: 0,
+        })
+      }
+    }
+  }
+
+  return result
 }
 
 /**
@@ -174,7 +224,7 @@ export function aggregateData(data: (AwairRecord | SmoothedRecord)[], windowMinu
     const sortedData = [...data].sort((a, b) =>
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     )
-    return sortedData.map(record => {
+    const rawAggregated = sortedData.map(record => {
       const smoothed = record as SmoothedRecord
       return {
         timestamp: record.timestamp,
@@ -191,6 +241,8 @@ export function aggregateData(data: (AwairRecord | SmoothedRecord)[], windowMinu
         count: 1,
       }
     })
+    // Insert gap markers for raw data too
+    return insertGapMarkers(rawAggregated, windowMinutes)
   }
 
   const windowMs = windowMinutes * 60 * 1000
@@ -235,7 +287,7 @@ export function aggregateData(data: (AwairRecord | SmoothedRecord)[], windowMinu
   }
 
   // Aggregate each group and ensure chronological order
-  return Object.entries(groups)
+  const aggregated = Object.entries(groups)
     .map(([timestampKey, records]) => {
       const temps = records.map(r => r.temp)
       const co2s = records.map(r => r.co2)
@@ -259,6 +311,9 @@ export function aggregateData(data: (AwairRecord | SmoothedRecord)[], windowMinu
       }
     })
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+
+  // Insert null records at gaps to break line continuity
+  return insertGapMarkers(aggregated, windowMinutes)
 }
 
 /**

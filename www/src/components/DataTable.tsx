@@ -6,6 +6,21 @@ import { formatCompactDate, formatFullDate } from "../utils/dateFormat"
 
 interface AggregatedData {
   timestamp: Date;
+  temp_avg: number | null;
+  temp_stddev: number | null;
+  co2_avg: number | null;
+  co2_stddev: number | null;
+  humid_avg: number | null;
+  humid_stddev: number | null;
+  pm25_avg: number | null;
+  pm25_stddev: number | null;
+  voc_avg: number | null;
+  voc_stddev: number | null;
+  count: number;
+}
+
+/** Type for real data points (not gap markers) - all values are non-null */
+interface RealDataPoint extends AggregatedData {
   temp_avg: number;
   temp_stddev: number;
   co2_avg: number;
@@ -16,7 +31,11 @@ interface AggregatedData {
   pm25_stddev: number;
   voc_avg: number;
   voc_stddev: number;
-  count: number;
+}
+
+/** Type guard: gap markers have count === 0 and null values */
+function isRealDataPoint(d: AggregatedData): d is RealDataPoint {
+  return d.count > 0
 }
 
 interface DeviceAggregatedData {
@@ -77,7 +96,8 @@ export function DataTable(
   const [page, setPage] = useState(0)
 
   // Reverse the data to show most recent first (reverse chronological)
-  const reversedData = [...data].reverse()
+  // Filter out gap markers (count === 0) which are only used for breaking chart lines
+  const reversedData = [...data].filter(isRealDataPoint).reverse()
 
   const startIdx = page * pageSize
   const endIdx = min(startIdx + pageSize, reversedData.length)

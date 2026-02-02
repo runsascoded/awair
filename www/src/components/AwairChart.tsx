@@ -648,32 +648,41 @@ export const AwairChart = memo(function AwairChart(
       ) : null
 
       // Primary metric - raw data
-      const avgValues = rawData.map(d => d[`${l.val}_avg` as keyof typeof d] as number)
-      const stddevValues = rawData.map(d => d[`${l.val}_stddev` as keyof typeof d] as number)
+      const avgValues = rawData.map(d => d[`${l.val}_avg` as keyof typeof d] as number | null)
+      const stddevValues = rawData.map(d => d[`${l.val}_stddev` as keyof typeof d] as number | null)
 
       // Primary metric - smoothed data (for overlay and stddev bands)
-      const smoothedAvgValues = smoothedData?.map(d => d[`${l.val}_avg` as keyof typeof d] as number) ?? []
-      const smoothedStddevValues = smoothedData?.map(d => d[`${l.val}_stddev` as keyof typeof d] as number) ?? []
-      const upperValues = smoothedAvgValues.map((avg, i) => avg + smoothedStddevValues[i])
-      const lowerValues = smoothedAvgValues.map((avg, i) => avg - smoothedStddevValues[i])
+      const smoothedAvgValues = smoothedData?.map(d => d[`${l.val}_avg` as keyof typeof d] as number | null) ?? []
+      const smoothedStddevValues = smoothedData?.map(d => d[`${l.val}_stddev` as keyof typeof d] as number | null) ?? []
+      // Propagate nulls: null + anything = null (avoid JS's null + null = 0)
+      const upperValues = smoothedAvgValues.map((avg, i) =>
+        avg === null || smoothedStddevValues[i] === null ? null : avg + smoothedStddevValues[i]
+      )
+      const lowerValues = smoothedAvgValues.map((avg, i) =>
+        avg === null || smoothedStddevValues[i] === null ? null : avg - smoothedStddevValues[i]
+      )
 
       // Secondary metric - raw data
       const secondaryAvgValues = secondaryConfig && r.val !== 'none'
-        ? rawData.map(d => d[`${r.val}_avg` as keyof typeof d] as number)
+        ? rawData.map(d => d[`${r.val}_avg` as keyof typeof d] as number | null)
         : []
       const secondaryStddevValues = secondaryConfig && r.val !== 'none'
-        ? rawData.map(d => d[`${r.val}_stddev` as keyof typeof d] as number)
+        ? rawData.map(d => d[`${r.val}_stddev` as keyof typeof d] as number | null)
         : []
 
       // Secondary metric - smoothed data
       const secondarySmoothedAvgValues = secondaryConfig && smoothedData
-        ? smoothedData.map(d => d[`${r.val}_avg` as keyof typeof d] as number)
+        ? smoothedData.map(d => d[`${r.val}_avg` as keyof typeof d] as number | null)
         : []
       const secondarySmoothedStddevValues = secondaryConfig && smoothedData
-        ? smoothedData.map(d => d[`${r.val}_stddev` as keyof typeof d] as number)
+        ? smoothedData.map(d => d[`${r.val}_stddev` as keyof typeof d] as number | null)
         : []
-      const secondaryUpperValues = secondarySmoothedAvgValues.map((avg, i) => avg + secondarySmoothedStddevValues[i])
-      const secondaryLowerValues = secondarySmoothedAvgValues.map((avg, i) => avg - secondarySmoothedStddevValues[i])
+      const secondaryUpperValues = secondarySmoothedAvgValues.map((avg, i) =>
+        avg === null || secondarySmoothedStddevValues[i] === null ? null : avg + secondarySmoothedStddevValues[i]
+      )
+      const secondaryLowerValues = secondarySmoothedAvgValues.map((avg, i) =>
+        avg === null || secondarySmoothedStddevValues[i] === null ? null : avg - secondarySmoothedStddevValues[i]
+      )
 
       // Get line props for secondary metric
       const secondaryLineProps = secondaryConfig
@@ -835,17 +844,50 @@ export const AwairChart = memo(function AwairChart(
 
     // Stddev fill regions (±σ shaded areas) - from smoothed data when available
     // Primary stddev region (only for first device)
+    // Split into segments at gaps (null values) so Plotly doesn't interpolate across gaps
     if (!isRawData && deviceData.length > 0) {
       const d = deviceData[0]
       // Use smoothed data for bands when smoothing enabled, otherwise raw
       const bandTimestamps = hasSmoothing ? d.smoothedTimestamps : d.timestamps
-      const bandUpper = hasSmoothing ? d.upperValues : d.avgValues.map((avg, i) => avg + d.stddevValues[i])
-      const bandLower = hasSmoothing ? d.lowerValues : d.avgValues.map((avg, i) => avg - d.stddevValues[i])
+      // Propagate nulls: null + anything = null (avoid JS's null + null = 0)
+      const bandUpper = hasSmoothing ? d.upperValues : d.avgValues.map((avg, i) =>
+        avg === null || d.stddevValues[i] === null ? null : avg + d.stddevValues[i]
+      )
+      const bandLower = hasSmoothing ? d.lowerValues : d.avgValues.map((avg, i) =>
+        avg === null || d.stddevValues[i] === null ? null : avg - d.stddevValues[i]
+      )
 
-      if (bandTimestamps.length > 0) {
+      // Split data into segments at null values
+      const segments: Array<{ timestamps: string[]; upper: (number | null)[]; lower: (number | null)[] }> = []
+      let currentSegment: { timestamps: string[]; upper: (number | null)[]; lower: (number | null)[] } | null = null
+
+      for (let i = 0; i < bandTimestamps.length; i++) {
+        if (bandUpper[i] === null || bandLower[i] === null) {
+          // Gap point - end current segment
+          if (currentSegment && currentSegment.timestamps.length > 0) {
+            segments.push(currentSegment)
+          }
+          currentSegment = null
+        } else {
+          // Real data point
+          if (!currentSegment) {
+            currentSegment = { timestamps: [], upper: [], lower: [] }
+          }
+          currentSegment.timestamps.push(bandTimestamps[i])
+          currentSegment.upper.push(bandUpper[i])
+          currentSegment.lower.push(bandLower[i])
+        }
+      }
+      // Don't forget the last segment
+      if (currentSegment && currentSegment.timestamps.length > 0) {
+        segments.push(currentSegment)
+      }
+
+      // Create traces for each segment
+      segments.forEach((seg, segIdx) => {
         traces.push({
-          x: bandTimestamps,
-          y: bandLower,
+          x: seg.timestamps,
+          y: seg.lower,
           mode: 'lines',
           line: { color: 'transparent' },
           name: `${config.label} Lower`,
@@ -853,30 +895,59 @@ export const AwairChart = memo(function AwairChart(
           hoverinfo: 'skip',
         })
         traces.push({
-          x: bandTimestamps,
-          y: bandUpper,
+          x: seg.timestamps,
+          y: seg.upper,
           fill: 'tonexty',
           fillcolor: `${d.primaryLineProps.color}${opacityHex}`,
           line: { color: 'transparent' },
           mode: 'lines',
-          name: `±σ ${config.label}`,
+          name: segIdx === 0 ? `±σ ${config.label}` : `±σ ${config.label} (cont)`,
           showlegend: false,
           hoverinfo: 'skip',
         })
-      }
+      })
     }
 
     // Secondary stddev region (only for first device)
+    // Split into segments at gaps (null values) so Plotly doesn't interpolate across gaps
     if (secondaryConfig && !isRawData && deviceData.length > 0) {
       const d = deviceData[0]
       const bandTimestamps = hasSmoothing ? d.smoothedTimestamps : d.timestamps
-      const bandUpper = hasSmoothing ? d.secondaryUpperValues : d.secondaryAvgValues.map((avg, i) => avg + d.secondaryStddevValues[i])
-      const bandLower = hasSmoothing ? d.secondaryLowerValues : d.secondaryAvgValues.map((avg, i) => avg - d.secondaryStddevValues[i])
+      const bandUpper = hasSmoothing ? d.secondaryUpperValues : d.secondaryAvgValues.map((avg, i) =>
+        avg === null || d.secondaryStddevValues[i] === null ? null : avg + d.secondaryStddevValues[i]
+      )
+      const bandLower = hasSmoothing ? d.secondaryLowerValues : d.secondaryAvgValues.map((avg, i) =>
+        avg === null || d.secondaryStddevValues[i] === null ? null : avg - d.secondaryStddevValues[i]
+      )
 
-      if (bandTimestamps.length > 0) {
+      // Split data into segments at null values
+      const segments: Array<{ timestamps: string[]; upper: (number | null)[]; lower: (number | null)[] }> = []
+      let currentSegment: { timestamps: string[]; upper: (number | null)[]; lower: (number | null)[] } | null = null
+
+      for (let i = 0; i < bandTimestamps.length; i++) {
+        if (bandUpper[i] === null || bandLower[i] === null) {
+          if (currentSegment && currentSegment.timestamps.length > 0) {
+            segments.push(currentSegment)
+          }
+          currentSegment = null
+        } else {
+          if (!currentSegment) {
+            currentSegment = { timestamps: [], upper: [], lower: [] }
+          }
+          currentSegment.timestamps.push(bandTimestamps[i])
+          currentSegment.upper.push(bandUpper[i])
+          currentSegment.lower.push(bandLower[i])
+        }
+      }
+      if (currentSegment && currentSegment.timestamps.length > 0) {
+        segments.push(currentSegment)
+      }
+
+      // Create traces for each segment
+      segments.forEach((seg, segIdx) => {
         traces.push({
-          x: bandTimestamps,
-          y: bandLower,
+          x: seg.timestamps,
+          y: seg.lower,
           mode: 'lines',
           line: { color: 'transparent' },
           name: `${secondaryConfig.label} Lower`,
@@ -885,8 +956,8 @@ export const AwairChart = memo(function AwairChart(
           yaxis: 'y2',
         })
         traces.push({
-          x: bandTimestamps,
-          y: bandUpper,
+          x: seg.timestamps,
+          y: seg.upper,
           fill: 'tonexty',
           fillcolor: `${d.secondaryLineProps?.color}${opacityHex}`,
           line: { color: 'transparent' },
@@ -896,7 +967,7 @@ export const AwairChart = memo(function AwairChart(
           hoverinfo: 'skip',
           yaxis: 'y2',
         })
-      }
+      })
     }
 
     return traces

@@ -73,7 +73,45 @@ export function useMultiDeviceAggregation(
             return timestamp >= startTime && timestamp <= endTime
           })
         }
-        smoothedData = aggregateData(smoothedInRange, selectedWindow.minutes)
+        const rawSmoothedData = aggregateData(smoothedInRange, selectedWindow.minutes)
+
+        // Detect gap time ranges from the raw aggregated data
+        // A gap is detected when consecutive real data points (count > 0) have a large time gap
+        const realPoints = aggregatedData.filter(d => d.count > 0)
+        const gapRanges: Array<{ start: number; end: number }> = []
+        const gapThresholdMs = selectedWindow.minutes * 60 * 1000 * 3
+
+        for (let i = 0; i < realPoints.length - 1; i++) {
+          const current = realPoints[i].timestamp.getTime()
+          const next = realPoints[i + 1].timestamp.getTime()
+          if (next - current > gapThresholdMs) {
+            gapRanges.push({ start: current, end: next })
+          }
+        }
+
+        // Null out smoothed points that fall within any gap range
+        smoothedData = rawSmoothedData.map(d => {
+          const ts = d.timestamp.getTime()
+          for (const gap of gapRanges) {
+            if (ts > gap.start && ts < gap.end) {
+              return {
+                ...d,
+                temp_avg: null,
+                temp_stddev: null,
+                co2_avg: null,
+                co2_stddev: null,
+                humid_avg: null,
+                humid_stddev: null,
+                pm25_avg: null,
+                pm25_stddev: null,
+                voc_avg: null,
+                voc_stddev: null,
+                count: 0,
+              }
+            }
+          }
+          return d
+        })
       }
 
       return {
