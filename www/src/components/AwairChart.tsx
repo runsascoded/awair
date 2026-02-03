@@ -195,20 +195,20 @@ export const AwairChart = memo(function AwairChart(
   // Track which device to show in the DataTable (defaults to first device)
   const [selectedDeviceIdForTable, setSelectedDeviceIdForTable] = useState<number | undefined>(undefined)
 
-  // Auto-select first device when deviceAggregations changes, or reset if selected device no longer available
+  // Auto-select first device when displayDeviceAggregations changes, or reset if selected device no longer displayed
   useEffect(() => {
-    if (deviceAggregations.length === 0) return
-    const selectedStillAvailable = deviceAggregations.some(d => d.deviceId === selectedDeviceIdForTable)
+    if (displayDeviceAggregations.length === 0) return
+    const selectedStillAvailable = displayDeviceAggregations.some(d => d.deviceId === selectedDeviceIdForTable)
     if (!selectedStillAvailable) {
-      setSelectedDeviceIdForTable(deviceAggregations[0].deviceId)
+      setSelectedDeviceIdForTable(displayDeviceAggregations[0].deviceId)
     }
-  }, [deviceAggregations, selectedDeviceIdForTable])
+  }, [displayDeviceAggregations, selectedDeviceIdForTable])
 
   // Table page size - persisted in URL
   const [tablePageSize, setTablePageSize] = useUrlState('p', intFromList([10, 20, 50, 100, 200] as const, 20))
 
   // Get the selected device's aggregated data for the table
-  const selectedDeviceAggregation = deviceAggregations.find(d => d.deviceId === selectedDeviceIdForTable)
+  const selectedDeviceAggregation = displayDeviceAggregations.find(d => d.deviceId === selectedDeviceIdForTable)
   const aggregatedData = selectedDeviceAggregation?.aggregatedData || []
 
   // Calculate time range in minutes for aggregation control
@@ -1221,7 +1221,7 @@ export const AwairChart = memo(function AwairChart(
           fullDataStartTime={tableMetadata.fullDataStartTime}
           fullDataEndTime={tableMetadata.fullDataEndTime}
           windowMinutes={selectedWindow.minutes}
-          deviceAggregations={deviceAggregations}
+          deviceAggregations={displayDeviceAggregations}
           selectedDeviceId={selectedDeviceIdForTable}
           onDeviceChange={setSelectedDeviceIdForTable}
           timeRange={timeRangeFromProps}
