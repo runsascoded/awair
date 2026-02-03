@@ -1,13 +1,23 @@
-import { useMemo } from 'react'
-import { useDataAggregation, aggregateData, applyRollingAverage } from './useDataAggregation'
+import {
+  flattenDateAll,
+  useMultiSeriesAggregation,
+  type WindowConfig,
+} from '@rdub/agg-plot'
+import { getTargetPoints } from './useDataAggregation'
 import type { AggregatedData, TimeWindow, UseDataAggregationOptions } from './useDataAggregation'
 import type { DeviceDataResult } from '../components/DevicePoller'
+
+const MS_PER_MIN = 60_000
+const toMin = (ms: number) => ms / MS_PER_MIN
+const toAwairWindow = (w: WindowConfig): TimeWindow => ({ label: w.label, minutes: toMin(w.size) })
+
+const METRICS = ['temp', 'co2', 'humid', 'pm25', 'voc'] as const
 
 export interface DeviceAggregatedData {
   deviceId: number
   deviceName: string
-  aggregatedData: AggregatedData[]       // Raw/unsmoothed data
-  smoothedData: AggregatedData[] | null  // Smoothed overlay (when smoothing > 1)
+  aggregatedData: AggregatedData[]
+  smoothedData: AggregatedData[] | null
   isRawData: boolean
 }
 
@@ -18,11 +28,6 @@ interface MultiDeviceAggregationResult {
   isRawData: boolean
 }
 
-/**
- * Aggregates data for multiple devices using a shared time window.
- * The window is determined by the combined data range.
- * Optional smoothing applies a rolling average before aggregation.
- */
 export function useMultiDeviceAggregation(
   deviceDataResults: DeviceDataResult[],
   devices: { deviceId: number; name: string }[],
@@ -30,104 +35,47 @@ export function useMultiDeviceAggregation(
   options: UseDataAggregationOptions,
   smoothingMinutes: number = 1,
 ): MultiDeviceAggregationResult {
-  // Combine all data to determine optimal window
-  const allData = useMemo(() => {
-    return deviceDataResults
-      .flatMap(r => r.data)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-  }, [deviceDataResults])
+  const { containerWidth, overrideWindow, targetPx } = options
 
-  // Use combined data for window selection
-  const { selectedWindow, validWindows, isRawData } = useDataAggregation(allData, xAxisRange, options)
+  // Convert xAxisRange to numeric range
+  const xRange: [number, number] | null = xAxisRange
+    ? [new Date(xAxisRange[0]).getTime(), new Date(xAxisRange[1]).getTime()]
+    : null
 
-  // Now aggregate each device's data using the same window
-  const deviceAggregations = useMemo(() => {
-    return deviceDataResults.map(result => {
-      const device = devices.find(d => d.deviceId === result.deviceId)
-      const deviceName = device?.name || `Device ${result.deviceId}`
+  // Use agg-plot's useMultiSeriesAggregation
+  const result = useMultiSeriesAggregation({
+    series: deviceDataResults.map(r => ({
+      id: r.deviceId,
+      name: devices.find(d => d.deviceId === r.deviceId)?.name ?? `Device ${r.deviceId}`,
+      data: r.data,
+    })),
+    getX: d => new Date(d.timestamp).getTime(),
+    metrics: [...METRICS],
+    getValue: (d, m) => d[m as keyof typeof d] as number,
+    containerWidth,
+    targetPxPerPoint: targetPx ?? (containerWidth / getTargetPoints(containerWidth)),
+    fixedWindowSize: overrideWindow ? overrideWindow.minutes * MS_PER_MIN : undefined,
+    smoothingWindowSize: smoothingMinutes > 1 ? smoothingMinutes * MS_PER_MIN : 0,
+    xRange,
+    gapThreshold: 3,
+  })
 
-      // Filter raw data to time range
-      let rawDataInRange = result.data
-      if (xAxisRange) {
-        const startTime = new Date(xAxisRange[0]).getTime()
-        const endTime = new Date(xAxisRange[1]).getTime()
-        rawDataInRange = result.data.filter(d => {
-          const timestamp = new Date(d.timestamp).getTime()
-          return timestamp >= startTime && timestamp <= endTime
-        })
-      }
+  const selectedWindow = toAwairWindow(result.window)
+  const isRawData = selectedWindow.minutes === 1
 
-      // Aggregate raw data
-      const aggregatedData = aggregateData(rawDataInRange, selectedWindow.minutes)
-
-      // Apply smoothing for overlay (on full data for accurate edge values, then filter)
-      let smoothedData: AggregatedData[] | null = null
-      if (smoothingMinutes > 1) {
-        const smoothedRecords = applyRollingAverage(result.data, smoothingMinutes)
-        let smoothedInRange = smoothedRecords
-        if (xAxisRange) {
-          const startTime = new Date(xAxisRange[0]).getTime()
-          const endTime = new Date(xAxisRange[1]).getTime()
-          smoothedInRange = smoothedRecords.filter(d => {
-            const timestamp = new Date(d.timestamp).getTime()
-            return timestamp >= startTime && timestamp <= endTime
-          })
-        }
-        const rawSmoothedData = aggregateData(smoothedInRange, selectedWindow.minutes)
-
-        // Detect gap time ranges from the raw aggregated data
-        // A gap is detected when consecutive real data points (count > 0) have a large time gap
-        const realPoints = aggregatedData.filter(d => d.count > 0)
-        const gapRanges: Array<{ start: number; end: number }> = []
-        const gapThresholdMs = selectedWindow.minutes * 60 * 1000 * 3
-
-        for (let i = 0; i < realPoints.length - 1; i++) {
-          const current = realPoints[i].timestamp.getTime()
-          const next = realPoints[i + 1].timestamp.getTime()
-          if (next - current > gapThresholdMs) {
-            gapRanges.push({ start: current, end: next })
-          }
-        }
-
-        // Null out smoothed points that fall within any gap range
-        smoothedData = rawSmoothedData.map(d => {
-          const ts = d.timestamp.getTime()
-          for (const gap of gapRanges) {
-            if (ts > gap.start && ts < gap.end) {
-              return {
-                ...d,
-                temp_avg: null,
-                temp_stddev: null,
-                co2_avg: null,
-                co2_stddev: null,
-                humid_avg: null,
-                humid_stddev: null,
-                pm25_avg: null,
-                pm25_stddev: null,
-                voc_avg: null,
-                voc_stddev: null,
-                count: 0,
-              }
-            }
-          }
-          return d
-        })
-      }
-
-      return {
-        deviceId: result.deviceId,
-        deviceName,
-        aggregatedData,
-        smoothedData,
-        isRawData,
-      }
-    })
-  }, [deviceDataResults, devices, xAxisRange, selectedWindow.minutes, isRawData, smoothingMinutes])
+  // Convert to awair's DeviceAggregatedData format
+  const deviceAggregations: DeviceAggregatedData[] = result.series.map(s => ({
+    deviceId: s.id as number,
+    deviceName: s.name,
+    aggregatedData: flattenDateAll(s.aggregated, [...METRICS]) as unknown as AggregatedData[],
+    smoothedData: s.smoothed ? flattenDateAll(s.smoothed, [...METRICS]) as unknown as AggregatedData[] : null,
+    isRawData,
+  }))
 
   return {
     deviceAggregations,
     selectedWindow,
-    validWindows,
+    validWindows: result.validWindows.map(toAwairWindow),
     isRawData,
   }
 }

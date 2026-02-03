@@ -1,13 +1,26 @@
-import { abs, ceil, floor, max, min, pow, sqrt } from '@rdub/base'
+import {
+  aggregate,
+  flattenDateAll,
+  rollingRaw,
+  TIME_WINDOWS as AGG_TIME_WINDOWS,
+  findOptimalWindow as aggFindOptimalWindow,
+  getValidWindows as aggGetValidWindows,
+  type WindowConfig,
+} from '@rdub/agg-plot'
+import { floor, max, min } from '@rdub/base'
 import { useMemo } from 'react'
 import type { AwairRecord } from '../types/awair'
+
+// ============================================================================
+// Awair-specific interfaces (kept for backward compatibility)
+// ============================================================================
 
 export interface TimeWindow {
   label: string
   minutes: number
 }
 
-interface AggregatedData {
+export interface AggregatedData {
   timestamp: Date
   temp_avg: number | null
   temp_stddev: number | null
@@ -23,56 +36,6 @@ interface AggregatedData {
 }
 
 /**
- * Gap threshold multiplier: a gap is detected when time between points
- * exceeds this multiple of the expected interval.
- */
-const GAP_THRESHOLD_MULTIPLIER = 3
-
-/**
- * Insert null-valued records at gaps to break line continuity.
- * A gap is detected when the time between consecutive points exceeds
- * GAP_THRESHOLD_MULTIPLIER times the expected interval.
- */
-function insertGapMarkers(data: AggregatedData[], windowMinutes: number): AggregatedData[] {
-  if (data.length < 2) return data
-
-  const expectedIntervalMs = windowMinutes * 60 * 1000
-  const gapThresholdMs = expectedIntervalMs * GAP_THRESHOLD_MULTIPLIER
-  const result: AggregatedData[] = []
-
-  for (let i = 0; i < data.length; i++) {
-    const current = data[i]
-    result.push(current)
-
-    // Check for gap before next point
-    if (i < data.length - 1) {
-      const next = data[i + 1]
-      const gap = next.timestamp.getTime() - current.timestamp.getTime()
-
-      if (gap > gapThresholdMs) {
-        // Insert a null marker at the midpoint of the gap
-        result.push({
-          timestamp: new Date(current.timestamp.getTime() + gap / 2),
-          temp_avg: null,
-          temp_stddev: null,
-          co2_avg: null,
-          co2_stddev: null,
-          humid_avg: null,
-          humid_stddev: null,
-          pm25_avg: null,
-          pm25_stddev: null,
-          voc_avg: null,
-          voc_stddev: null,
-          count: 0,
-        })
-      }
-    }
-  }
-
-  return result
-}
-
-/**
  * Result of rolling average with optional stddev.
  * Extends AwairRecord with rolling stddev fields when computed.
  */
@@ -84,147 +47,78 @@ export interface SmoothedRecord extends AwairRecord {
   voc_stddev?: number
 }
 
+// ============================================================================
+// Constants and utilities
+// ============================================================================
+
+const MS_PER_MIN = 60_000
+const toMs = (min: number) => min * MS_PER_MIN
+const toMin = (ms: number) => ms / MS_PER_MIN
+
+const METRICS = ['temp', 'co2', 'humid', 'pm25', 'voc'] as const
+
+const getX = (d: AwairRecord) => new Date(d.timestamp).getTime()
+const getValue = (d: AwairRecord, metric: string) => d[metric as keyof AwairRecord] as number
+
+const toAwairWindow = (w: WindowConfig): TimeWindow => ({
+  label: w.label,
+  minutes: toMin(w.size),
+})
+
+/** awair TIME_WINDOWS derived from agg-plot's TIME_WINDOWS */
+export const TIME_WINDOWS: TimeWindow[] = AGG_TIME_WINDOWS.map(toAwairWindow)
+
+// ============================================================================
+// Rolling average for raw data
+// ============================================================================
+
 /**
  * Apply a centered rolling average to raw data.
- * Each output point is the average of data within ±windowMinutes/2 of the timestamp.
- * At edges (start/end of data), uses asymmetric window with available data.
- * Also computes rolling stddev for each metric.
  */
 export function applyRollingAverage(data: AwairRecord[], windowMinutes: number): SmoothedRecord[] {
   if (windowMinutes <= 1 || data.length === 0) return data
 
-  const halfWindowMs = (windowMinutes * 60 * 1000) / 2
+  const sorted = [...data].sort((a, b) => getX(a) - getX(b))
 
-  // Sort oldest-first for sliding window
-  const sorted = [...data].sort((a, b) =>
-    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-  )
-
-  // Two-pointer approach for O(n) centered window
-  // Window contains indices [left, right) with timestamps in [T - halfWindow, T + halfWindow]
-  let left = 0
-  let right = 0
-  let tempSum = 0, co2Sum = 0, humidSum = 0, pm25Sum = 0, vocSum = 0
-
-  // Keep window values for stddev calculation (queue: front=left, back=right-1)
-  const windowValues: { temp: number; co2: number; humid: number; pm25: number; voc: number }[] = []
-
-  return sorted.map((record) => {
-    const currentTime = new Date(record.timestamp).getTime()
-    const windowStartTime = currentTime - halfWindowMs
-    const windowEndTime = currentTime + halfWindowMs
-
-    // Expand right to include all points with timestamp <= windowEndTime
-    while (right < sorted.length) {
-      const rightTime = new Date(sorted[right].timestamp).getTime()
-      if (rightTime > windowEndTime) break
-      const r = sorted[right]
-      tempSum += r.temp
-      co2Sum += r.co2
-      humidSum += r.humid
-      pm25Sum += r.pm25
-      vocSum += r.voc
-      windowValues.push({
-        temp: r.temp,
-        co2: r.co2,
-        humid: r.humid,
-        pm25: r.pm25,
-        voc: r.voc,
-      })
-      right++
-    }
-
-    // Shrink left to exclude points with timestamp < windowStartTime
-    while (left < right) {
-      const leftTime = new Date(sorted[left].timestamp).getTime()
-      if (leftTime >= windowStartTime) break
-      const removed = windowValues.shift()!
-      tempSum -= removed.temp
-      co2Sum -= removed.co2
-      humidSum -= removed.humid
-      pm25Sum -= removed.pm25
-      vocSum -= removed.voc
-      left++
-    }
-
-    const count = windowValues.length
-
-    // Edge case: no points in window (shouldn't happen)
-    if (count === 0) {
-      return {
-        ...record,
-        temp_stddev: 0,
-        co2_stddev: 0,
-        humid_stddev: 0,
-        pm25_stddev: 0,
-        voc_stddev: 0,
-      }
-    }
-
-    // Compute means
-    const tempMean = tempSum / count
-    const co2Mean = co2Sum / count
-    const humidMean = humidSum / count
-    const pm25Mean = pm25Sum / count
-    const vocMean = vocSum / count
-
-    // Compute stddev (population stddev)
-    let tempVariance = 0, co2Variance = 0, humidVariance = 0, pm25Variance = 0, vocVariance = 0
-    for (const v of windowValues) {
-      tempVariance += pow(v.temp - tempMean, 2)
-      co2Variance += pow(v.co2 - co2Mean, 2)
-      humidVariance += pow(v.humid - humidMean, 2)
-      pm25Variance += pow(v.pm25 - pm25Mean, 2)
-      vocVariance += pow(v.voc - vocMean, 2)
-    }
-
-    return {
-      timestamp: record.timestamp,
-      temp: tempMean,
-      co2: co2Mean,
-      humid: humidMean,
-      pm10: record.pm10, // pm10 not smoothed (not displayed)
-      pm25: pm25Mean,
-      voc: vocMean,
-      temp_stddev: sqrt(tempVariance / count),
-      co2_stddev: sqrt(co2Variance / count),
-      humid_stddev: sqrt(humidVariance / count),
-      pm25_stddev: sqrt(pm25Variance / count),
-      voc_stddev: sqrt(vocVariance / count),
-    }
+  return rollingRaw(sorted, {
+    getX,
+    metrics: [...METRICS],
+    getValue,
+    windowSize: toMs(windowMinutes),
+    createOutput: (original, smoothed) => ({
+      timestamp: original.timestamp,
+      temp: smoothed.temp?.mean ?? original.temp,
+      co2: smoothed.co2?.mean ?? original.co2,
+      humid: smoothed.humid?.mean ?? original.humid,
+      pm10: original.pm10,
+      pm25: smoothed.pm25?.mean ?? original.pm25,
+      voc: smoothed.voc?.mean ?? original.voc,
+      temp_stddev: smoothed.temp?.stddev ?? 0,
+      co2_stddev: smoothed.co2?.stddev ?? 0,
+      humid_stddev: smoothed.humid?.stddev ?? 0,
+      pm25_stddev: smoothed.pm25?.stddev ?? 0,
+      voc_stddev: smoothed.voc?.stddev ?? 0,
+    }),
   })
 }
 
-export const TIME_WINDOWS: TimeWindow[] = [
-  { label: '1m', minutes: 1 },
-  { label: '2m', minutes: 2 },
-  { label: '3m', minutes: 3 },
-  { label: '5m', minutes: 5 },
-  { label: '10m', minutes: 10 },
-  { label: '15m', minutes: 15 },
-  { label: '30m', minutes: 30 },
-  { label: '1h', minutes: 60 },
-  { label: '2h', minutes: 120 },
-  { label: '4h', minutes: 240 },
-  { label: '6h', minutes: 360 },
-  { label: '12h', minutes: 720 },
-  { label: '1d', minutes: 1440 },
-  { label: '2d', minutes: 2880 },
-]
+// ============================================================================
+// Data aggregation
+// ============================================================================
 
-// Aggregate data into time windows for performance and visual clarity
-// Accepts SmoothedRecord[] (with pre-computed rolling stddev) or plain AwairRecord[]
-export function aggregateData(data: (AwairRecord | SmoothedRecord)[], windowMinutes: number): AggregatedData[] {
+/**
+ * Aggregate data into time windows for performance and visual clarity.
+ */
+export function aggregateData(
+  data: (AwairRecord | SmoothedRecord)[],
+  windowMinutes: number,
+): AggregatedData[] {
   if (data.length === 0) return []
 
   // For 1-minute windows, return raw data in the expected format
-  // Sort ascending (oldest first) to match aggregated data behavior
-  // If data has pre-computed rolling stddev, use it
   if (windowMinutes === 1) {
-    const sortedData = [...data].sort((a, b) =>
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    )
-    const rawAggregated = sortedData.map(record => {
+    const sortedData = [...data].sort((a, b) => getX(a) - getX(b))
+    return sortedData.map(record => {
       const smoothed = record as SmoothedRecord
       return {
         timestamp: record.timestamp,
@@ -241,198 +135,68 @@ export function aggregateData(data: (AwairRecord | SmoothedRecord)[], windowMinu
         count: 1,
       }
     })
-    // Insert gap markers for raw data too
-    return insertGapMarkers(rawAggregated, windowMinutes)
   }
 
-  const windowMs = windowMinutes * 60 * 1000
-  const groups: { [key: string]: (AwairRecord | SmoothedRecord)[] } = {}
-
-  // Group data by time windows
-  data.forEach(record => {
-    const timestamp = new Date(record.timestamp).getTime()
-    const windowStart = floor(timestamp / windowMs) * windowMs
-    const key = new Date(windowStart).toISOString()
-
-    if (!groups[key]) {
-      groups[key] = []
-    }
-    groups[key].push(record)
+  // Use agg-plot's aggregate + flatten
+  const aggregated = aggregate(data, {
+    getX,
+    metrics: [...METRICS],
+    getValue,
+    windowSize: toMs(windowMinutes),
+    gapThreshold: 3,
   })
 
-  // Calculate standard deviation (fallback when no pre-computed rolling stddev)
-  const calculateStdDev = (values: number[]): number => {
-    if (values.length <= 1) return 0
-    const mean = values.reduce((a, b) => a + b, 0) / values.length
-    const squaredDiffs = values.map(value => pow(value - mean, 2))
-    const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / values.length
-    return sqrt(avgSquaredDiff)
-  }
-
-  // Average pre-computed stddevs, or compute from values if not available
-  const getStdDev = (
-    records: (AwairRecord | SmoothedRecord)[],
-    getValue: (r: AwairRecord) => number,
-    getPrecomputed: (r: SmoothedRecord) => number | undefined
-  ): number => {
-    // Check if records have pre-computed rolling stddev
-    const smoothed = records as SmoothedRecord[]
-    const precomputed = smoothed.map(getPrecomputed).filter((v): v is number => v !== undefined)
-    if (precomputed.length === records.length && precomputed.length > 0) {
-      // Average the pre-computed rolling stddevs (preserves original variance)
-      return precomputed.reduce((a, b) => a + b, 0) / precomputed.length
-    }
-    // Fall back to computing stddev of values
-    return calculateStdDev(records.map(getValue))
-  }
-
-  // Aggregate each group and ensure chronological order
-  const aggregated = Object.entries(groups)
-    .map(([timestampKey, records]) => {
-      const temps = records.map(r => r.temp)
-      const co2s = records.map(r => r.co2)
-      const humids = records.map(r => r.humid)
-      const pm25s = records.map(r => r.pm25)
-      const vocs = records.map(r => r.voc)
-
-      return {
-        timestamp: new Date(timestampKey),
-        temp_avg: temps.reduce((a, b) => a + b, 0) / temps.length,
-        temp_stddev: getStdDev(records, r => r.temp, r => r.temp_stddev),
-        co2_avg: co2s.reduce((a, b) => a + b, 0) / co2s.length,
-        co2_stddev: getStdDev(records, r => r.co2, r => r.co2_stddev),
-        humid_avg: humids.reduce((a, b) => a + b, 0) / humids.length,
-        humid_stddev: getStdDev(records, r => r.humid, r => r.humid_stddev),
-        pm25_avg: pm25s.reduce((a, b) => a + b, 0) / pm25s.length,
-        pm25_stddev: getStdDev(records, r => r.pm25, r => r.pm25_stddev),
-        voc_avg: vocs.reduce((a, b) => a + b, 0) / vocs.length,
-        voc_stddev: getStdDev(records, r => r.voc, r => r.voc_stddev),
-        count: records.length,
-      }
-    })
-    .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
-
-  // Insert null records at gaps to break line continuity
-  return insertGapMarkers(aggregated, windowMinutes)
+  return flattenDateAll(aggregated, [...METRICS]) as unknown as AggregatedData[]
 }
 
-/**
- * Calculate responsive target points based on container width.
- * Mobile gets fewer points, desktop gets more.
- */
+// ============================================================================
+// Target points and window selection
+// ============================================================================
+
 export function getTargetPoints(containerWidth?: number): number {
   if (!containerWidth) return 300
-  // Scale from ~100 points at 375px to ~400 points at 1600px
   return max(100, min(400, floor(containerWidth / 4)))
 }
 
-/**
- * Get min/max point constraints based on container width.
- * Ensures windows aren't too sparse or dense for the display.
- */
-function getPointConstraints(containerWidth?: number): { minPoints: number; maxPoints: number } {
-  const target = getTargetPoints(containerWidth)
-  return {
-    minPoints: floor(target * 0.1),   // 10% of target (e.g., 30 for 300)
-    maxPoints: floor(target * 5),      // 5x target (e.g., 1500 for 300)
-  }
-}
-
-/**
- * Get valid window options for a given time range.
- * Filters to windows that produce reasonable point counts for the container.
- */
 export function getValidWindows(timeRangeMinutes: number, containerWidth?: number): TimeWindow[] {
-  const { minPoints, maxPoints } = getPointConstraints(containerWidth)
-  return TIME_WINDOWS.filter(window => {
-    const estimatedPoints = ceil(timeRangeMinutes / window.minutes)
-    return estimatedPoints >= minPoints && estimatedPoints <= maxPoints
-  })
+  const targetPoints = getTargetPoints(containerWidth)
+  return aggGetValidWindows(AGG_TIME_WINDOWS, toMs(timeRangeMinutes), targetPoints).map(toAwairWindow)
 }
 
-/**
- * Find the optimal aggregation window size.
- * @param timeRangeMinutes - The visible time range in minutes
- * @param data - Full dataset (used when timeRangeMinutes not provided)
- * @param targetPoints - Target number of points (responsive to width)
- * @param overrideWindow - User-selected window override
- */
 export function findOptimalWindow(
   timeRangeMinutes?: number,
   data?: AwairRecord[],
   targetPoints: number = 300,
-  overrideWindow?: TimeWindow
+  overrideWindow?: TimeWindow,
 ): TimeWindow {
-  // If user has selected a specific window, use it (if valid)
-  if (overrideWindow) {
-    return overrideWindow
-  }
+  if (overrideWindow) return overrideWindow
 
+  let dataRangeMs: number
   if (timeRangeMinutes) {
-    // Find the window whose px/point is closest to target in log space
-    let bestWindow = TIME_WINDOWS[0]
-    let bestLogDiff = Infinity
-
-    for (const window of TIME_WINDOWS) {
-      const estimatedPoints = ceil(timeRangeMinutes / window.minutes)
-      // Log difference between actual and target points
-      const logDiff = abs(Math.log(estimatedPoints) - Math.log(targetPoints))
-
-      if (logDiff < bestLogDiff) {
-        bestLogDiff = logDiff
-        bestWindow = window
-      }
-    }
-
-    return bestWindow
+    dataRangeMs = toMs(timeRangeMinutes)
   } else if (data && data.length > 1) {
-    // Full dataset: calculate window based on total time span
-    const firstTime = new Date(data[data.length - 1].timestamp).getTime()
-    const lastTime = new Date(data[0].timestamp).getTime()
-    const totalMinutes = (lastTime - firstTime) / (1000 * 60)
-
-    let selectedWindow = TIME_WINDOWS[TIME_WINDOWS.length - 1]
-
-    for (let i = TIME_WINDOWS.length - 1; i >= 0; i--) {
-      const window = TIME_WINDOWS[i]
-      const estimatedPoints = ceil(totalMinutes / window.minutes)
-
-      if (estimatedPoints < targetPoints) {
-        selectedWindow = window
-      } else {
-        if (i < TIME_WINDOWS.length - 1) {
-          selectedWindow = TIME_WINDOWS[i + 1]
-        }
-        break
-      }
-    }
-    return selectedWindow
+    dataRangeMs = Math.abs(getX(data[0]) - getX(data[data.length - 1]))
   } else {
-    // Fallback to middle window
     return TIME_WINDOWS[floor(TIME_WINDOWS.length / 2)]
   }
+
+  return toAwairWindow(aggFindOptimalWindow(AGG_TIME_WINDOWS, dataRangeMs, targetPoints))
 }
+
+// ============================================================================
+// Hook
+// ============================================================================
 
 export interface UseDataAggregationOptions {
   containerWidth: number
   overrideWindow?: TimeWindow
-  targetPx?: number | null  // Target pixels per point (null = use overrideWindow)
+  targetPx?: number | null
 }
 
-/**
- * Get the optimal window for a given duration and options.
- * Useful for computing window size before full aggregation.
- */
-export function getWindowForDuration(
-  durationMs: number,
-  options: UseDataAggregationOptions,
-): TimeWindow {
+export function getWindowForDuration(durationMs: number, options: UseDataAggregationOptions): TimeWindow {
   const { containerWidth, overrideWindow, targetPx } = options
-  const targetPoints = (targetPx && containerWidth)
-    ? floor(containerWidth / targetPx)
-    : getTargetPoints(containerWidth)
-  const timeRangeMinutes = durationMs / (1000 * 60)
-  return findOptimalWindow(timeRangeMinutes, undefined, targetPoints, overrideWindow)
+  const targetPoints = (targetPx && containerWidth) ? floor(containerWidth / targetPx) : getTargetPoints(containerWidth)
+  return findOptimalWindow(toMin(durationMs), undefined, targetPoints, overrideWindow)
 }
 
 export function useDataAggregation(
@@ -442,11 +206,7 @@ export function useDataAggregation(
 ) {
   const { containerWidth, overrideWindow, targetPx } = options
   const rangeKey = xAxisRange ? `${xAxisRange[0]}-${xAxisRange[1]}` : 'null'
-  // If targetPx is set, calculate target points from container width
-  // Otherwise fall back to the old responsive calculation
-  const targetPoints = (targetPx && containerWidth)
-    ? floor(containerWidth / targetPx)
-    : getTargetPoints(containerWidth)
+  const targetPoints = (targetPx && containerWidth) ? floor(containerWidth / targetPx) : getTargetPoints(containerWidth)
 
   const { dataToAggregate, selectedWindow, validWindows } = useMemo(() => {
     let dataToAggregate = data
@@ -455,32 +215,26 @@ export function useDataAggregation(
     if (xAxisRange) {
       const startTime = new Date(xAxisRange[0]).getTime()
       const endTime = new Date(xAxisRange[1]).getTime()
-      timeRangeMinutes = (endTime - startTime) / (1000 * 60)
-
+      timeRangeMinutes = toMin(endTime - startTime)
       dataToAggregate = data.filter(d => {
-        const timestamp = new Date(d.timestamp).getTime()
-        return timestamp >= startTime && timestamp <= endTime
+        const ts = getX(d)
+        return ts >= startTime && ts <= endTime
       })
     } else if (data.length > 1) {
-      // Calculate time range from full data
-      const firstTime = new Date(data[data.length - 1].timestamp).getTime()
-      const lastTime = new Date(data[0].timestamp).getTime()
-      timeRangeMinutes = (lastTime - firstTime) / (1000 * 60)
+      timeRangeMinutes = toMin(Math.abs(getX(data[0]) - getX(data[data.length - 1])))
     }
-
-    const selectedWindow = findOptimalWindow(timeRangeMinutes, data, targetPoints, overrideWindow)
-    const validWindows = timeRangeMinutes ? getValidWindows(timeRangeMinutes, containerWidth) : TIME_WINDOWS
 
     return {
       dataToAggregate,
-      selectedWindow,
-      validWindows,
+      selectedWindow: findOptimalWindow(timeRangeMinutes, data, targetPoints, overrideWindow),
+      validWindows: timeRangeMinutes ? getValidWindows(timeRangeMinutes, containerWidth) : TIME_WINDOWS,
     }
-  }, [data, rangeKey, targetPoints, overrideWindow])
+  }, [data, rangeKey, targetPoints, overrideWindow, containerWidth])
 
-  const aggregatedData = useMemo(() => {
-    return aggregateData(dataToAggregate, selectedWindow.minutes)
-  }, [dataToAggregate, selectedWindow.minutes])
+  const aggregatedData = useMemo(
+    () => aggregateData(dataToAggregate, selectedWindow.minutes),
+    [dataToAggregate, selectedWindow.minutes]
+  )
 
   return {
     aggregatedData,
@@ -489,5 +243,3 @@ export function useDataAggregation(
     isRawData: selectedWindow.minutes === 1,
   }
 }
-
-export type { AggregatedData }

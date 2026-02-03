@@ -39,7 +39,8 @@
     "uplot": "^1.6.32",
     "use-kbd": "github:runsascoded/use-kbd#caa1afd04827fe79ff3f313cd7e01b2c08372f78",
     "use-prms": "github:runsascoded/use-prms#cf28edc59fea41899aca2ada69499cd11604f60e",
-    "use-session-storage-state": "^19.0.1"
+    "use-session-storage-state": "^19.0.1",
+    "@rdub/agg-plot": "https://gitlab.com/runsascoded/js/agg-plot/-/archive/e9087eda0724f058d4d2657afd51d0c3f59193e6/agg-plot-e9087eda0724f058d4d2657afd51d0c3f59193e6.tar.gz"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
