@@ -29,6 +29,25 @@ type DataWithZorder = Data & { zorder?: number }
 
 const noop = () => {}
 
+/** Split band data into contiguous segments at null gaps (so Plotly doesn't interpolate across gaps) */
+function splitBandSegments(timestamps: string[], upper: (number | null)[], lower: (number | null)[]) {
+  const segments: Array<{ timestamps: string[]; upper: (number | null)[]; lower: (number | null)[] }> = []
+  let cur: typeof segments[number] | null = null
+  for (let i = 0; i < timestamps.length; i++) {
+    if (upper[i] === null || lower[i] === null) {
+      if (cur && cur.timestamps.length > 0) segments.push(cur)
+      cur = null
+    } else {
+      if (!cur) cur = { timestamps: [], upper: [], lower: [] }
+      cur.timestamps.push(timestamps[i])
+      cur.upper.push(upper[i])
+      cur.lower.push(lower[i])
+    }
+  }
+  if (cur && cur.timestamps.length > 0) segments.push(cur)
+  return segments
+}
+
 export type HasDeviceIdx = { deviceIdx: number }
 export type HasMetric = { metric: 'primary' | 'secondary' }
 
@@ -844,130 +863,78 @@ export const AwairChart = memo(function AwairChart(
     }
 
     // Stddev fill regions (±σ shaded areas) - from smoothed data when available
-    // Primary stddev region (only for first device)
     // Split into segments at gaps (null values) so Plotly doesn't interpolate across gaps
-    if (!isRawData && deviceData.length > 0) {
-      const d = deviceData[0]
-      // Use smoothed data for bands when smoothing enabled, otherwise raw
-      const bandTimestamps = hasSmoothing ? d.smoothedTimestamps : d.timestamps
-      // Propagate nulls: null + anything = null (avoid JS's null + null = 0)
-      const bandUpper = hasSmoothing ? d.upperValues : d.avgValues.map((avg, i) =>
-        avg === null || d.stddevValues[i] === null ? null : avg + d.stddevValues[i]
-      )
-      const bandLower = hasSmoothing ? d.lowerValues : d.avgValues.map((avg, i) =>
-        avg === null || d.stddevValues[i] === null ? null : avg - d.stddevValues[i]
-      )
+    if (!isRawData) {
+      deviceData.forEach(d => {
+        // Primary stddev bands
+        const bandTimestamps = hasSmoothing ? d.smoothedTimestamps : d.timestamps
+        const bandUpper = hasSmoothing ? d.upperValues : d.avgValues.map((avg, i) =>
+          avg === null || d.stddevValues[i] === null ? null : avg + d.stddevValues[i]
+        )
+        const bandLower = hasSmoothing ? d.lowerValues : d.avgValues.map((avg, i) =>
+          avg === null || d.stddevValues[i] === null ? null : avg - d.stddevValues[i]
+        )
 
-      // Split data into segments at null values
-      const segments: Array<{ timestamps: string[]; upper: (number | null)[]; lower: (number | null)[] }> = []
-      let currentSegment: { timestamps: string[]; upper: (number | null)[]; lower: (number | null)[] } | null = null
+        const segments = splitBandSegments(bandTimestamps, bandUpper, bandLower)
+        segments.forEach((seg, segIdx) => {
+          traces.push({
+            x: seg.timestamps,
+            y: seg.lower,
+            mode: 'lines',
+            line: { color: 'transparent' },
+            name: `${config.label} Lower`,
+            showlegend: false,
+            hoverinfo: 'skip',
+          })
+          traces.push({
+            x: seg.timestamps,
+            y: seg.upper,
+            fill: 'tonexty',
+            fillcolor: `${d.primaryLineProps.color}${opacityHex}`,
+            line: { color: 'transparent' },
+            mode: 'lines',
+            name: segIdx === 0 ? `±σ ${config.label}` : `±σ ${config.label} (cont)`,
+            showlegend: false,
+            hoverinfo: 'skip',
+          })
+        })
 
-      for (let i = 0; i < bandTimestamps.length; i++) {
-        if (bandUpper[i] === null || bandLower[i] === null) {
-          // Gap point - end current segment
-          if (currentSegment && currentSegment.timestamps.length > 0) {
-            segments.push(currentSegment)
-          }
-          currentSegment = null
-        } else {
-          // Real data point
-          if (!currentSegment) {
-            currentSegment = { timestamps: [], upper: [], lower: [] }
-          }
-          currentSegment.timestamps.push(bandTimestamps[i])
-          currentSegment.upper.push(bandUpper[i])
-          currentSegment.lower.push(bandLower[i])
+        // Secondary stddev bands
+        if (secondaryConfig) {
+          const secBandTimestamps = hasSmoothing ? d.smoothedTimestamps : d.timestamps
+          const secBandUpper = hasSmoothing ? d.secondaryUpperValues : d.secondaryAvgValues.map((avg, i) =>
+            avg === null || d.secondaryStddevValues[i] === null ? null : avg + d.secondaryStddevValues[i]
+          )
+          const secBandLower = hasSmoothing ? d.secondaryLowerValues : d.secondaryAvgValues.map((avg, i) =>
+            avg === null || d.secondaryStddevValues[i] === null ? null : avg - d.secondaryStddevValues[i]
+          )
+
+          const secSegments = splitBandSegments(secBandTimestamps, secBandUpper, secBandLower)
+          secSegments.forEach((seg, segIdx) => {
+            traces.push({
+              x: seg.timestamps,
+              y: seg.lower,
+              mode: 'lines',
+              line: { color: 'transparent' },
+              name: `${secondaryConfig.label} Lower`,
+              showlegend: false,
+              hoverinfo: 'skip',
+              yaxis: 'y2',
+            })
+            traces.push({
+              x: seg.timestamps,
+              y: seg.upper,
+              fill: 'tonexty',
+              fillcolor: `${d.secondaryLineProps?.color}${opacityHex}`,
+              line: { color: 'transparent' },
+              mode: 'lines',
+              name: segIdx === 0 ? `±σ ${secondaryConfig.label}` : `±σ ${secondaryConfig.label} (cont)`,
+              showlegend: false,
+              hoverinfo: 'skip',
+              yaxis: 'y2',
+            })
+          })
         }
-      }
-      // Don't forget the last segment
-      if (currentSegment && currentSegment.timestamps.length > 0) {
-        segments.push(currentSegment)
-      }
-
-      // Create traces for each segment
-      segments.forEach((seg, segIdx) => {
-        traces.push({
-          x: seg.timestamps,
-          y: seg.lower,
-          mode: 'lines',
-          line: { color: 'transparent' },
-          name: `${config.label} Lower`,
-          showlegend: false,
-          hoverinfo: 'skip',
-        })
-        traces.push({
-          x: seg.timestamps,
-          y: seg.upper,
-          fill: 'tonexty',
-          fillcolor: `${d.primaryLineProps.color}${opacityHex}`,
-          line: { color: 'transparent' },
-          mode: 'lines',
-          name: segIdx === 0 ? `±σ ${config.label}` : `±σ ${config.label} (cont)`,
-          showlegend: false,
-          hoverinfo: 'skip',
-        })
-      })
-    }
-
-    // Secondary stddev region (only for first device)
-    // Split into segments at gaps (null values) so Plotly doesn't interpolate across gaps
-    if (secondaryConfig && !isRawData && deviceData.length > 0) {
-      const d = deviceData[0]
-      const bandTimestamps = hasSmoothing ? d.smoothedTimestamps : d.timestamps
-      const bandUpper = hasSmoothing ? d.secondaryUpperValues : d.secondaryAvgValues.map((avg, i) =>
-        avg === null || d.secondaryStddevValues[i] === null ? null : avg + d.secondaryStddevValues[i]
-      )
-      const bandLower = hasSmoothing ? d.secondaryLowerValues : d.secondaryAvgValues.map((avg, i) =>
-        avg === null || d.secondaryStddevValues[i] === null ? null : avg - d.secondaryStddevValues[i]
-      )
-
-      // Split data into segments at null values
-      const segments: Array<{ timestamps: string[]; upper: (number | null)[]; lower: (number | null)[] }> = []
-      let currentSegment: { timestamps: string[]; upper: (number | null)[]; lower: (number | null)[] } | null = null
-
-      for (let i = 0; i < bandTimestamps.length; i++) {
-        if (bandUpper[i] === null || bandLower[i] === null) {
-          if (currentSegment && currentSegment.timestamps.length > 0) {
-            segments.push(currentSegment)
-          }
-          currentSegment = null
-        } else {
-          if (!currentSegment) {
-            currentSegment = { timestamps: [], upper: [], lower: [] }
-          }
-          currentSegment.timestamps.push(bandTimestamps[i])
-          currentSegment.upper.push(bandUpper[i])
-          currentSegment.lower.push(bandLower[i])
-        }
-      }
-      if (currentSegment && currentSegment.timestamps.length > 0) {
-        segments.push(currentSegment)
-      }
-
-      // Create traces for each segment
-      segments.forEach((seg, segIdx) => {
-        traces.push({
-          x: seg.timestamps,
-          y: seg.lower,
-          mode: 'lines',
-          line: { color: 'transparent' },
-          name: `${secondaryConfig.label} Lower`,
-          showlegend: false,
-          hoverinfo: 'skip',
-          yaxis: 'y2',
-        })
-        traces.push({
-          x: seg.timestamps,
-          y: seg.upper,
-          fill: 'tonexty',
-          fillcolor: `${d.secondaryLineProps?.color}${opacityHex}`,
-          line: { color: 'transparent' },
-          mode: 'lines',
-          name: `±σ ${secondaryConfig.label}`,
-          showlegend: false,
-          hoverinfo: 'skip',
-          yaxis: 'y2',
-        })
       })
     }
 
