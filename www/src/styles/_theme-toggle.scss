@@ -97,3 +97,10 @@
     height: 100px;
   }
 }
+
+// Hide on mobile/touch devices - MobileSpeedDial takes over
+@media (max-width: 640px), (hover: none) {
+  .theme-controls-container {
+    display: none;
+  }
+}

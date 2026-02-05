@@ -39,5 +39,7 @@ main {
 
   @media (max-width: 768px) {
     padding: 1rem 0.5rem;
+    // Extra bottom padding so content can scroll above the FAB
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   }
 }

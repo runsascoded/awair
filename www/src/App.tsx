@@ -6,6 +6,7 @@ import 'use-kbd/styles.css'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
 import { TableNavigationRenderer, YAxisMetricsRenderer } from './components/groupRenderers'
+import { MobileSpeedDial } from './components/MobileSpeedDial'
 import { ThemeToggle } from './components/ThemeToggle'
 import { KbdTooltip } from './components/Tooltip'
 import { HOTKEY_GROUPS, HOTKEY_GROUP_ORDER } from './config/hotkeyConfig'
@@ -224,6 +225,7 @@ function AppContent() {
             <Omnibar placeholder="Search actions..." maxResults={15} />
             <LookupModal />
             <SequenceModal />
+            <MobileSpeedDial />
           </>
       }
     </div>
