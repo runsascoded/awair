@@ -37,8 +37,8 @@
     "react-plotly.js": "^2.6.0",
     "recharts": "^3.1.0",
     "uplot": "^1.6.32",
-    "use-kbd": "github:runsascoded/use-kbd#60c4cc2dec8dee2da5616a3a1870930842dcad61",
-    "use-prms": "github:runsascoded/use-prms#cf28edc59fea41899aca2ada69499cd11604f60e",
+    "use-kbd": "^0.9.0",
+    "use-prms": "^0.4.1",
     "use-session-storage-state": "^19.0.1",
     "@rdub/agg-plot": "https://gitlab.com/runsascoded/js/agg-plot/-/archive/e9087eda0724f058d4d2657afd51d0c3f59193e6/agg-plot-e9087eda0724f058d4d2657afd51d0c3f59193e6.tar.gz"
   },
