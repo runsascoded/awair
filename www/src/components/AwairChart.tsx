@@ -238,11 +238,12 @@ export const AwairChart = memo(function AwairChart(
   }, [selectedDeviceIds])
 
   // Handle auto-update from Latest mode hook
+  // Pass duration explicitly to avoid stale closure issues during concurrent updates
   useEffect(() => {
     if (autoUpdateRange) {
-      setXAxisRange(autoUpdateRange)
+      setXAxisRange(autoUpdateRange, { duration: timeRangeFromProps.duration })
     }
-  }, [autoUpdateRange])
+  }, [autoUpdateRange, timeRangeFromProps.duration])
 
   // Determine which time range button is active based on the requested duration
   const getActiveTimeRange = useCallback(() => {
