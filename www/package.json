@@ -30,7 +30,7 @@
     "@tanstack/react-query": "^5.83.0",
     "d3": "^7.9.0",
     "hyparquet": "github:runsascoded/hyparquet#6d0c51c423776ef04b21fab9f469fdc05a5dc4dd",
-    "plotly.js": "github:runsascoded/plotly.js#9343309f0a19a511da64fb5f77a7c923fdd9a6ce",
+    "plotly.js": "github:runsascoded/plotly.js#f54c0537957a275ad24151b4a94c1a9ba4bd1878",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-icons": "^5.5.0",

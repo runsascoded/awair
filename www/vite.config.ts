@@ -6,10 +6,12 @@ const allowedHosts = process.env.VITE_ALLOWED_HOSTS?.split(',') ?? []
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+
   server: {
     port: 5150,
     allowedHosts: ['host.docker.internal', ...allowedHosts],
   },
+
   resolve: {
     alias: {
       // Use plotly-basic (smaller bundle) from fixed GitHub branch
