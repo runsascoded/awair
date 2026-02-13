@@ -473,7 +473,8 @@ export const AwairChart = memo(function AwairChart(
     const leftEmoji = metricEmoji[l.val]
     const rightEmoji = r.val !== 'none' && r.val !== l.val ? metricEmoji[r.val] : ''
 
-    const title = [deviceNames, leftEmoji, rightEmoji].filter(Boolean).join(' ') || 'Awair'
+    const emojis = [leftEmoji, rightEmoji].filter(Boolean).join('')
+    const title = [deviceNames, emojis].filter(Boolean).join(' ') || 'Awair'
     document.title = title
   }, [selectedDeviceIds, devices, l.val, r.val])
 
