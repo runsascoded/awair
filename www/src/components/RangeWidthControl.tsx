@@ -1,3 +1,4 @@
+import { KbdModal } from 'use-kbd'
 import { Tooltip } from './Tooltip'
 import { formatDuration } from '../hooks/useTimeRangeParam'
 import { formatFullDate } from "../utils/dateFormat"
@@ -52,6 +53,7 @@ export function RangeWidthControl({
   const tooltipContent = <ul>
     <li><b>Current:</b> {rangeText}</li>
     <li><b>▶|:</b> "Latest" mode; auto-follow newest data</li>
+    <li>Press <KbdModal /> for keyboard shortcuts</li>
   </ul>
 
   return (

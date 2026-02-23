@@ -19,7 +19,7 @@ importers:
         version: 0.6.17
       '@rdub/agg-plot':
         specifier: https://gitlab.com/runsascoded/js/agg-plot/-/archive/e9087eda0724f058d4d2657afd51d0c3f59193e6/agg-plot-e9087eda0724f058d4d2657afd51d0c3f59193e6.tar.gz
-        version: https://gitlab.com/runsascoded/js/agg-plot/-/archive/e9087eda0724f058d4d2657afd51d0c3f59193e6/agg-plot-e9087eda0724f058d4d2657afd51d0c3f59193e6.tar.gz(plotly.js@https://codeload.github.com/runsascoded/plotly.js/tar.gz/f54c0537957a275ad24151b4a94c1a9ba4bd1878(mapbox-gl@1.13.3))(react-plotly.js@2.6.0(plotly.js@https://codeload.github.com/runsascoded/plotly.js/tar.gz/f54c0537957a275ad24151b4a94c1a9ba4bd1878(mapbox-gl@1.13.3))(react@19.2.3))(react@19.2.3)
+        version: https://gitlab.com/runsascoded/js/agg-plot/-/archive/e9087eda0724f058d4d2657afd51d0c3f59193e6/agg-plot-e9087eda0724f058d4d2657afd51d0c3f59193e6.tar.gz(plotly.js@..+plotly.js)(react-plotly.js@2.6.0(plotly.js@..+plotly.js)(react@19.2.3))(react@19.2.3)
       '@rdub/base':
         specifier: https://gitlab.com/runsascoded/js/base/-/archive/d25db27a5640bdbb1e451955194694b62d5bcf39/base-d25db27a5640bdbb1e451955194694b62d5bcf39.tar.gz
         version: https://gitlab.com/runsascoded/js/base/-/archive/d25db27a5640bdbb1e451955194694b62d5bcf39/base-d25db27a5640bdbb1e451955194694b62d5bcf39.tar.gz(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -33,8 +33,8 @@ importers:
         specifier: github:runsascoded/hyparquet#6d0c51c423776ef04b21fab9f469fdc05a5dc4dd
         version: https://codeload.github.com/runsascoded/hyparquet/tar.gz/6d0c51c423776ef04b21fab9f469fdc05a5dc4dd
       plotly.js:
-        specifier: github:runsascoded/plotly.js#f54c0537957a275ad24151b4a94c1a9ba4bd1878
-        version: https://codeload.github.com/runsascoded/plotly.js/tar.gz/f54c0537957a275ad24151b4a94c1a9ba4bd1878(mapbox-gl@1.13.3)
+        specifier: workspace:*
+        version: link:../../plotly.js
       react:
         specifier: ^19.1.0
         version: 19.2.3
@@ -46,13 +46,16 @@ importers:
         version: 5.5.0(react@19.2.3)
       react-plotly.js:
         specifier: ^2.6.0
-        version: 2.6.0(plotly.js@https://codeload.github.com/runsascoded/plotly.js/tar.gz/f54c0537957a275ad24151b4a94c1a9ba4bd1878(mapbox-gl@1.13.3))(react@19.2.3)
+        version: 2.6.0(plotly.js@..+plotly.js)(react@19.2.3)
       recharts:
         specifier: ^3.1.0
         version: 3.6.0(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react-is@16.13.1)(react@19.2.3)(redux@5.0.1)
       uplot:
         specifier: ^1.6.32
         version: 1.6.32
+      use-kbd:
+        specifier: ^0.9.0
+        version: 0.9.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       use-prms:
         specifier: ^0.4.1
         version: 0.4.1(react@19.2.3)
@@ -4752,11 +4755,6 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  plotly.js@https://codeload.github.com/runsascoded/plotly.js/tar.gz/f54c0537957a275ad24151b4a94c1a9ba4bd1878:
-    resolution: {tarball: https://codeload.github.com/runsascoded/plotly.js/tar.gz/f54c0537957a275ad24151b4a94c1a9ba4bd1878}
-    version: 3.3.1-dist.a3ede10b2
-    engines: {node: '>=18.0.0'}
-
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
     engines: {node: '>=4'}
@@ -4825,7 +4823,6 @@ packages:
   prebuild-install@7.1.3:
     resolution: {integrity: sha512-8Mf2cbV7x1cXPUILADGI3wuhfqWvtiLA1iclTDbFRZkgRQS0NqsPZphna9V+HyTEadheuPmjaJMsbzKQFOzLug==}
     engines: {node: '>=10'}
-    deprecated: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
     hasBin: true
 
   precinct@12.2.0:
@@ -4966,7 +4963,6 @@ packages:
 
   react-plotly.js@2.6.0:
     resolution: {integrity: sha512-g93xcyhAVCSt9kV1svqG1clAEdL6k3U+jjuSzfTV7owaSU9Go6Ph8bl25J+jKfKvIGAEYpe4qj++WHJuc9IaeA==}
-    version: 2.6.0
     peerDependencies:
       plotly.js: '>1.34.0'
       react: '>0.13.0'
@@ -5788,6 +5784,12 @@ packages:
 
   url-join@4.0.1:
     resolution: {integrity: sha512-jk1+QP6ZJqyOiuEI9AEWQfju/nB2Pw466kbA0LEZljHwKeMgd9WrAEgEGxjPDD2+TNbbb37rTyhEfrCXfuKXnA==}
+
+  use-kbd@0.9.0:
+    resolution: {integrity: sha512-nHsauGm3sFXA6eOHUS4dWdZqCWfmdNJMm/JMk6MdqvFQKF8C5ZVkNe2jDCBfbLElCznmAuecdM5lP336Mu5EGA==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
 
   use-prms@0.4.1:
     resolution: {integrity: sha512-137eYoyglpP3bnQqU+BDnr4kJnPqkibcSBpjHAIZJugtRjtInRCi+Af+hsk5lElXcIqz+ReEA4me6YrOehg6XA==}
@@ -7278,11 +7280,11 @@ snapshots:
       - react-native-b4a
       - supports-color
 
-  '@rdub/agg-plot@https://gitlab.com/runsascoded/js/agg-plot/-/archive/e9087eda0724f058d4d2657afd51d0c3f59193e6/agg-plot-e9087eda0724f058d4d2657afd51d0c3f59193e6.tar.gz(plotly.js@https://codeload.github.com/runsascoded/plotly.js/tar.gz/f54c0537957a275ad24151b4a94c1a9ba4bd1878(mapbox-gl@1.13.3))(react-plotly.js@2.6.0(plotly.js@https://codeload.github.com/runsascoded/plotly.js/tar.gz/f54c0537957a275ad24151b4a94c1a9ba4bd1878(mapbox-gl@1.13.3))(react@19.2.3))(react@19.2.3)':
+  '@rdub/agg-plot@https://gitlab.com/runsascoded/js/agg-plot/-/archive/e9087eda0724f058d4d2657afd51d0c3f59193e6/agg-plot-e9087eda0724f058d4d2657afd51d0c3f59193e6.tar.gz(plotly.js@..+plotly.js)(react-plotly.js@2.6.0(plotly.js@..+plotly.js)(react@19.2.3))(react@19.2.3)':
     dependencies:
-      plotly.js: https://codeload.github.com/runsascoded/plotly.js/tar.gz/f54c0537957a275ad24151b4a94c1a9ba4bd1878(mapbox-gl@1.13.3)
+      plotly.js: link:../../plotly.js
       react: 19.2.3
-      react-plotly.js: 2.6.0(plotly.js@https://codeload.github.com/runsascoded/plotly.js/tar.gz/f54c0537957a275ad24151b4a94c1a9ba4bd1878(mapbox-gl@1.13.3))(react@19.2.3)
+      react-plotly.js: 2.6.0(plotly.js@..+plotly.js)(react@19.2.3)
 
   '@rdub/base@https://gitlab.com/runsascoded/js/base/-/archive/d25db27a5640bdbb1e451955194694b62d5bcf39/base-d25db27a5640bdbb1e451955194694b62d5bcf39.tar.gz(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
@@ -11214,62 +11216,6 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.2
 
-  plotly.js@https://codeload.github.com/runsascoded/plotly.js/tar.gz/f54c0537957a275ad24151b4a94c1a9ba4bd1878(mapbox-gl@1.13.3):
-    dependencies:
-      '@plotly/d3': 3.8.2
-      '@plotly/d3-sankey': 0.7.2
-      '@plotly/d3-sankey-circular': 0.33.1
-      '@plotly/mapbox-gl': 1.13.4(mapbox-gl@1.13.3)
-      '@plotly/regl': 2.1.2
-      '@turf/area': 7.3.1
-      '@turf/bbox': 7.3.1
-      '@turf/centroid': 7.3.1
-      base64-arraybuffer: 1.0.2
-      canvas-fit: 1.5.0
-      color-alpha: 1.0.4
-      color-normalize: 1.5.0
-      color-parse: 2.0.0
-      color-rgba: 3.0.0
-      country-regex: 1.1.0
-      d3-force: 1.2.1
-      d3-format: 1.4.5
-      d3-geo: 1.12.1
-      d3-geo-projection: 2.9.0
-      d3-hierarchy: 1.1.9
-      d3-interpolate: 3.0.1
-      d3-time: 1.1.0
-      d3-time-format: 2.3.0
-      fast-isnumeric: 1.1.4
-      gl-mat4: 1.2.0
-      gl-text: 1.4.0
-      has-hover: 1.0.1
-      has-passive-events: 1.0.0
-      is-mobile: 4.0.0
-      maplibre-gl: 4.7.1
-      mouse-change: 1.4.0
-      mouse-event-offset: 3.0.2
-      mouse-wheel: 1.2.0
-      native-promise-only: 0.8.1
-      parse-svg-path: 0.1.2
-      point-in-polygon: 1.1.0
-      polybooljs: 1.2.2
-      probe-image-size: 7.2.3
-      regl-error2d: 2.0.12
-      regl-line2d: 3.1.3
-      regl-scatter2d: 3.3.1
-      regl-splom: 1.0.14
-      strongly-connected-components: 1.0.1
-      superscript-text: 1.0.0
-      svg-path-sdf: 1.1.3
-      tinycolor2: 1.6.0
-      to-px: 1.0.1
-      topojson-client: 3.1.0
-      webgl-context: 2.2.0
-      world-calendars: 1.0.4
-    transitivePeerDependencies:
-      - mapbox-gl
-      - supports-color
-
   pluralize@8.0.0: {}
 
   pngjs@6.0.0: {}
@@ -11534,9 +11480,9 @@ snapshots:
 
   react-is@16.13.1: {}
 
-  react-plotly.js@2.6.0(plotly.js@https://codeload.github.com/runsascoded/plotly.js/tar.gz/f54c0537957a275ad24151b4a94c1a9ba4bd1878(mapbox-gl@1.13.3))(react@19.2.3):
+  react-plotly.js@2.6.0(plotly.js@..+plotly.js)(react@19.2.3):
     dependencies:
-      plotly.js: https://codeload.github.com/runsascoded/plotly.js/tar.gz/f54c0537957a275ad24151b4a94c1a9ba4bd1878(mapbox-gl@1.13.3)
+      plotly.js: link:../../plotly.js
       prop-types: 15.8.1
       react: 19.2.3
 
@@ -12528,6 +12474,11 @@ snapshots:
       punycode: 2.3.1
 
   url-join@4.0.1: {}
+
+  use-kbd@0.9.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+    dependencies:
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
   use-prms@0.4.1(react@19.2.3):
     optionalDependencies:

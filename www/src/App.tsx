@@ -1,17 +1,32 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { HotkeysProvider, LookupModal, Omnibar, SequenceModal, ShortcutsModal, useHotkeysContext } from 'use-kbd'
 import { useUrlState } from 'use-prms'
+import 'use-kbd/styles.css'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
+import { TableNavigationRenderer, YAxisMetricsRenderer } from './components/groupRenderers'
+import { MobileSpeedDial } from './components/MobileSpeedDial'
 import { ThemeToggle } from './components/ThemeToggle'
+import { KbdTooltip } from './components/Tooltip'
+import { HOTKEY_GROUPS, HOTKEY_GROUP_ORDER } from './config/hotkeyConfig'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
 import { queryClient } from './lib/queryClient'
 import { boolParam, deviceIdsParam, timeRangeParam, refetchIntervalParam, smoothingParam } from './lib/urlParams'
 import './App.scss'
 
+// Custom group renderers for ShortcutsModal
+const GROUP_RENDERERS = {
+  'Y-Axis Metrics': YAxisMetricsRenderer,
+  'Table Navigation': TableNavigationRenderer,
+}
+
 function AppContent() {
   const [isOgMode] = useUrlState('og', boolParam)
+
+  // Only need openModal for ThemeToggle; ShortcutsModal uses context internally
+  const { openModal } = useHotkeysContext()
 
   // Add og-mode class to body for CSS overrides
   useEffect(() => {
@@ -194,7 +209,25 @@ function AppContent() {
           />
         )}
       </main>
-      {!isOgMode && <ThemeToggle />}
+      {
+        !isOgMode &&
+          <>
+            <ThemeToggle onOpenShortcuts={openModal} />
+            {/* Modal and Omnibar - all props come from HotkeysContext */}
+            <ShortcutsModal
+              groups={HOTKEY_GROUPS}
+              groupOrder={HOTKEY_GROUP_ORDER}
+              groupRenderers={GROUP_RENDERERS}
+              editable
+              hint="Click any key to customize"
+              TooltipComponent={KbdTooltip}
+            />
+            <Omnibar placeholder="Search actions..." maxResults={15} />
+            <LookupModal />
+            <SequenceModal />
+            <MobileSpeedDial />
+          </>
+      }
     </div>
   )
 }
@@ -203,7 +236,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AppContent />
+        <HotkeysProvider config={{ sequenceTimeout: Infinity }}>
+          <AppContent />
+        </HotkeysProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )

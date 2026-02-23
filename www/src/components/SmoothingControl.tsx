@@ -1,3 +1,4 @@
+import { KbdModal } from 'use-kbd'
 import { IntervalSelect } from './IntervalSelect'
 import { Tooltip } from './Tooltip'
 import { SMOOTHING_PRESETS } from '../lib/urlParams'
@@ -24,6 +25,7 @@ export function SmoothingControl({
         <Tooltip content={<ul>
           <li>Applies a centered rolling average to smooth fluctuations.</li>
           <li>Useful for seeing trends through HVAC cycling noise.</li>
+          <li>Press <KbdModal /> for keyboard shortcuts (e.g., <code>4 H</code> for 4h)</li>
         </ul>}>
           <span className="info-icon">?</span>
         </Tooltip>
