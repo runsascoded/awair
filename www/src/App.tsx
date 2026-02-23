@@ -1,16 +1,16 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { HotkeysProvider, LookupModal, Omnibar, SequenceModal, ShortcutsModal, useHotkeysContext } from 'use-kbd'
+import { FaGithub } from 'react-icons/fa'
+import { MdBrightnessAuto, MdDarkMode, MdLightMode } from 'react-icons/md'
+import { HotkeysProvider, LookupModal, Omnibar, SequenceModal, ShortcutsModal, SpeedDial } from 'use-kbd'
 import { useUrlState } from 'use-prms'
 import 'use-kbd/styles.css'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
 import { TableNavigationRenderer, YAxisMetricsRenderer } from './components/groupRenderers'
-import { MobileSpeedDial } from './components/MobileSpeedDial'
-import { ThemeToggle } from './components/ThemeToggle'
 import { KbdTooltip } from './components/Tooltip'
 import { HOTKEY_GROUPS, HOTKEY_GROUP_ORDER } from './config/hotkeyConfig'
-import { ThemeProvider } from './contexts/ThemeContext'
+import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
 import { queryClient } from './lib/queryClient'
 import { boolParam, deviceIdsParam, timeRangeParam, refetchIntervalParam, smoothingParam } from './lib/urlParams'
@@ -24,9 +24,7 @@ const GROUP_RENDERERS = {
 
 function AppContent() {
   const [isOgMode] = useUrlState('og', boolParam)
-
-  // Only need openModal for ThemeToggle; ShortcutsModal uses context internally
-  const { openModal } = useHotkeysContext()
+  const { theme, setTheme } = useTheme()
 
   // Add og-mode class to body for CSS overrides
   useEffect(() => {
@@ -212,8 +210,15 @@ function AppContent() {
       {
         !isOgMode &&
           <>
-            <ThemeToggle onOpenShortcuts={openModal} />
-            {/* Modal and Omnibar - all props come from HotkeysContext */}
+            <SpeedDial actions={[
+              { key: 'github', label: 'GitHub', icon: <FaGithub />, href: 'https://github.com/runsascoded/awair' },
+              {
+                key: 'theme',
+                label: `Theme: ${theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'System'}`,
+                icon: theme === 'light' ? <MdLightMode /> : theme === 'dark' ? <MdDarkMode /> : <MdBrightnessAuto />,
+                onClick: () => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light'),
+              },
+            ]} />
             <ShortcutsModal
               groups={HOTKEY_GROUPS}
               groupOrder={HOTKEY_GROUP_ORDER}
@@ -225,7 +230,6 @@ function AppContent() {
             <Omnibar placeholder="Search actions..." maxResults={15} />
             <LookupModal />
             <SequenceModal />
-            <MobileSpeedDial />
           </>
       }
     </div>
