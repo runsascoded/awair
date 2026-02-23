@@ -1,5 +1,4 @@
 import { ceil, round } from "@rdub/base"
-import { KbdModal } from 'use-kbd'
 import { Tooltip } from './Tooltip'
 import type { TimeWindow } from '../hooks/useDataAggregation'
 
@@ -52,7 +51,6 @@ export function AggregationControl({
           <li>Points are grouped into time windows for visualization.</li>
           <li>Smaller windows show more detail, but may be noisier visually.</li>
           <li><b>Auto:</b> dynamically selects window to achieve target px/point.</li>
-          <li>Press <KbdModal /> for keyboard shortcuts</li>
         </ul>}>
           <span className="info-icon">?</span>
         </Tooltip>

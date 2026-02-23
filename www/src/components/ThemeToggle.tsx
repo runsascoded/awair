@@ -1,22 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
-import { FaGithub, FaKeyboard, FaSearch } from 'react-icons/fa'
+import { FaGithub } from 'react-icons/fa'
 import { MdBrightnessAuto, MdLightMode, MdDarkMode } from 'react-icons/md'
-import { SearchTrigger } from 'use-kbd'
 import { useTheme } from '../contexts/ThemeContext'
 
-interface ThemeToggleProps {
-  onOpenShortcuts?: () => void
-}
-
-export function ThemeToggle({ onOpenShortcuts }: ThemeToggleProps) {
+export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
   const [isVisible, setIsVisible] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
   const lastScrollY = useRef(0)
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Hide keyboard shortcuts button on touch-only devices (no keyboard anyway)
-  const canHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches
 
   useEffect(() => {
     const handleScroll = () => {
@@ -91,22 +83,6 @@ export function ThemeToggle({ onOpenShortcuts }: ThemeToggleProps) {
         >
           <FaGithub />
         </a>
-        {canHover ? (
-          onOpenShortcuts && (
-            <button
-              className="shortcuts-button"
-              onClick={onOpenShortcuts}
-              title="Keyboard shortcuts (?)"
-              aria-label="Show keyboard shortcuts"
-            >
-              <FaKeyboard />
-            </button>
-          )
-        ) : (
-          <SearchTrigger className="search-button" ariaLabel="Search actions">
-            <FaSearch />
-          </SearchTrigger>
-        )}
         <button
           className="theme-toggle"
           onClick={cycleTheme}

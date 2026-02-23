@@ -1,7 +1,7 @@
 import { abs, ceil, floor, max } from "@rdub/base"
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
 import Plot from 'react-plotly.js'
-import { useAction } from 'use-kbd'
+
 import { useUrlState } from 'use-prms'
 import { ChartControls, metricConfig, getRangeFloor } from './ChartControls'
 import { CustomLegend } from './CustomLegend'
@@ -397,60 +397,6 @@ export const AwairChart = memo(function AwairChart(
       setLatestModeIntended(true)
     }
   }, [latestModeIntended, setLatestModeIntended, xAxisRange, data, setIgnoreNextPanCheck, setXAxisRange])
-
-  // ===== Register actions with useAction =====
-
-  // Left Y-axis metrics
-  useAction('left:temp', { label: 'Temperature', group: 'Y-Axis Metrics', defaultBindings: ['t'], handler: () => setLeftMetric('temp') })
-  useAction('left:co2', { label: 'CO₂', group: 'Y-Axis Metrics', defaultBindings: ['c'], handler: () => setLeftMetric('co2') })
-  useAction('left:humid', { label: 'Humidity', group: 'Y-Axis Metrics', defaultBindings: ['h'], handler: () => setLeftMetric('humid') })
-  useAction('left:pm25', { label: 'PM2.5', group: 'Y-Axis Metrics', defaultBindings: ['p'], handler: () => setLeftMetric('pm25') })
-  useAction('left:voc', { label: 'VOC', group: 'Y-Axis Metrics', defaultBindings: ['v'], handler: () => setLeftMetric('voc') })
-  useAction('left:autorange', { label: 'Toggle auto-range', group: 'Y-Axis Metrics', defaultBindings: ['a'], handler: () => l.setAutoRange(!l.autoRange) })
-
-  // Right Y-axis metrics
-  useAction('right:temp', { label: 'Temperature', group: 'Y-Axis Metrics', defaultBindings: ['shift+t'], handler: () => setRightMetric('temp') })
-  useAction('right:co2', { label: 'CO₂', group: 'Y-Axis Metrics', defaultBindings: ['shift+c'], handler: () => setRightMetric('co2') })
-  useAction('right:humid', { label: 'Humidity', group: 'Y-Axis Metrics', defaultBindings: ['shift+h'], handler: () => setRightMetric('humid') })
-  useAction('right:pm25', { label: 'PM2.5', group: 'Y-Axis Metrics', defaultBindings: ['shift+p'], handler: () => setRightMetric('pm25') })
-  useAction('right:voc', { label: 'VOC', group: 'Y-Axis Metrics', defaultBindings: ['shift+v'], handler: () => setRightMetric('voc') })
-  useAction('right:none', { label: 'Clear', group: 'Y-Axis Metrics', defaultBindings: ['shift+n'], handler: () => r.set('none') })
-  useAction('right:autorange', { label: 'Toggle auto-range', group: 'Y-Axis Metrics', defaultBindings: ['shift+a'], handler: () => { if (r.val !== 'none') r.setAutoRange(!r.autoRange) } })
-
-  // Time ranges - dynamic with digit wildcards
-  useAction('time:hours', { label: 'Range: N hours', group: 'Time Range', defaultBindings: ['\\d+ h', 'h \\d+'], keywords: ['hours'], handler: useCallback((_, captures) => handleTimeRangeClick(captures?.[0] ?? 1), [handleTimeRangeClick]) })
-  useAction('time:days', { label: 'Range: N days', group: 'Time Range', defaultBindings: ['\\d+ d', 'd \\d+'], keywords: ['days'], handler: useCallback((_, captures) => handleTimeRangeClick((captures?.[0] ?? 1) * 24), [handleTimeRangeClick]) })
-  useAction('time:weeks', { label: 'Range: N weeks', group: 'Time Range', defaultBindings: ['\\d+ w', 'w \\d+'], keywords: ['weeks'], handler: useCallback((_, captures) => handleTimeRangeClick((captures?.[0] ?? 1) * 24 * 7), [handleTimeRangeClick]) })
-  useAction('time:months', { label: 'Range: N months', group: 'Time Range', defaultBindings: ['\\d+ m', 'm \\d+'], keywords: ['months'], handler: useCallback((_, captures) => handleTimeRangeClick((captures?.[0] ?? 1) * 24 * 31), [handleTimeRangeClick]) })
-  // Special time ranges (not digit-based)
-  useAction('time:all', { label: 'Full history', group: 'Time Range', defaultBindings: ['f'], keywords: ['all', 'everything', 'max', 'full'], handler: handleAllClick })
-  useAction('time:latest', { label: 'Latest', group: 'Time Range', defaultBindings: ['l'], keywords: ['now', 'current', 'live'], handler: toggleLatestMode })
-
-  // Devices
-  useAction('device:gym', { label: 'Gym', group: 'Toggle devices on/off', defaultBindings: ['g'], handler: () => toggleDeviceByPattern('gym') })
-  useAction('device:br', { label: 'BR', group: 'Toggle devices on/off', defaultBindings: ['b'], keywords: ['bedroom'], handler: () => toggleDeviceByPattern('br') })
-  useAction('device:rt', { label: 'RT', group: 'Toggle devices on/off', defaultBindings: ['r'], handler: () => toggleDeviceByPattern('rt') })
-
-  // X-axis grouping (aggregation)
-  useAction('agg:1px', { label: '1px', group: 'X Grouping', defaultBindings: ['x 1'], keywords: ['1px', 'auto', 'aggregation'], handler: () => setXGrouping({ mode: 'auto', targetPx: 1 }) })
-  useAction('agg:2px', { label: '2px', group: 'X Grouping', defaultBindings: ['x 2'], keywords: ['2px', 'auto', 'aggregation'], handler: () => setXGrouping({ mode: 'auto', targetPx: 2 }) })
-  useAction('agg:4px', { label: '4px', group: 'X Grouping', defaultBindings: ['x 4'], keywords: ['4px', 'auto', 'aggregation'], handler: () => setXGrouping({ mode: 'auto', targetPx: 4 }) })
-  useAction('agg:8px', { label: '8px', group: 'X Grouping', defaultBindings: ['x 8'], keywords: ['8px', 'auto', 'aggregation'], handler: () => setXGrouping({ mode: 'auto', targetPx: 8 }) })
-
-  // Smoothing (rolling average) - accepts any value, not just presets
-  useAction('smooth:minutes', { label: 'Smooth: N minutes', group: 'Smoothing', defaultBindings: ['\\d+ M', 'M \\d+'], keywords: ['smooth', 'rolling', 'average'], handler: useCallback((_, captures) => {
-    setSmoothing(captures?.[0] ?? 5)
-  }, [setSmoothing]) })
-
-  useAction('smooth:hours', { label: 'Smooth: N hours', group: 'Smoothing', defaultBindings: ['\\d+ H', 'H \\d+'], keywords: ['smooth', 'rolling', 'average'], handler: useCallback((_, captures) => {
-    setSmoothing((captures?.[0] ?? 1) * 60)
-  }, [setSmoothing]) })
-
-  useAction('smooth:days', { label: 'Smooth: N days', group: 'Smoothing', defaultBindings: ['\\d+ D', 'D \\d+'], keywords: ['smooth', 'rolling', 'average'], handler: useCallback((_, captures) => {
-    setSmoothing((captures?.[0] ?? 1) * 1440)
-  }, [setSmoothing]) })
-
-  useAction('smooth:off', { label: 'Smooth: Off', group: 'Smoothing', defaultBindings: ['0 M', 'O'], keywords: ['smooth', 'off', 'none', 'disable'], handler: () => setSmoothing(1) })
 
   // Dynamic page title: "Gym BR 🌡️ 💦" format
   useEffect(() => {
