@@ -170,7 +170,7 @@ const page = await browser.newPage()
 const har = new PuppeteerHar(page)
 
 await har.start({ path: 'awair.har' })
-await page.goto('https://awair.runsascoded.com/?d=+br', { waitUntil: 'networkidle0' })
+await page.goto('https://air.rbw.sh/?d=+br', { waitUntil: 'networkidle0' })
 await page.waitForFunction('window.chartReady', { timeout: 30000 })
 await har.stop()
 await browser.close()
@@ -179,7 +179,7 @@ await browser.close()
 **Output format** (post-processed from HAR):
 ```json
 {
-  "url": "https://awair.runsascoded.com/?d=+br",
+  "url": "https://air.rbw.sh/?d=+br",
   "timestamp": "2025-11-28T05:34:00Z",
   "chartReadyMs": 1234,
   "requests": [

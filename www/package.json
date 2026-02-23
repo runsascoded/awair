@@ -19,7 +19,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:og": "./test-og.mjs 'http://localhost:5173/?d=+br&y=thaA&og&t=-3d' -o og-test.jpg",
-    "test:og:prod": "./test-og.mjs 'https://awair.runsascoded.com/?d=+br&y=thaA&og&t=-3d' -o og-test-prod.jpg",
+    "test:og:prod": "./test-og.mjs 'https://air.rbw.sh/?d=+br&y=thaA&og&t=-3d' -o og-test-prod.jpg",
     "test:og:local": "./test-og.mjs --local 'http://localhost:5173/?d=+br&y=thaA&og&t=-3d' -o og-test-local.jpg"
   },
   "dependencies": {

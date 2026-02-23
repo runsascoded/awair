@@ -21,7 +21,7 @@
  *   node test/capture-har.mjs -d 1d -p 2 --ri 3000
  *
  *   # Test against production
- *   node test/capture-har.mjs -u https://awair.runsascoded.com -d 7d
+ *   node test/capture-har.mjs -u https://air.rbw.sh -d 7d
  */
 
 import puppeteer from 'puppeteer'

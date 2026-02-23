@@ -2,17 +2,17 @@
 
 [![PyPI version](https://badge.fury.io/py/awair.svg)](https://badge.fury.io/py/awair)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Dashboard](https://img.shields.io/badge/Dashboard-awair.runsascoded.com-blue)][awair.runsascoded.com]
+[![Dashboard](https://img.shields.io/badge/Dashboard-air.rbw.sh-blue)][air.rbw.sh]
 
 A Python CLI tool and automated data collection system for [Awair] air quality sensors. Provides real-time data fetching using [the Awair API][API], historical analysis, automated S3 storage via AWS Lambda (per-device), and a web dashboard for visualization.
 
-<a href="https://awair.runsascoded.com" target="_blank">
+<a href="https://air.rbw.sh" target="_blank">
   <img src="https://380nwk.s3.amazonaws.com/awair/og-image.jpg" alt="Awair Dashboard" />
 </a>
 
 ## Features
 
-- **Web Dashboard**: Real-time visualization at [awair.runsascoded.com]
+- **Web Dashboard**: Real-time visualization at [air.rbw.sh]
 - **CLI Interface**: Raw data fetching, analysis, and export from Awair sensors
 - **Automated Collection**: AWS Lambda functions that collect data every minute per device
 - **Multi-Device Support**: Separate Lambda stacks and Parquet files per device
@@ -296,7 +296,7 @@ pnpm add -D @rdub/og-lambda
 ```json
 {
   "stackName": "awair-og",
-  "screenshotUrl": "https://awair.runsascoded.com/?og&t=-3d",
+  "screenshotUrl": "https://air.rbw.sh/?og&t=-3d",
   "s3Bucket": "380nwk",
   "s3Key": "awair/og-image.jpg",
   "scheduleRateMinutes": 60,
@@ -331,4 +331,4 @@ MIT License - see LICENSE file for details.
 
 [Awair]: https://www.getawair.com/
 [API]: https://docs.developer.getawair.com/
-[awair.runsascoded.com]: https://awair.runsascoded.com
+[air.rbw.sh]: https://air.rbw.sh
