@@ -216,7 +216,7 @@ function AppContent() {
                 key: 'theme',
                 label: `Theme: ${theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'System'}`,
                 icon: theme === 'light' ? <MdLightMode /> : theme === 'dark' ? <MdDarkMode /> : <MdBrightnessAuto />,
-                onClick: () => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light'),
+                onClick: () => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark'),
               },
             ]} />
             <ShortcutsModal
