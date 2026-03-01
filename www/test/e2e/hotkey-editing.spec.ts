@@ -408,9 +408,10 @@ test.describe('Hotkey Editing', () => {
     // Initially should have just 'T'
     await expect(leftCell.locator('kbd', { hasText: 'T' })).toBeVisible()
 
-    // Add 'q' using the + button (adds, doesn't replace)
-    const addButton = leftCell.locator('.kbd-add-btn')
-    await addButton.click()
+    // Add 'q' using the inline + button on the T key (adds, doesn't replace)
+    const tKbd = leftCell.locator('kbd', { hasText: 'T' })
+    await tKbd.hover()
+    await tKbd.locator('.kbd-add-inline-btn').click()
     await page.keyboard.press('q')
     await page.keyboard.press('Enter')  // Confirm the key (sequenceTimeout is Infinity)
     await page.waitForTimeout(300)
@@ -419,8 +420,10 @@ test.describe('Hotkey Editing', () => {
     await expect(leftCell.locator('kbd', { hasText: 'T' })).toBeVisible()
     await expect(leftCell.locator('kbd', { hasText: 'Q' })).toBeVisible()
 
-    // Add 'y' as well using the + button
-    await addButton.click()
+    // Add 'y' as well using the inline + button on the Q key
+    const qKbd = leftCell.locator('kbd', { hasText: 'Q' })
+    await qKbd.hover()
+    await qKbd.locator('.kbd-add-inline-btn').click()
     await page.keyboard.press('y')
     await page.keyboard.press('Enter')  // Confirm the key (sequenceTimeout is Infinity)
     await page.waitForTimeout(300)
@@ -448,9 +451,10 @@ test.describe('Hotkey Editing', () => {
     const tempRow = page.locator('.kbd-table tbody tr').first()
     const leftCell = tempRow.locator('td:nth-child(2)')
 
-    // Add 'z' binding using + button (adds, doesn't replace)
-    const addButton = leftCell.locator('.kbd-add-btn')
-    await addButton.click()
+    // Add 'z' binding using inline + button on the T key (adds, doesn't replace)
+    const tKbd2 = leftCell.locator('kbd', { hasText: 'T' })
+    await tKbd2.hover()
+    await tKbd2.locator('.kbd-add-inline-btn').click()
     await page.keyboard.press('z')
     await page.keyboard.press('Enter')  // Confirm the key (sequenceTimeout is Infinity)
     await page.waitForTimeout(300)

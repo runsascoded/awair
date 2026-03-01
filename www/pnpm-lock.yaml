@@ -54,8 +54,8 @@ importers:
         specifier: ^1.6.32
         version: 1.6.32
       use-kbd:
-        specifier: ^0.10.0
-        version: 0.10.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: https://github.com/runsascoded/use-kbd#34745efff8efdfd2c46e3e39d479a708aba704b2
+        version: https://codeload.github.com/runsascoded/use-kbd/tar.gz/34745efff8efdfd2c46e3e39d479a708aba704b2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       use-prms:
         specifier: ^0.4.1
         version: 0.4.1(react@19.2.3)
@@ -131,10 +131,13 @@ importers:
         version: 7.3.0(@types/node@24.10.4)(sass@1.97.1)(terser@5.44.1)
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@types/node@24.10.4)(@vitest/ui@3.2.4)(jsdom@26.1.0(canvas@3.2.0))(sass@1.97.1)(terser@5.44.1)
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@24.10.4)(@vitest/ui@3.2.4)(jsdom@26.1.0(canvas@3.2.0))(sass@1.97.1)(terser@5.44.1)
 
   ../../js/use-kbd:
     dependencies:
+      debug:
+        specifier: ^4.4.3
+        version: 4.4.3
       react-dom:
         specifier: '>=18.0.0'
         version: 19.2.3(react@18.3.1)
@@ -145,6 +148,9 @@ importers:
       '@rdub/eslint-config':
         specifier: ^0.0.3
         version: 0.0.3(eslint@9.39.2)(typescript@5.8.3)
+      '@types/debug':
+        specifier: ^4.1.12
+        version: 4.1.12
       '@types/react':
         specifier: ^18.3.27
         version: 18.3.27
@@ -1343,6 +1349,9 @@ packages:
   '@types/d3-timer@3.0.2':
     resolution: {integrity: sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw==}
 
+  '@types/debug@4.1.12':
+    resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
+
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
 
@@ -1366,6 +1375,9 @@ packages:
 
   '@types/mapbox__vector-tile@1.3.4':
     resolution: {integrity: sha512-bpd8dRn9pr6xKvuEBQup8pwQfD4VUyqO/2deGjfpe6AwC8YRlyEipvefyRJUSiCJTZuCb8Pl1ciVV5ekqJ96Bg==}
+
+  '@types/ms@2.1.0':
+    resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
   '@types/node@24.10.4':
     resolution: {integrity: sha512-vnDVpYPMzs4wunl27jHrfmwojOGKya0xyM3sH+UE5iv5uPS6vX7UIoh6m+vQc5LGBq52HBKPIn/zcSZVzeDEZg==}
@@ -4132,8 +4144,9 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
-  use-kbd@0.10.0:
-    resolution: {integrity: sha512-2g0nWWWvZfd7JCkQnxydCPgK35QKY6ieQGrP4X52R3CRAqmfJUgaKygKAAAshrpu3EFZdRlLNlcVAKTfxXcVcA==}
+  use-kbd@https://codeload.github.com/runsascoded/use-kbd/tar.gz/34745efff8efdfd2c46e3e39d479a708aba704b2:
+    resolution: {tarball: https://codeload.github.com/runsascoded/use-kbd/tar.gz/34745efff8efdfd2c46e3e39d479a708aba704b2}
+    version: 0.10.0-dist.bf02e9e
     peerDependencies:
       react: '>=18.0.0'
       react-dom: '>=18.0.0'
@@ -5997,6 +6010,10 @@ snapshots:
 
   '@types/d3-timer@3.0.2': {}
 
+  '@types/debug@4.1.12':
+    dependencies:
+      '@types/ms': 2.1.0
+
   '@types/deep-eql@4.0.2': {}
 
   '@types/estree@1.0.8': {}
@@ -6018,6 +6035,8 @@ snapshots:
       '@types/geojson': 7946.0.16
       '@types/mapbox__point-geometry': 0.1.4
       '@types/pbf': 3.0.5
+
+  '@types/ms@2.1.0': {}
 
   '@types/node@24.10.4':
     dependencies:
@@ -6206,7 +6225,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 2.0.0
-      vitest: 3.2.4(@types/node@24.10.4)(@vitest/ui@3.2.4)(jsdom@26.1.0(canvas@3.2.0))(sass@1.97.1)(terser@5.44.1)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@24.10.4)(@vitest/ui@3.2.4)(jsdom@26.1.0(canvas@3.2.0))(sass@1.97.1)(terser@5.44.1)
 
   '@vitest/utils@3.2.4':
     dependencies:
@@ -9345,10 +9364,13 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  use-kbd@0.10.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+  use-kbd@https://codeload.github.com/runsascoded/use-kbd/tar.gz/34745efff8efdfd2c46e3e39d479a708aba704b2(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
+      debug: 4.4.3
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
+    transitivePeerDependencies:
+      - supports-color
 
   use-prms@0.4.1(react@19.2.3):
     optionalDependencies:
@@ -9419,7 +9441,7 @@ snapshots:
       sass: 1.97.1
       terser: 5.44.1
 
-  vitest@3.2.4(@types/node@24.10.4)(@vitest/ui@3.2.4)(jsdom@26.1.0(canvas@3.2.0))(sass@1.97.1)(terser@5.44.1):
+  vitest@3.2.4(@types/debug@4.1.12)(@types/node@24.10.4)(@vitest/ui@3.2.4)(jsdom@26.1.0(canvas@3.2.0))(sass@1.97.1)(terser@5.44.1):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.4
@@ -9445,6 +9467,7 @@ snapshots:
       vite-node: 3.2.4(@types/node@24.10.4)(sass@1.97.1)(terser@5.44.1)
       why-is-node-running: 2.3.0
     optionalDependencies:
+      '@types/debug': 4.1.12
       '@types/node': 24.10.4
       '@vitest/ui': 3.2.4(vitest@3.2.4)
       jsdom: 26.1.0(canvas@3.2.0)
