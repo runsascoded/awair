@@ -1,7 +1,8 @@
-import { abs, ceil, floor, max } from "@rdub/base"
+import { abs, ceil, max } from "@rdub/base"
+import { generateDateTicks, usePlotlyHoverDismiss, useTheme as usePlotTheme } from 'pltly'
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
 import Plot from 'react-plotly.js'
-import { useAction } from 'use-kbd'
+import { useAction, useActions } from 'use-kbd'
 import { useUrlState } from 'use-prms'
 import { ChartControls, metricConfig, getRangeFloor } from './ChartControls'
 import { CustomLegend } from './CustomLegend'
@@ -11,7 +12,6 @@ import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics'
 import { useMobile } from '../hooks/useMobile'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
-import { usePlotlyHoverDismiss } from '../hooks/usePlotlyHoverDismiss'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
 import { deviceRenderStrategyParam, hsvConfigParam, intFromList, rangeFloorsParam, rawOpacityParam, smoothingParam, stddevOpacityParam, xGroupingParam } from '../lib/urlParams'
 import { getFileBounds } from '../services/awairService'
@@ -300,8 +300,8 @@ export const AwairChart = memo(function AwairChart(
     }
   }, [data])
 
-  // Dismiss hover tooltip when clicking outside plot area (mobile only for now)
-  const setupHoverDismiss = usePlotlyHoverDismiss(plotContainerRef, isMobile)
+  // Dismiss hover tooltip when clicking outside plot area
+  const setupHoverDismiss = usePlotlyHoverDismiss(plotContainerRef as React.RefObject<HTMLDivElement>)
 
   // "All" handler - show full data extent from file bounds
   const handleAllClick = useCallback(() => {
@@ -426,10 +426,22 @@ export const AwairChart = memo(function AwairChart(
   useAction('time:all', { label: 'Full history', group: 'Time Range', defaultBindings: ['f'], keywords: ['all', 'everything', 'max', 'full'], handler: handleAllClick })
   useAction('time:latest', { label: 'Latest', group: 'Time Range', defaultBindings: ['l'], keywords: ['now', 'current', 'live'], handler: toggleLatestMode })
 
-  // Devices
-  useAction('device:gym', { label: 'Gym', group: 'Toggle devices on/off', defaultBindings: ['g'], handler: () => toggleDeviceByPattern('gym') })
-  useAction('device:br', { label: 'BR', group: 'Toggle devices on/off', defaultBindings: ['b'], keywords: ['bedroom'], handler: () => toggleDeviceByPattern('br') })
-  useAction('device:rt', { label: 'RT', group: 'Toggle devices on/off', defaultBindings: ['r'], handler: () => toggleDeviceByPattern('rt') })
+  // Devices (dynamic from device list)
+  const deviceActions = useMemo(() => {
+    const actions: Record<string, { label: string; group: string; defaultBindings: string[]; keywords?: string[]; handler: () => void }> = {}
+    for (const device of devices) {
+      const name = device.name
+      const key = name.toLowerCase()
+      actions[`device:${key}`] = {
+        label: name,
+        group: 'Toggle devices on/off',
+        defaultBindings: [key[0]],
+        handler: () => toggleDeviceByPattern(key),
+      }
+    }
+    return actions
+  }, [devices, toggleDeviceByPattern])
+  useActions(deviceActions)
 
   // X-axis grouping (aggregation)
   useAction('agg:1px', { label: '1px', group: 'X Grouping', defaultBindings: ['x 1'], keywords: ['1px', 'auto', 'aggregation'], handler: () => setXGrouping({ mode: 'auto', targetPx: 1 }) })
@@ -510,102 +522,31 @@ export const AwairChart = memo(function AwairChart(
     return () => container.removeEventListener('wheel', handleWheel, { capture: true })
   }, [])
 
-  // Theme-aware plot colors
-  const computePlotColors = useCallback(() => {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
-    return {
-      gridcolor: getComputedStyle(document.documentElement).getPropertyValue('--plot-grid').trim() || '#ddd',
-      plotBg: getComputedStyle(document.documentElement).getPropertyValue('--plot-bg').trim() || 'white',
-      legendBg: getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || 'white',
-      textColor: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333',
-      spikeColor: isDark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)',
-    }
-  }, [])
+  // Theme-aware plot colors (pltly watches data-theme + prefers-color-scheme)
+  const { isDark } = usePlotTheme({
+    cssVars: {
+      grid: '--plot-grid',
+      bg: '--plot-bg',
+      font: '--text-primary',
+    },
+  })
+  const plotColors = useMemo(() => ({
+    gridcolor: getComputedStyle(document.documentElement).getPropertyValue('--plot-grid').trim() || '#ddd',
+    plotBg: getComputedStyle(document.documentElement).getPropertyValue('--plot-bg').trim() || 'white',
+    legendBg: getComputedStyle(document.documentElement).getPropertyValue('--bg-secondary').trim() || 'white',
+    textColor: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333',
+    spikeColor: isDark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)',
+  }), [isDark])
 
-  const [plotColors, setPlotColors] = useState(computePlotColors)
-
-  useEffect(() => {
-    const updatePlotColors = () => setPlotColors(computePlotColors())
-
-    // Watch for theme changes
-    const observer = new MutationObserver(updatePlotColors)
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
-
-    return () => observer.disconnect()
-  }, [])
-
-  // Custom tick formatting
-  const generateCustomTicks = useCallback(() => {
+  // Custom tick formatting via pltly
+  const { tickvals, ticktext } = useMemo(() => {
     if (!xAxisRange || data.length === 0) return { tickvals: [], ticktext: [] }
-
-    const startTime = new Date(xAxisRange[0])
-    const endTime = new Date(xAxisRange[1])
-    const totalHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)
-
-    // Dynamic tick count based on actual viewport width
-    const plotWidth = max(300, viewportWidth - 100) // Account for margins, min 300px
-    const maxTicks = floor(plotWidth / 30) // ~80px per tick
-    const minTicks = max(3, floor(plotWidth / 120)) // At least 3 ticks
-
-    let tickIntervalHours: number
-    if (totalHours <= 6) tickIntervalHours = 1
-    else if (totalHours <= 24) tickIntervalHours = 2
-    else if (totalHours <= 72) tickIntervalHours = 6
-    else if (totalHours <= 168) tickIntervalHours = 12
-    else tickIntervalHours = 24
-
-    // Adjust interval to fit within tick count limits
-    const estimatedTicks = ceil(totalHours / tickIntervalHours)
-    if (estimatedTicks > maxTicks) {
-      tickIntervalHours = ceil(totalHours / maxTicks)
-    } else if (estimatedTicks < minTicks) {
-      tickIntervalHours = max(1, floor(totalHours / minTicks))
-    }
-
-    const tickvals: string[] = []
-    const ticktext: string[] = []
-    let currentDate = ''
-    let isFirstTick = true
-
-    // Generate ticks starting from a rounded hour, but ensure first tick is within range
-    const startHour = new Date(startTime)
-    startHour.setMinutes(0, 0, 0)
-
-    // If rounded hour is before start time, advance to next interval
-    if (startHour < startTime) {
-      startHour.setHours(startHour.getHours() + tickIntervalHours)
-    }
-
-    for (let tickTime = new Date(startHour); tickTime <= endTime; tickTime.setHours(tickTime.getHours() + tickIntervalHours)) {
-      const currentYear = new Date().getFullYear()
-      const tickYear = tickTime.getFullYear()
-      const isCurrentYear = tickYear === currentYear
-
-      const tickDate = isCurrentYear
-        ? tickTime.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
-        : tickTime.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' })
-
-      const tickHour = tickTime.getHours()
-      const hour12 = tickHour === 0 ? 12 : tickHour > 12 ? tickHour - 12 : tickHour
-      const ampm = tickHour < 12 ? 'am' : 'pm'
-
-      tickvals.push(formatForPlotly(tickTime))
-
-      if (isFirstTick || tickDate !== currentDate) {
-        // First tick overall OR first tick for this date - show date and time
-        ticktext.push(`${hour12}${ampm}<br>${tickDate}`)
-        currentDate = tickDate
-        isFirstTick = false
-      } else {
-        // Subsequent ticks for same date - show only time
-        ticktext.push(`${hour12}${ampm}`)
-      }
-    }
-
-    return { tickvals, ticktext }
-  }, [xAxisRange, data, isMobile, viewportWidth])
-
-  const { tickvals, ticktext } = generateCustomTicks()
+    const plotWidth = max(300, viewportWidth - 100)
+    return generateDateTicks({
+      range: [new Date(xAxisRange[0]), new Date(xAxisRange[1])],
+      containerWidth: plotWidth,
+    })
+  }, [xAxisRange, data, viewportWidth])
 
   // Plot data preparation
   const config = metricConfig[l.val] || metricConfig.temp

@@ -1,3 +1,4 @@
+import { floor, max, min } from '@rdub/base'
 import {
   aggregate,
   flattenDateAll,
@@ -6,8 +7,7 @@ import {
   findOptimalWindow as aggFindOptimalWindow,
   getValidWindows as aggGetValidWindows,
   type WindowConfig,
-} from '@rdub/agg-plot'
-import { floor, max, min } from '@rdub/base'
+} from 'pltly'
 import { useMemo } from 'react'
 import type { AwairRecord } from '../types/awair'
 

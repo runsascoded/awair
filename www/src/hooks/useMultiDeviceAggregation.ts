@@ -2,7 +2,7 @@ import {
   flattenDateAll,
   useMultiSeriesAggregation,
   type WindowConfig,
-} from '@rdub/agg-plot'
+} from 'pltly'
 import { getTargetPoints } from './useDataAggregation'
 import type { AggregatedData, TimeWindow, UseDataAggregationOptions } from './useDataAggregation'
 import type { DeviceDataResult } from '../components/DevicePoller'
