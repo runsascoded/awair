@@ -1,4 +1,4 @@
-import { abs } from '@rdub/base'
+const { abs } = Math
 import { useRef, useCallback, useMemo } from 'react'
 import { formatForPlotly } from "../utils/dateFormat"
 import type { AwairRecord } from '../types/awair'

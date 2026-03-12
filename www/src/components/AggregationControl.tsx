@@ -1,4 +1,4 @@
-import { ceil, round } from "@rdub/base"
+const { ceil, round } = Math
 import { KbdModal } from 'use-kbd'
 import { Tooltip } from './Tooltip'
 import type { TimeWindow } from '../hooks/useDataAggregation'

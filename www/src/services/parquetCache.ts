@@ -20,7 +20,7 @@
  * indefinitely (subject to LRU eviction for memory limits).
  */
 
-import { abs, max, min } from '@rdub/base'
+const { abs, max, min } = Math
 import { parquetMetadataAsync, parquetRead } from 'hyparquet'
 import { LRUCache } from './lruCache'
 import type { LRUCacheOptions } from './lruCache'

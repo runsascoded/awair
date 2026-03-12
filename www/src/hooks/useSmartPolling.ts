@@ -1,4 +1,4 @@
-import { min } from '@rdub/base'
+const { min } = Math
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**

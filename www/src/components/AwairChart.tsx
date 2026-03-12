@@ -1,4 +1,4 @@
-import { abs, ceil, max } from "@rdub/base"
+const { abs, ceil, max } = Math
 import { generateDateTicks, Plot, usePlotlyHoverDismiss, useTheme as usePlotTheme } from 'pltly'
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
 import { useAction, useActions } from 'use-kbd'

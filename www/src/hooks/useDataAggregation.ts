@@ -1,4 +1,4 @@
-import { floor, max, min } from '@rdub/base'
+const { floor, max, min } = Math
 import {
   aggregate,
   flattenDateAll,

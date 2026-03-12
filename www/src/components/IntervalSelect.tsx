@@ -1,4 +1,4 @@
-import { floor } from '@rdub/base'
+const { floor } = Math
 
 interface IntervalOption {
   label: string

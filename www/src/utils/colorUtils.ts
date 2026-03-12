@@ -1,4 +1,4 @@
-import { abs, max, min, round } from '@rdub/base'
+const { abs, max, min, round } = Math
 
 /**
  * Color utilities for multi-device display.

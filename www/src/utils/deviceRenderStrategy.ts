@@ -1,4 +1,4 @@
-import { abs, max, min, round } from '@rdub/base'
+const { abs, max, min, round } = Math
 
 /**
  * Multi-device rendering strategies for distinguishing between devices on charts.

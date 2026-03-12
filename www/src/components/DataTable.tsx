@@ -1,4 +1,4 @@
-import { abs, max, min, round } from '@rdub/base'
+const { abs, max, min, round } = Math
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAction } from 'use-kbd'
 import { Tooltip } from './Tooltip'

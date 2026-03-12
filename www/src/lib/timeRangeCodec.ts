@@ -3,7 +3,7 @@
  * Safe for testing (no React dependencies)
  */
 
-import { floor } from '@rdub/base'
+const { floor } = Math
 import { splitDate } from "../utils/dateFormat"
 
 /**
