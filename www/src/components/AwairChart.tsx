@@ -1,7 +1,6 @@
 import { abs, ceil, max } from "@rdub/base"
-import { generateDateTicks, usePlotlyHoverDismiss, useTheme as usePlotTheme } from 'pltly'
+import { generateDateTicks, Plot, usePlotlyHoverDismiss, useTheme as usePlotTheme } from 'pltly'
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
-import Plot from 'react-plotly.js'
 import { useAction, useActions } from 'use-kbd'
 import { useUrlState } from 'use-prms'
 import { ChartControls, metricConfig, getRangeFloor } from './ChartControls'
@@ -806,7 +805,7 @@ export const AwairChart = memo(function AwairChart(
 
     // Stddev fill regions (±σ shaded areas) - from smoothed data when available
     // Split into segments at gaps (null values) so Plotly doesn't interpolate across gaps
-    if (!isRawData) {
+    if (!isRawData || hasSmoothing) {
       deviceData.forEach(d => {
         // Primary stddev bands
         const bandTimestamps = hasSmoothing ? d.smoothedTimestamps : d.timestamps
@@ -985,18 +984,13 @@ export const AwairChart = memo(function AwairChart(
           )
         })()}
         <Plot
-          className="plot-react"
           data={plotTraces}
           layout={{
             autosize: true,
             height: chartHeight,
-            // uirevision keeps pan/zoom state stable during re-renders
-            // Only changes when we explicitly want to reset the view
             uirevision: 'stable',
             xaxis: {
               type: 'date',
-              // Always set autorange: false to ensure consistent drag behavior
-              // If xAxisRange is null, Plotly will compute a default range
               autorange: !xAxisRange,
               ...(xAxisRange && { range: xAxisRange }),
               ...(data.length > 0 && {
@@ -1008,14 +1002,11 @@ export const AwairChart = memo(function AwairChart(
               linecolor: plotColors.gridcolor,
               zerolinecolor: plotColors.gridcolor,
               hoverformat: '',
-              // Spike line (vertical line at hover position)
               showspikes: true,
               spikemode: 'across',
               spikethickness: 0.5,
               spikecolor: plotColors.spikeColor,
               spikedash: 'solid',
-              // Use custom format for unified hover title - this overrides tick labels in hover
-              // Cast needed because unifiedhovertitle isn't in @types/plotly.js yet
               ...({ unifiedhovertitle: { text: '%{x|%b %-d, %-I:%M%p}' } } as object),
               ...(tickvals.length > 0 && {
                 tickvals: tickvals,
@@ -1025,9 +1016,8 @@ export const AwairChart = memo(function AwairChart(
             },
             yaxis: createYAxisConfig('left', leftAutoRangeDisplay, getEffectiveFloor(l.val)),
             ...(secondaryConfig && r.val !== 'none' && { yaxis2: createYAxisConfig('right', rightAutoRangeDisplay, getEffectiveFloor(r.val as Metric)) }),
-            // Legend is now in flow above plot, so minimal top margin needed
             margin: isOgMode
-              ? { l: 50, r: 50, t: 10, b: 115 }  // Minimal top (title is absolute), extra bottom for x-axis
+              ? { l: 50, r: 50, t: 10, b: 115 }
               : { l: 35, r: secondaryConfig ? 35 : 10, t: 5, b: 45 },
             hovermode: 'x unified',
             hoverlabel: {
@@ -1041,7 +1031,7 @@ export const AwairChart = memo(function AwairChart(
             plot_bgcolor: plotColors.plotBg,
             paper_bgcolor: plotColors.plotBg,
             dragmode: 'pan',
-            showlegend: false, // Custom legend rendered separately for pixel-based positioning
+            showlegend: false,
             selectdirection: 'h'
           }}
           config={{
@@ -1060,13 +1050,19 @@ export const AwairChart = memo(function AwairChart(
               scale: 1
             }
           }}
-          useResizeHandler={true}
+          disableTheme
+          disableLegendHover
+          disableSoloTrace
+          disableHoverDismiss
+          disableMobileFix
           onRelayout={handleRelayout}
           onDoubleClick={handleDoubleClick}
-          onAfterPlot={() => {
-            // Signal to og-lambda screenshot that the chart is ready
+          onInitialized={() => {
             (window as Window & { chartReady?: boolean }).chartReady = true
-            // Setup click-outside-to-dismiss hover behavior
+            setupHoverDismiss()
+          }}
+          onAfterPlot={() => {
+            (window as Window & { chartReady?: boolean }).chartReady = true
             setupHoverDismiss()
           }}
         />

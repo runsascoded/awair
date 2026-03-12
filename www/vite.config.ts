@@ -19,5 +19,5 @@ export default defineConfig({
       'plotly.js/dist/plotly': 'plotly.js/dist/plotly-basic.min.js',
       'plotly.js-dist-min': 'plotly.js/dist/plotly-basic.min.js',
     },
-  },
+  }
 })
