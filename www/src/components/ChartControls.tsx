@@ -42,6 +42,7 @@ interface ChartControlsProps {
   onDeviceSelectionChange: (deviceIds: number[]) => void
   onPreviewDeviceIds?: (deviceIds: number[] | null) => void
   onHoverDeviceId?: (deviceId: number | null) => void
+  deviceLatestTimestamps: Map<number, Date | null>
   // Aggregation control
   selectedWindow: TimeWindow
   validWindows: TimeWindow[]
@@ -100,6 +101,7 @@ export function ChartControls({
   onDeviceSelectionChange,
   onPreviewDeviceIds,
   onHoverDeviceId,
+  deviceLatestTimestamps,
   selectedWindow,
   validWindows,
   onWindowChange,
@@ -154,6 +156,7 @@ export function ChartControls({
         onDeviceSelectionChange={onDeviceSelectionChange}
         onPreviewDeviceIds={onPreviewDeviceIds}
         onHoverDeviceId={onHoverDeviceId}
+        deviceLatestTimestamps={deviceLatestTimestamps}
         deviceRenderStrategy={deviceRenderStrategy}
         setDeviceRenderStrategy={setDeviceRenderStrategy}
         hsvConfig={hsvConfig}

@@ -92,6 +92,17 @@ export const AwairChart = memo(function AwairChart(
       )
   }, [deviceDataResults])
 
+  // Latest data timestamp per device — surfaced in the devices panel to show
+  // how recently each sensor reported (sensors report ~1/min, so ages >>1min
+  // mean a device has dropped offline).
+  const deviceLatestTimestamps = useMemo(() => {
+    const map = new Map<number, Date | null>()
+    for (const r of deviceDataResults) {
+      map.set(r.deviceId, r.data.length > 0 ? new Date(r.data[0].timestamp) : null)
+    }
+    return map
+  }, [deviceDataResults])
+
   // Y-axes state - combined primary + secondary + per-axis auto-range in URL (?y=tc, ?y=tca, ?y=tcaA)
   const metrics = useMetrics()
   const { l, r } = metrics
@@ -1109,6 +1120,7 @@ export const AwairChart = memo(function AwairChart(
             onDeviceSelectionChange,
             onPreviewDeviceIds: setPreviewDeviceIds,
             onHoverDeviceId,
+            deviceLatestTimestamps,
             selectedWindow,
             validWindows,
             timeRangeMinutes,

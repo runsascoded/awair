@@ -1,8 +1,12 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { Tooltip } from './Tooltip'
+import { formatAge, useNow } from '../hooks/useNow'
 import { MAX_SELECTED_DEVICES } from '../utils/colorUtils'
 import type { Device } from '../services/awairService'
 import type { DeviceRenderStrategy, HsvConfig } from '../utils/deviceRenderStrategy'
+
+// Readings arrive ~1/min, so ages > 3min mean the device has dropped offline.
+const STALE_AGE_MS = 3 * 60 * 1000
 
 // Check if device supports hover (not a touch-only device)
 const canHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches
@@ -13,6 +17,7 @@ interface DevicesControlProps {
   onDeviceSelectionChange: (deviceIds: number[]) => void
   onPreviewDeviceIds?: (deviceIds: number[] | null) => void  // null = no preview
   onHoverDeviceId?: (deviceId: number | null) => void  // For triggering data fetch
+  deviceLatestTimestamps: Map<number, Date | null>
   deviceRenderStrategy: DeviceRenderStrategy
   setDeviceRenderStrategy: (value: DeviceRenderStrategy) => void
   hsvConfig: HsvConfig
@@ -29,6 +34,7 @@ export function DevicesControl({
   onDeviceSelectionChange,
   onPreviewDeviceIds,
   onHoverDeviceId,
+  deviceLatestTimestamps,
   deviceRenderStrategy,
   setDeviceRenderStrategy,
   hsvConfig,
@@ -40,6 +46,7 @@ export function DevicesControl({
 }: DevicesControlProps) {
   const isMultiDevice = selectedDeviceIds.length > 1
   const detailsRef = useRef<HTMLDetailsElement>(null)
+  const now = useNow()
 
   // Track which device is being hovered for preview
   const [hoveredDeviceId, setHoveredDeviceId] = useState<number | null>(null)
@@ -233,30 +240,47 @@ export function DevicesControl({
           // Show preview styling: if hovering this device and it would change the selection
           const showPreview = isHovered && !isDisabled && !isLastChecked
 
+          const latest = deviceLatestTimestamps.get(device.deviceId) ?? null
+          // Clamp to 0: `useNow` ticks every 5s, so newly-arrived data with
+          // `timestamp > cachedNow` can produce a transient negative age
+          // that `formatAge` would render as `–`.
+          const ageMs = latest ? Math.max(0, now.getTime() - latest.getTime()) : null
+          const isStale = ageMs !== null && ageMs > STALE_AGE_MS
+
+          // Age is rendered *outside* the `<label>` so its hover doesn't
+          // trigger the device's highlight/solo/preview logic.
           return (
-            <label
-              key={device.deviceId}
-              className={`device ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''} ${showPreview ? 'preview' : ''}`}
-              onMouseEnter={() => handleDeviceHover(device.deviceId)}
-              onMouseLeave={() => handleDeviceHover(null)}
-            >
-              <input
-                type="checkbox"
-                checked={isChecked}
-                disabled={isDisabled}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    onDeviceSelectionChange([...selectedDeviceIds, device.deviceId])
-                  } else {
-                    // Don't allow unchecking the last device
-                    if (selectedDeviceIds.length > 1) {
-                      onDeviceSelectionChange(selectedDeviceIds.filter(id => id !== device.deviceId))
+            <div key={device.deviceId} className="device-cell">
+              <label
+                className={`device ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''} ${showPreview ? 'preview' : ''}`}
+                onMouseEnter={() => handleDeviceHover(device.deviceId)}
+                onMouseLeave={() => handleDeviceHover(null)}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  disabled={isDisabled}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      onDeviceSelectionChange([...selectedDeviceIds, device.deviceId])
+                    } else {
+                      // Don't allow unchecking the last device
+                      if (selectedDeviceIds.length > 1) {
+                        onDeviceSelectionChange(selectedDeviceIds.filter(id => id !== device.deviceId))
+                      }
                     }
-                  }
-                }}
-              />
-              <span className="name">{device.name}</span>
-            </label>
+                  }}
+                />
+                <span className="name">{device.name}</span>
+              </label>
+              {isChecked && latest && (
+                <Tooltip content={`Latest reading: ${latest.toLocaleString()}`}>
+                  <span className={`age ${isStale ? 'stale' : ''}`}>
+                    {formatAge(ageMs)}
+                  </span>
+                </Tooltip>
+              )}
+            </div>
           )
         })}
       </div>
