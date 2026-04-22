@@ -580,7 +580,7 @@ export const AwairChart = memo(function AwairChart(
 
     // Pre-compute data for all devices (raw and smoothed)
     const deviceData = displayDeviceAggregations.map((deviceAgg, deviceIdx) => {
-      const { aggregatedData: rawData, smoothedData, deviceName } = deviceAgg
+      const { aggregatedData: rawData, smoothedData, deviceName, deviceId } = deviceAgg
       const timestamps = rawData.map(d => formatForPlotly(new Date(d.timestamp)))
       const smoothedTimestamps = smoothedData?.map(d => formatForPlotly(new Date(d.timestamp))) ?? []
 
@@ -672,11 +672,21 @@ export const AwairChart = memo(function AwairChart(
       const legendName = totalDevices > 1 ? deviceName : ''
 
       return {
-        rawData, smoothedData, deviceName, deviceIdx, timestamps, smoothedTimestamps, legendName,
+        rawData, smoothedData, deviceName, deviceId, deviceIdx, timestamps, smoothedTimestamps, legendName,
         primaryLineProps, primarySmoothedLineProps, avgValues, stddevValues, smoothedAvgValues, smoothedStddevValues, upperValues, lowerValues,
         secondaryLineProps, secondarySmoothedLineProps, secondaryAvgValues, secondaryStddevValues, secondarySmoothedAvgValues, secondarySmoothedStddevValues, secondaryUpperValues, secondaryLowerValues,
       }
     })
+
+    // Stable `uid` on every trace — Plotly's d3 v7 data join uses `trace.uid`
+    // as the key function; without a caller-supplied uid, Plotly falls back to
+    // index-based random uid reuse, which on trace add/remove leaves stale
+    // `g.trace` DOM nodes behind (duplicate rendered traces after toggling a
+    // device off). Keying by metric/deviceId/role makes each trace identity
+    // stable across renders so d3's exit selection removes the right nodes.
+    // Separator must be CSS-selector-safe: Plotly generates class selectors
+    // like `.cb{uid}` and chokes on `:` / `.` / other special chars.
+    const uid = (parts: (string | number)[]): string => parts.join('-')
 
     // Synthetic header trace for primary metric (invisible line, provides metric header in hover)
     if (deviceData.length > 0) {
@@ -687,8 +697,9 @@ export const AwairChart = memo(function AwairChart(
         mode: 'lines',
         line: { color: 'rgba(0,0,0,0)', width: 0 },
         showlegend: false,
-        hovertemplate: `<b>${config.label} (${config.unit})</b><extra></extra>`
-      })
+        hovertemplate: `<b>${config.label} (${config.unit})</b><extra></extra>`,
+        uid: uid(['header', 'primary', l.val]),
+      } as DataWithZorder)
     }
 
     // PRIMARY METRIC traces for all devices
@@ -705,6 +716,7 @@ export const AwairChart = memo(function AwairChart(
         name: d.legendName || `${config.label} (${config.unit})`,
         legendgroup: 'primary',
         showlegend: !hasSmoothing,  // Hide legend for raw when smoothing (smoothed trace shows legend)
+        uid: uid(['raw', 'primary', l.val, d.deviceId]),
         ...(isRawData ? {
           hovertemplate: `${d.deviceName}: %{y:.1f}<extra></extra>`
         } : hasSmoothing ? {
@@ -716,7 +728,7 @@ export const AwairChart = memo(function AwairChart(
           ])),
           hovertemplate: `${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
         })
-      })
+      } as DataWithZorder)
 
       // Smoothed overlay trace (thick) - only when smoothing enabled
       if (d.smoothedData && d.primarySmoothedLineProps) {
@@ -732,8 +744,9 @@ export const AwairChart = memo(function AwairChart(
             d.smoothedStddevValues[i],
             rec.count
           ])),
-          hovertemplate: `${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
-        })
+          hovertemplate: `${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`,
+          uid: uid(['smoothed', 'primary', l.val, d.deviceId]),
+        } as DataWithZorder)
       }
     })
 
@@ -746,6 +759,7 @@ export const AwairChart = memo(function AwairChart(
         mode: 'lines',
         line: { color: 'rgba(0,0,0,0)', width: 0 },
         showlegend: false,
+        uid: uid(['header', 'secondary', r.val]),
         yaxis: 'y2',
         hovertemplate: `<b>${secondaryConfig.label} (${secondaryConfig.unit})</b><extra></extra>`
       })
@@ -767,6 +781,7 @@ export const AwairChart = memo(function AwairChart(
             legend: 'legend2',
             yaxis: 'y2',
             showlegend: !hasSmoothing,
+            uid: uid(['raw', 'secondary', r.val, d.deviceId]),
             ...(isRawData ? {
               hovertemplate: `${d.deviceName}: %{y:.1f}<extra></extra>`
             } : hasSmoothing ? {
@@ -778,7 +793,7 @@ export const AwairChart = memo(function AwairChart(
               ])),
               hovertemplate: `${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
             })
-          })
+          } as DataWithZorder)
 
           // Smoothed overlay trace
           if (d.smoothedData && d.secondarySmoothedLineProps) {
@@ -796,8 +811,9 @@ export const AwairChart = memo(function AwairChart(
                 d.secondarySmoothedStddevValues[i],
                 rec.count
               ])),
-              hovertemplate: `${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`
-            })
+              hovertemplate: `${d.deviceName}: %{y:.1f} ±%{customdata[0]:.1f} (n=%{customdata[1]})<extra></extra>`,
+              uid: uid(['smoothed', 'secondary', r.val, d.deviceId]),
+            } as DataWithZorder)
           }
         }
       })
@@ -826,7 +842,8 @@ export const AwairChart = memo(function AwairChart(
             name: `${config.label} Lower`,
             showlegend: false,
             hoverinfo: 'skip',
-          })
+            uid: uid(['stddev', 'primary', l.val, d.deviceId, 'lower', segIdx]),
+          } as DataWithZorder)
           traces.push({
             x: seg.timestamps,
             y: seg.upper,
@@ -837,7 +854,8 @@ export const AwairChart = memo(function AwairChart(
             name: segIdx === 0 ? `±σ ${config.label}` : `±σ ${config.label} (cont)`,
             showlegend: false,
             hoverinfo: 'skip',
-          })
+            uid: uid(['stddev', 'primary', l.val, d.deviceId, 'upper', segIdx]),
+          } as DataWithZorder)
         })
 
         // Secondary stddev bands
@@ -861,7 +879,8 @@ export const AwairChart = memo(function AwairChart(
               showlegend: false,
               hoverinfo: 'skip',
               yaxis: 'y2',
-            })
+              uid: uid(['stddev', 'secondary', r.val, d.deviceId, 'lower', segIdx]),
+            } as DataWithZorder)
             traces.push({
               x: seg.timestamps,
               y: seg.upper,
@@ -873,7 +892,8 @@ export const AwairChart = memo(function AwairChart(
               showlegend: false,
               hoverinfo: 'skip',
               yaxis: 'y2',
-            })
+              uid: uid(['stddev', 'secondary', r.val, d.deviceId, 'upper', segIdx]),
+            } as DataWithZorder)
           })
         }
       })
