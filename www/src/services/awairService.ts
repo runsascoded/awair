@@ -44,17 +44,21 @@ export function getMonthlyDataUrl(deviceId: number, yearMonth: string): string {
 /**
  * Get all year-month strings that overlap a date range.
  * Returns strings like ["2024-12", "2025-01", "2025-02"].
+ *
+ * Uses UTC because the Lambda shards files by UTC month (timestamps are stored
+ * as naive UTC). Local-time bucketing here would miss the current UTC month for
+ * `tz-offset` hours after every UTC midnight rollover.
  */
 export function getMonthsInRange(from: Date, to: Date): string[] {
   const months: string[] = []
-  const current = new Date(from.getFullYear(), from.getMonth(), 1)
-  const end = new Date(to.getFullYear(), to.getMonth(), 1)
+  const current = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1))
+  const end = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1))
 
   while (current <= end) {
-    const year = current.getFullYear()
-    const month = String(current.getMonth() + 1).padStart(2, '0')
+    const year = current.getUTCFullYear()
+    const month = String(current.getUTCMonth() + 1).padStart(2, '0')
     months.push(`${year}-${month}`)
-    current.setMonth(current.getMonth() + 1)
+    current.setUTCMonth(current.getUTCMonth() + 1)
   }
 
   return months
