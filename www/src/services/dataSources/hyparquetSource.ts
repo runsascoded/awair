@@ -28,8 +28,14 @@ interface AwairRowObject {
 const cacheManager = new Map<string, ParquetCache>()
 /** Pending initialization promises - prevents concurrent init */
 const initPromises = new Map<string, Promise<ParquetCache>>()
-/** Track failed URLs to avoid repeated 404 attempts */
-const failedUrls = new Set<string>()
+/**
+ * URLs that recently 404'd, mapped to the timestamp of the last failure.
+ * TTL'd so the current month's URL gets re-attempted after the Lambda creates
+ * the file at the start of the new month — without a TTL, the rollover 404
+ * would permanently mask the new month from the UI.
+ */
+const failedUrls = new Map<string, number>()
+const FAILED_URL_TTL_MS = 60_000
 
 /** Get or create a ParquetCache for a URL */
 async function getCache(url: string): Promise<ParquetCache> {
@@ -45,13 +51,18 @@ async function getCache(url: string): Promise<ParquetCache> {
     return pending
   }
 
-  // Start new initialization
+  // Start new initialization. `delete` runs in `finally` so a rejected init
+  // (e.g. 404) doesn't leave a poisoned promise that future calls would await
+  // and re-throw without making a fresh HTTP request.
   const initPromise = (async () => {
-    const cache = new ParquetCache(url)
-    await cache.initialize()
-    cacheManager.set(url, cache)
-    initPromises.delete(url)
-    return cache
+    try {
+      const cache = new ParquetCache(url)
+      await cache.initialize()
+      cacheManager.set(url, cache)
+      return cache
+    } finally {
+      initPromises.delete(url)
+    }
   })()
 
   initPromises.set(url, initPromise)
@@ -62,6 +73,7 @@ async function getCache(url: string): Promise<ParquetCache> {
 export function clearCaches(): void {
   cacheManager.clear()
   initPromises.clear()
+  failedUrls.clear()
 }
 
 /** Result from fetching a single monthly file */
@@ -93,13 +105,16 @@ export class HyparquetSource implements DataSource {
     fromTime: number,
     toTime: number
   ): Promise<MonthlyFetchResult | null> {
-    // Skip URLs that have previously 404'd
-    if (failedUrls.has(url)) {
+    // Skip URLs that recently 404'd (TTL'd to allow retry after month rollover)
+    const failedAt = failedUrls.get(url)
+    if (failedAt !== undefined && Date.now() - failedAt < FAILED_URL_TTL_MS) {
       return null
     }
 
     try {
       const cache = await getCache(url)
+      // Clear any prior failure record on successful init
+      failedUrls.delete(url)
 
       // NOTE: We intentionally do NOT call cache.refresh() here.
       // For append-only files, refreshing (checking S3 for new data) is handled
@@ -170,7 +185,7 @@ export class HyparquetSource implements DataSource {
       // Handle 404s gracefully - file doesn't exist yet (future month or not migrated)
       if (error instanceof Error && (error.message.includes('404') || error.message.includes('Not Found'))) {
         console.log(`[${deviceId}] ⚠️ ${url.split('/').slice(-2).join('/')} not found (404)`)
-        failedUrls.add(url)
+        failedUrls.set(url, Date.now())
         return null
       }
       throw error
