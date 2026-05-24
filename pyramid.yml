@@ -5,7 +5,8 @@
 storage:
   type: r2
   binding: PYRAMID
-  key: 'awair-{device_id}/{tier}/{period}.parquet'
+  bucket: awair
+  key: 'pyramid/awair-{device_id}/{tier}/{period}.parquet'
 
 dims:
   - { name: device_id, type: int }

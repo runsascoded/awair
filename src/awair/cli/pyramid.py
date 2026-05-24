@@ -23,7 +23,7 @@ from .base import awair
 from .common_opts import device_id_opt
 from .config import resolve_device_by_name_or_id
 
-DEFAULT_OUT_BASE = 'tmp/pyramid'
+DEFAULT_OUT_BASE = 'tmp'
 
 err = lambda *args, **kw: print(*args, file=stderr, **kw)
 

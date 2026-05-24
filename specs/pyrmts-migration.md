@@ -27,7 +27,7 @@ dependency or wait for the first `dist-…` branch.
 
 ```
                                     ┌──────────────────────────────────┐
-Lambda (existing)                   │ R2 bucket `awair-pyramid`        │
+Lambda (existing)                   │ R2 bucket `awair`        │
   ↓ writes monthly raw              │   awair-{id}/raw/{YYYY-MM}.parquet│
 S3 `380nwk/awair-{id}/{YYYY-MM}.pqt │   awair-{id}/h1/{YYYY-MM}.parquet │
   ↓ Python builder reads            │   awair-{id}/d1/{YYYY}.parquet    │
@@ -55,7 +55,7 @@ crossing back to S3.
 | File / path | Action |
 |---|---|
 | `cfw/serve/` (new) | New worker. Uses `pyrmts-cfw#serveQuery`. Sibling to `cfw/monitor/`. |
-| `cfw/serve/wrangler.toml` | Bind R2 bucket `awair-pyramid`. Set ALLOWED_ORIGINS. |
+| `cfw/serve/wrangler.toml` | Bind R2 bucket `awair`. Set ALLOWED_ORIGINS. |
 | `cfw/serve/src/index.ts` | Load `pyramid.yml` (import as text), wire `r2Storage(env.PYRAMID)`, delegate to `serveQuery`. |
 | `cfw/serve/src/pyramid.yml` | Pyramid YAML (see §Pyramid config below). |
 | `src/awair/pyrmts_builder.py` (new) | CLI: build tier shards from existing monthly S3 raw files. |
@@ -74,7 +74,8 @@ crossing back to S3.
 storage:
   type: r2
   binding: PYRAMID
-  key: 'awair-{device_id}/{tier}/{period}.parquet'
+  bucket: awair
+  key: 'pyramid/awair-{device_id}/{tier}/{period}.parquet'
 
 dims:
   - { name: device_id, type: int }
@@ -124,7 +125,7 @@ New CLI: `awair build-pyramid` (or `python -m awair.pyrmts_builder`).
 awair build-pyramid --tier raw --period 2026-05 \
   --from-s3 s3://380nwk/awair-17617/2026-05.parquet \
   --device-id 17617 \
-  --r2-bucket awair-pyramid
+  --r2-bucket awair
 
 # Coarsen h1 from raw, d1 from h1, etc.
 awair build-pyramid --tier h1 --period 2026-05 --from-tier raw --device-id 17617
@@ -212,9 +213,10 @@ Phases 1–4 are the v0.1 commitment. Phase 5 closes the SPEC §Open questions
 
 ## Open questions
 
-- **R2 bucket name**: `awair-pyramid` is the placeholder. Could also reuse
-  `380nwk` (with a `pyramid/` prefix). Lean separate bucket for cleaner
-  permissions.
+- **R2 bucket layout**: chose bucket `awair` with `pyramid/` key prefix
+  (vs. a dedicated `awair-pyramid` bucket or reusing the existing S3
+  `380nwk` bucket). Keeps room for other awair-related R2 objects without
+  proliferating buckets.
 - **Worker subdomain**: `awair-pyrmts.…workers.dev` or behind `air.rbw.sh`
   via a Cloudflare route?
 - **R2 writes from Python**: `boto3` vs `wrangler r2 object put`. Whichever
