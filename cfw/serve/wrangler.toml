@@ -1,0 +1,16 @@
+name = "awair-serve"
+main = "src/index.ts"
+compatibility_date = "2026-05-24"
+compatibility_flags = ["nodejs_compat"]
+
+# Bundle the shared pyramid YAML at the repo root as raw text.
+rules = [
+  { type = "Text", globs = ["**/*.yml"], fallthrough = true },
+]
+
+[[r2_buckets]]
+binding = "PYRAMID"
+bucket_name = "awair"
+
+[observability]
+enabled = true

@@ -1,0 +1,32 @@
+{
+  "name": "awair-serve",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker serving pyrmts pyramid queries for awair sensor data.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "typecheck": "tsc --noEmit",
+    "smoke": "tsx scripts/smoke-test.ts"
+  },
+  "dependencies": {
+    "pyrmts": "file:../../../pyrmts/js/packages/pyrmts",
+    "pyrmts-cfw": "file:../../../pyrmts/js/packages/pyrmts-cfw"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240725.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "react": "^19.2.6",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^3.80.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "pyrmts": "file:../../../pyrmts/js/packages/pyrmts"
+    }
+  }
+}
