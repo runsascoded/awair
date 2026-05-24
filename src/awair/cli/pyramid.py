@@ -165,3 +165,107 @@ def _ensure_parent(path: str) -> None:
     if '://' in path:
         return  # remote backends handle nesting themselves
     Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+
+@pyramid.command
+@option('-c', '--config', 'config_path', type=str, default=None, help="Pyramid YAML config (default: ./pyramid.yml at repo root)")
+@option('-F', '--force', is_flag=True, help="Rebuild even if target shard already exists")
+@option('-i', '--device-id', 'device_filter', type=str, default=None, help="Single device id or name pattern (default: all active devices)")
+@option('-n', '--dry-run', is_flag=True, help="Plan without building")
+@option('-o', '--out-base', type=str, default='r2://awair', help="Output base (default: r2://awair)")
+@option('-t', '--tier', 'tier_filter', type=str, default=None, help="Single tier name (default: all tiers in config)")
+def backfill(
+    device_filter: Optional[str],
+    tier_filter: Optional[str],
+    out_base: str,
+    force: bool,
+    dry_run: bool,
+    config_path: Optional[str],
+):
+    """Backfill all (device × tier × period) shards.
+
+    Discovers source raw months from S3 (`s3://380nwk/awair-{id}/`), then
+    iterates each device × each tier × each covering period. Existing R2
+    shards are skipped unless `--force`.
+    """
+    config = repo_pyramid_config() if config_path is None else _load_external(config_path)
+    devices = _resolve_devices(device_filter)
+    tiers = _select_tiers(config, tier_filter)
+    err(f'Backfill: {len(devices)} device(s), {len(tiers)} tier(s) → {out_base}')
+
+    total_built = 0
+    total_skipped = 0
+    total_failed = 0
+
+    for dev_name, dev_id in devices:
+        months = _list_s3_months(dev_id)
+        years = sorted({m.split('-')[0] for m in months})
+        err(f'\n[{dev_id} {dev_name}] {len(months)} month(s) of raw, {len(years)} year(s)')
+
+        for tier in tiers:
+            periods = months if tier.shard == '1mo' else years
+            for period in periods:
+                out_key = format_key(config.key_template, device_id=dev_id, tier=tier.name, period=period)
+                out_path = _join_base(out_base, out_key)
+
+                if not force and head(out_path) is not None:
+                    err(f'  SKIP {tier.name} {period}: already exists')
+                    total_skipped += 1
+                    continue
+
+                err(f'  BUILD {tier.name} {period} → {out_path}')
+                if dry_run:
+                    continue
+
+                try:
+                    start, end = parse_period(period, tier.shard)
+                    if tier.name == 'raw':
+                        shard = _build_raw(config, tier, dev_id, period, from_s3=None)
+                    else:
+                        source = config.previous_tier(tier.name)
+                        shard = _build_coarsened(config, tier, source, dev_id, period, start, end, out_base)
+                    _ensure_parent(out_path)
+                    write_parquet(shard, out_path)
+                    err(f'    Wrote {len(shard):,} rows')
+                    total_built += 1
+                except Exception as e:
+                    err(f'    FAILED: {e}')
+                    total_failed += 1
+
+    err(f'\nDone: built={total_built} skipped={total_skipped} failed={total_failed}')
+    if total_failed > 0:
+        raise SystemExit(1)
+
+
+def _resolve_devices(filter_: Optional[str]) -> list[tuple[str, int]]:
+    """Return [(name, device_id), ...] for the filter (or all active devices)."""
+    from .config import get_devices
+    devices = get_devices()
+    active = [d for d in devices if d.get('active') is not False]
+    if filter_ is not None:
+        name, dev_id = resolve_device_by_name_or_id(filter_)
+        return [(name, dev_id)]
+    return [(d['name'], int(d['deviceId'])) for d in active]
+
+
+def _select_tiers(config: PyramidConfig, name: Optional[str]) -> list[Tier]:
+    if name is None:
+        return list(config.tiers)
+    return [config.tier(name)]
+
+
+def _list_s3_months(device_id: int) -> list[str]:
+    """List 'YYYY-MM' strings of raw monthly files for `device_id` in s3://380nwk."""
+    import boto3
+    s3 = boto3.client('s3')
+    prefix = f'awair-{device_id}/'
+    resp = s3.list_objects_v2(Bucket='380nwk', Prefix=prefix)
+    months: list[str] = []
+    for obj in resp.get('Contents', []):
+        key = obj['Key']
+        if not key.endswith('.parquet') or '.bak' in key:
+            continue
+        basename = key.removeprefix(prefix).removesuffix('.parquet')
+        if len(basename) == 7 and basename[4] == '-':
+            months.append(basename)
+    return sorted(months)
