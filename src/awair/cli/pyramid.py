@@ -16,9 +16,9 @@ from ..pyramid.builder import (
     parse_period,
     repo_pyramid_config,
     shards_overlapping,
-    write_shard,
 )
 from ..pyramid.config import PyramidConfig, Tier
+from ..pyramid.io import head, read_parquet, write_parquet
 from .base import awair
 from .common_opts import device_id_opt
 from .config import resolve_device_by_name_or_id
@@ -94,7 +94,7 @@ def build(
         return
 
     _ensure_parent(out_path)
-    write_shard(shard, out_path)
+    write_parquet(shard, out_path)
     err(f'  Wrote: {out_path}')
 
 
@@ -114,7 +114,7 @@ def _build_raw(
             )
     src = from_s3 if from_s3 is not None else f's3://380nwk/awair-{device_id}/{period}.parquet'
     err(f'  Reading raw: {src}')
-    raw = pd.read_parquet(src)
+    raw = read_parquet(src)
     return aggregate_raw(raw, device_id=device_id, tier=target, metrics=config.metrics)
 
 
@@ -135,11 +135,11 @@ def _build_coarsened(
     for sp in src_periods:
         src_key = format_key(config.key_template, device_id=device_id, tier=source.name, period=sp)
         src_path = _join_base(out_base, src_key)
+        if head(src_path) is None:
+            err(f'    SKIP {src_path}: not found')
+            continue
         err(f'    Reading: {src_path}')
-        try:
-            frames.append(pd.read_parquet(src_path))
-        except (FileNotFoundError, OSError) as e:
-            err(f'    SKIP {src_path}: {e}')
+        frames.append(read_parquet(src_path))
 
     if not frames:
         err('  No source shards found; emitting empty target')

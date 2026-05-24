@@ -24,8 +24,6 @@ from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 
 from .config import Metric, PyramidConfig, Tier
 
@@ -117,16 +115,6 @@ def coarsen(
         out[f'{m.name}_sumsq'] = grouped[f'{m.name}_sumsq'].astype('float64')
 
     return out.sort_values(['device_id', 'ts']).reset_index(drop=True)
-
-
-def write_shard(df: pd.DataFrame, out_path: str) -> None:
-    """Write a pyrmts shard to parquet with an explicit Arrow schema.
-
-    Caller's responsibility to ensure `out_path` is a writable target
-    (local fs, s3://, r2://, …) — passed straight to pyarrow.
-    """
-    table = pa.Table.from_pandas(df, preserve_index=False)
-    pq.write_table(table, out_path)
 
 
 def parse_period(period: str, shard: str) -> tuple[datetime, datetime]:
