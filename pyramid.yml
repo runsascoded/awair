@@ -1,0 +1,25 @@
+# pyrmts pyramid config for the awair time-series.
+# Read by both the Python builder (src/awair/pyramid/) and the CFW serving
+# worker (cfw/serve/). See pyrmts/SPEC.md §YAML schema for the grammar.
+
+storage:
+  type: r2
+  binding: PYRAMID
+  key: 'awair-{device_id}/{tier}/{period}.parquet'
+
+dims:
+  - { name: device_id, type: int }
+
+metrics:
+  - { name: temp,  monoid: sum }
+  - { name: co2,   monoid: sum }
+  - { name: pm10,  monoid: sum }
+  - { name: pm25,  monoid: sum }
+  - { name: humid, monoid: sum }
+  - { name: voc,   monoid: sum }
+
+tiers:
+  - { name: raw, bin: 1min, shard: 1mo }
+  - { name: h1,  bin: 1h,   shard: 1mo }
+  - { name: d1,  bin: 1d,   shard: 1y  }
+  - { name: mo1, bin: 1mo,  shard: 1y  }
