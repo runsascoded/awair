@@ -1,0 +1,18 @@
+name = "awair-monitor"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+S3_BUCKET = "380nwk"
+CHART_URL = "https://air.rbw.sh"
+DEVICES_JSON = '[{"id":17617,"name":"Gym"},{"id":137496,"name":"BR"},{"id":136824,"name":"Desk"},{"id":137506,"name":"RT"}]'
+
+[[kv_namespaces]]
+binding = "STATE"
+id = "cdad630c201d45dba3fcb14a01fc1bad"
+
+[observability]
+enabled = true
