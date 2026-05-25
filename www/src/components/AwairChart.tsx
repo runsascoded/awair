@@ -548,9 +548,16 @@ export const AwairChart = memo(function AwairChart(
     spikeColor: isDark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)',
   }), [isDark])
 
-  // Custom tick formatting via pltly
+  // Custom tick formatting via pltly. pltly's `generateDateTicks` caps its
+  // interval ladder at 1 day — for wider ranges it'd emit one tick per day
+  // and Plotly shows them all overlapping. Above ~7 days, hand off to
+  // Plotly's built-in auto-date-ticker, which handles week/month/year
+  // stepping correctly out of the box.
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
   const { tickvals, ticktext } = useMemo(() => {
     if (!xAxisRange || data.length === 0) return { tickvals: [], ticktext: [] }
+    const rangeMs = new Date(xAxisRange[1]).getTime() - new Date(xAxisRange[0]).getTime()
+    if (rangeMs > SEVEN_DAYS_MS) return { tickvals: [], ticktext: [] }
     const plotWidth = max(300, viewportWidth - 100)
     return generateDateTicks({
       range: [new Date(xAxisRange[0]), new Date(xAxisRange[1])],
