@@ -15,7 +15,7 @@
 
 import { parsePyramidYaml, pyramidFromConfig, type Pyramid } from 'pyrmts'
 import { r2Storage, serveQuery } from 'pyrmts-cfw'
-import pyramidYamlText from '../../../pyramid.yml'
+import pyramidYamlText from '../../../src/awair/pyramid.yml'
 
 interface Env {
   PYRAMID: R2Bucket

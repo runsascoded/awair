@@ -1,0 +1,33 @@
+# pyrmts pyramid config for the awair time-series.
+# Read by both the Python builder (src/awair/pyramid/) and the CFW serving
+# worker (cfw/serve/). See pyrmts/SPEC.md §YAML schema for the grammar.
+#
+# Tier density: SUF ≈ 5-8× between adjacent tiers (ctbk-style). Each tier's
+# rebuild cadence should match its bin granularity — raw within 60s of S3,
+# m5 every ~5min, …, mo1 ≈ monthly.
+
+storage:
+  type: r2
+  binding: PYRAMID
+  bucket: awair
+  key: 'pyramid/awair-{device_id}/{tier}/{period}.parquet'
+
+dims:
+  - { name: device_id, type: int }
+
+metrics:
+  - { name: temp,  monoid: sum }
+  - { name: co2,   monoid: sum }
+  - { name: pm10,  monoid: sum }
+  - { name: pm25,  monoid: sum }
+  - { name: humid, monoid: sum }
+  - { name: voc,   monoid: sum }
+
+tiers:
+  - { name: raw, bin: 1min,  shard: 1mo }   # base — Lambda piggyback writes per-minute
+  - { name: m5,  bin: 5min,  shard: 1mo }   # 5×
+  - { name: m30, bin: 30min, shard: 1mo }   # 6×
+  - { name: h3,  bin: 3h,    shard: 1y  }   # 6×
+  - { name: d1,  bin: 1d,    shard: 1y  }   # 8×
+  - { name: d7,  bin: 7d,    shard: 1y  }   # 7×
+  - { name: mo1, bin: 1mo,   shard: 1y  }   # ~4×

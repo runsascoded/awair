@@ -70,6 +70,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+awair = ["pyramid.yml"]
+
 [tool.ruff]
 line-length = 320
 target-version = "py310"

@@ -20,6 +20,7 @@ Rows are sorted `(device_id, ts)` so downstream RG predicate pushdown on
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 
@@ -27,14 +28,11 @@ import pandas as pd
 
 from .config import Metric, PyramidConfig, Tier
 
-# pyrmts bin spec → pandas Period freq for flooring
-BIN_TO_PERIOD_FREQ = {
-    '1min': 'min',
-    '1h':   'h',
-    '1d':   'D',
-    '1mo':  'M',
-    '1y':   'Y',
-}
+# pyrmts bin spec: <count><unit> with unit ∈ {min, h, d, mo, y}.
+# Multi-count is supported for the fixed-width units (min/h/d). The mo/y
+# units are calendar-aware and only support count=1.
+_BIN_RE = re.compile(r'^(\d+)(min|h|d|mo|y)$')
+_MS_PER_UNIT = {'min': 60_000, 'h': 3_600_000, 'd': 86_400_000}
 
 
 def aggregate_raw(
@@ -191,10 +189,27 @@ def shards_overlapping(start: datetime, end: datetime, shard: str) -> list[str]:
 
 
 def _floor_to_bin(ts: pd.Series, bin_spec: str) -> pd.Series:
-    freq = BIN_TO_PERIOD_FREQ.get(bin_spec)
-    if freq is None:
-        raise ValueError(f'unsupported bin: {bin_spec!r} (have {sorted(BIN_TO_PERIOD_FREQ)})')
-    return ts.dt.to_period(freq).dt.start_time
+    """Floor a timestamp series to the bin boundary, matching pyrmts axis semantics.
+
+    Calendar-aligned for `mo`/`y` (only count=1 supported). Epoch-aligned for
+    `min`/`h`/`d` (supports count>1, e.g. `5min`, `3h`, `7d`).
+    """
+    m = _BIN_RE.match(bin_spec)
+    if not m:
+        raise ValueError(f'invalid bin spec: {bin_spec!r}')
+    count, unit = int(m.group(1)), m.group(2)
+    if unit == 'mo':
+        if count != 1:
+            raise ValueError(f'multi-count calendar bins not supported: {bin_spec!r}')
+        return ts.dt.to_period('M').dt.start_time
+    if unit == 'y':
+        if count != 1:
+            raise ValueError(f'multi-count calendar bins not supported: {bin_spec!r}')
+        return ts.dt.to_period('Y').dt.start_time
+    bin_ms = count * _MS_PER_UNIT[unit]
+    epoch_ms = ts.astype('int64') // 1_000_000
+    floored_ms = (epoch_ms // bin_ms) * bin_ms
+    return pd.to_datetime(floored_ms, unit='ms')
 
 
 def _require_sum_monoid(metrics: list[Metric]) -> None:
@@ -219,10 +234,12 @@ def _empty_shard(metrics: list[Metric]) -> pd.DataFrame:
 
 
 def repo_pyramid_config() -> PyramidConfig:
-    """Convenience: load `pyramid.yml` at the awair repo root."""
+    """Load `pyramid.yml` from the bundled package location (or repo root in tests).
+
+    Source dev: `src/awair/pyramid.yml`. Lambda deployment: `awair/pyramid.yml`
+    inside the deployed zip. Both resolve to `Path(__file__).parents[1]`.
+    """
     from pathlib import Path
 
     from .config import load_config
-    here = Path(__file__).resolve()
-    # src/awair/pyramid/builder.py → repo root is parents[3]
-    return load_config(here.parents[3] / 'pyramid.yml')
+    return load_config(Path(__file__).resolve().parents[1] / 'pyramid.yml')
