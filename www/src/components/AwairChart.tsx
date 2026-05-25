@@ -432,6 +432,7 @@ export const AwairChart = memo(function AwairChart(
   useAction('time:days', { label: 'Range: N days', group: 'Time Range', defaultBindings: ['\\d+ d', 'd \\d+'], keywords: ['days'], handler: useCallback((_, captures) => handleTimeRangeClick((captures?.[0] ?? 1) * 24), [handleTimeRangeClick]) })
   useAction('time:weeks', { label: 'Range: N weeks', group: 'Time Range', defaultBindings: ['\\d+ w', 'w \\d+'], keywords: ['weeks'], handler: useCallback((_, captures) => handleTimeRangeClick((captures?.[0] ?? 1) * 24 * 7), [handleTimeRangeClick]) })
   useAction('time:months', { label: 'Range: N months', group: 'Time Range', defaultBindings: ['\\d+ m', 'm \\d+'], keywords: ['months'], handler: useCallback((_, captures) => handleTimeRangeClick((captures?.[0] ?? 1) * 24 * 31), [handleTimeRangeClick]) })
+  useAction('time:years', { label: 'Range: N years', group: 'Time Range', defaultBindings: ['\\d+ y', 'y \\d+'], keywords: ['years'], handler: useCallback((_, captures) => handleTimeRangeClick((captures?.[0] ?? 1) * 24 * 365), [handleTimeRangeClick]) })
   // Special time ranges (not digit-based)
   useAction('time:all', { label: 'Full history', group: 'Time Range', defaultBindings: ['f'], keywords: ['all', 'everything', 'max', 'full'], handler: handleAllClick })
   useAction('time:latest', { label: 'Latest', group: 'Time Range', defaultBindings: ['l'], keywords: ['now', 'current', 'live'], handler: toggleLatestMode })
