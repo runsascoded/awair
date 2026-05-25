@@ -221,6 +221,7 @@ def _empty_shard(metrics: list[Metric]) -> pd.DataFrame:
 def repo_pyramid_config() -> PyramidConfig:
     """Convenience: load `pyramid.yml` at the awair repo root."""
     from pathlib import Path
+
     from .config import load_config
     here = Path(__file__).resolve()
     # src/awair/pyramid/builder.py → repo root is parents[3]

@@ -7,7 +7,7 @@ from sys import stderr
 from typing import Optional
 
 import pandas as pd
-from click import argument, echo, option
+from click import option
 
 from ..pyramid.builder import (
     aggregate_raw,
@@ -25,7 +25,9 @@ from .config import resolve_device_by_name_or_id
 
 DEFAULT_OUT_BASE = 'tmp'
 
-err = lambda *args, **kw: print(*args, file=stderr, **kw)
+
+def err(*args, **kw):
+    print(*args, file=stderr, **kw)
 
 
 @awair.group
