@@ -1,8 +1,6 @@
 import { parquetRead } from 'hyparquet'
-import { HyparquetSource } from './dataSources/hyparquetSource'
 import { PyrmtsSource } from './dataSources/pyrmtsSource'
 import { splitDate } from "../utils/dateFormat"
-import type { DataSource, DataSourceType } from './dataSource'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
 export interface Device {
@@ -15,76 +13,20 @@ export interface Device {
 }
 
 // Parquet row tuple types (match column order in files)
-// Note: hyparquet returns BigInt for integer columns, so we use bigint here
 // devices.parquet: name, deviceId, deviceType, deviceUUID, lat, lon, preference, locationName, roomType, spaceType, macAddress, timezone, lastUpdated, active, dataPath
 type DeviceRow = [string, bigint, string, string, bigint, bigint, string, string, string, string, string, string, string, boolean, string]
 
-// Singleton sources; A/B selected at fetch time via the `source` arg
-const hyparquetSource = new HyparquetSource()
 const pyrmtsSource = new PyrmtsSource()
 
-function pickSource(source: DataSourceType): DataSource {
-  if (source === 'pyrmts-cfw') return pyrmtsSource
-  return hyparquetSource
-}
-
 /**
- * S3 root for all data storage.
- * Structure:
- *   {S3_ROOT}/devices.parquet           - Device registry
- *   {S3_ROOT}/awair-{id}/{YYYY-MM}.parquet - Monthly device data files
+ * S3 root for the devices registry. Per-device time-series data lives in R2
+ * now (served via the pyrmts CFW worker); only `devices.parquet` is still
+ * read from S3 directly because it's tiny and infrequently changed.
  */
 const S3_ROOT = 'https://380nwk.s3.amazonaws.com'
 
 export function getDevicesUrl(): string {
   return `${S3_ROOT}/devices.parquet`
-}
-
-/**
- * Get URL for a specific monthly data file.
- * @param deviceId Device ID
- * @param yearMonth Year-month string (e.g., "2025-01")
- */
-export function getMonthlyDataUrl(deviceId: number, yearMonth: string): string {
-  return `${S3_ROOT}/awair-${deviceId}/${yearMonth}.parquet`
-}
-
-/**
- * Get all year-month strings that overlap a date range.
- * Returns strings like ["2024-12", "2025-01", "2025-02"].
- *
- * Uses UTC because the Lambda shards files by UTC month (timestamps are stored
- * as naive UTC). Local-time bucketing here would miss the current UTC month for
- * `tz-offset` hours after every UTC midnight rollover.
- */
-export function getMonthsInRange(from: Date, to: Date): string[] {
-  const months: string[] = []
-  const current = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1))
-  const end = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1))
-
-  while (current <= end) {
-    const year = current.getUTCFullYear()
-    const month = String(current.getUTCMonth() + 1).padStart(2, '0')
-    months.push(`${year}-${month}`)
-    current.setUTCMonth(current.getUTCMonth() + 1)
-  }
-
-  return months
-}
-
-/**
- * Get all monthly data URLs for a device within a date range.
- */
-export function getMonthlyDataUrls(deviceId: number, from: Date, to: Date): string[] {
-  return getMonthsInRange(from, to).map(ym => getMonthlyDataUrl(deviceId, ym))
-}
-
-/**
- * Legacy: Get URL for single-file data (deprecated).
- * Used only for backward compatibility during migration.
- */
-export function getDataUrl(deviceId: number): string {
-  return `${S3_ROOT}/awair-${deviceId}.parquet`
 }
 
 export async function fetchDevices(): Promise<Device[]> {
@@ -139,18 +81,12 @@ export async function fetchDevices(): Promise<Device[]> {
   }
 }
 
-export function getFileBounds(deviceId: number): { earliest: Date; latest: Date } | null {
-  return hyparquetSource.getFileBounds(deviceId)
-}
-
 export async function fetchAwairData(
   deviceId: number | undefined,
   timeRange: { timestamp: Date | null; duration: number },
   lookbackMinutes: number = 0,
-  source: DataSourceType = 's3-hyparquet',
   binBudget?: number,
 ): Promise<{ records: AwairRecord[]; summary: DataSummary; lastModified?: Date }> {
-  // If no device ID provided, use first available device
   if (!deviceId) {
     const devices = await fetchDevices()
     if (devices.length === 0) {
@@ -164,7 +100,7 @@ export async function fetchAwairData(
   const lookbackMs = lookbackMinutes * 60 * 1000
   const from = new Date(to.getTime() - timeRange.duration - lookbackMs)
 
-  const result = await pickSource(source).fetch({
+  const result = await pyrmtsSource.fetch({
     deviceId,
     range: { from, to },
     binBudget,
@@ -202,14 +138,4 @@ export async function fetchAwairData(
   }
 
   return { records: result.records, summary, lastModified: result.lastModified }
-}
-
-/**
- * Refresh cache for a device (check for new data).
- * Returns true if new data was available. No-op for sources that don't have
- * a refresh concept (pyrmts shards are immutable per-tier; rebuild is offline).
- */
-export async function refreshDeviceData(deviceId: number, source: DataSourceType = 's3-hyparquet'): Promise<boolean> {
-  if (source === 'pyrmts-cfw') return false
-  return hyparquetSource.refresh(deviceId)
 }

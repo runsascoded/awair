@@ -13,7 +13,6 @@ import { useMobile } from '../hooks/useMobile'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
 import { deviceRenderStrategyParam, hsvConfigParam, intFromList, rangeFloorsParam, rawOpacityParam, smoothingParam, stddevOpacityParam, xGroupingParam } from '../lib/urlParams'
-import { getFileBounds } from '../services/awairService'
 import { formatForPlotly } from '../utils/dateFormat'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { PxOption } from './AggregationControl'
@@ -259,12 +258,28 @@ export const AwairChart = memo(function AwairChart(
     setIgnoreNextPanCheck
   } = useLatestMode(data, xAxisRange, latestModeIntended, setLatestModeIntended)
 
-  // Helper: Get all device bounds for selected devices
+  // Helper: per-device earliest/latest derived from currently-fetched records.
+  // Used by "Full History" + the table's data-range metadata.
+  //
+  // NB: this is bounded by what we've *already loaded* — a 1d view returns
+  // 1d of bounds, so "Full History" from a narrow view will show whatever
+  // the current fetch covered rather than the device's true earliest data.
+  // Proper fix is wiring `earliestWatermarks` via a worker `/bounds` endpoint;
+  // tracked separately. For most usage this is good enough since loading a
+  // wider view first then Full-History'ing gives correct bounds.
   const getAllDeviceBounds = useCallback(() => {
-    return selectedDeviceIds
-      .map(id => getFileBounds(id))
-      .filter((bounds): bounds is { earliest: Date; latest: Date } => bounds !== null)
-  }, [selectedDeviceIds])
+    return deviceDataResults
+      .filter(r => selectedDeviceIds.includes(r.deviceId) && r.data.length > 0)
+      .map(r => {
+        let earliest = r.data[0].timestamp
+        let latest = r.data[0].timestamp
+        for (const rec of r.data) {
+          if (rec.timestamp < earliest) earliest = rec.timestamp
+          if (rec.timestamp > latest) latest = rec.timestamp
+        }
+        return { earliest: new Date(earliest), latest: new Date(latest) }
+      })
+  }, [deviceDataResults, selectedDeviceIds])
 
   // Handle auto-update from Latest mode hook
   // Pass duration explicitly to avoid stale closure issues during concurrent updates
@@ -951,12 +966,20 @@ export const AwairChart = memo(function AwairChart(
       return { totalDataCount: 0, rawDataCount: 0, fullDataStartTime: undefined, fullDataEndTime: undefined }
     }
 
-    const bounds = getFileBounds(selectedDeviceIdForTable)
-    if (!bounds) {
+    const deviceResult = deviceDataResults.find(r => r.deviceId === selectedDeviceIdForTable)
+    if (!deviceResult || deviceResult.data.length === 0) {
       return { totalDataCount: 0, rawDataCount: 0, fullDataStartTime: undefined, fullDataEndTime: undefined }
     }
-
-    const totalMinutes = (bounds.latest.getTime() - bounds.earliest.getTime()) / (1000 * 60)
+    let earliest = deviceResult.data[0].timestamp
+    let latest = deviceResult.data[0].timestamp
+    for (const rec of deviceResult.data) {
+      if (rec.timestamp < earliest) earliest = rec.timestamp
+      if (rec.timestamp > latest) latest = rec.timestamp
+    }
+    const earliestD = new Date(earliest)
+    const latestD = new Date(latest)
+    const totalMinutes = (latestD.getTime() - earliestD.getTime()) / (1000 * 60)
+    const bounds = { earliest: earliestD, latest: latestD }
     return {
       totalDataCount: ceil(totalMinutes / selectedWindow.minutes),
       rawDataCount: ceil(totalMinutes),  // ~1 data point per minute

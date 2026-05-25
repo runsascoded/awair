@@ -4,8 +4,7 @@ import { useUrlState } from 'use-prms'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import { encodeTimeRange } from '../lib/timeRangeCodec'
 import { xGroupingParam, type TimeRange } from '../lib/urlParams'
-import { fetchAwairData, refreshDeviceData } from '../services/awairService'
-import type { DataSourceType } from '../services/dataSource'
+import { fetchAwairData } from '../services/awairService'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
 const { floor, max, min } = Math
@@ -39,7 +38,6 @@ export interface DevicePollerProps {
   timeRange: TimeRange
   lookbackMinutes?: number  // Extra time to fetch before range start (for rolling averages)
   smartPolling?: boolean
-  dataSource?: DataSourceType  // 's3-hyparquet' (default) or 'pyrmts-cfw'
   onResult: (result: DeviceDataResult) => void
 }
 
@@ -52,7 +50,6 @@ export function DevicePoller({
   timeRange,
   lookbackMinutes = 0,
   smartPolling = true,
-  dataSource = 's3-hyparquet',
   onResult,
 }: DevicePollerProps) {
   // Manual keepPreviousData implementation
@@ -68,22 +65,20 @@ export function DevicePoller({
   const binBudget = useMemo(() => computeBinBudget(targetPx), [targetPx])
 
   const query = useQuery({
-    queryKey: ['awair-data', deviceId, encodeTimeRange(timeRange), lookbackMinutes, dataSource, binBudget],
-    queryFn: () => fetchAwairData(deviceId, timeRange, lookbackMinutes, dataSource, binBudget),
+    queryKey: ['awair-data', deviceId, encodeTimeRange(timeRange), lookbackMinutes, binBudget],
+    queryFn: () => fetchAwairData(deviceId, timeRange, lookbackMinutes, binBudget),
     enabled: deviceId !== undefined,
   })
 
-  // Smart polling refetch: first refresh the cache (check S3 for new data),
-  // then re-run the query to read from the updated cache.
-  // This separates "check for new data" (polling) from "read cached data" (navigation).
+  // Smart polling refetch: re-run the query (pyrmts worker serves fresh data
+  // because Lambda piggyback writes R2 every minute; no client-side cache to
+  // invalidate).
   const refetch = useCallback(async () => {
-    await refreshDeviceData(deviceId, dataSource)
     await query.refetch()
-  }, [deviceId, dataSource, query.refetch])
+  }, [query.refetch])
 
   // Independent smart polling for this device (only when viewing Latest).
-  // Both sources now expose `lastModified` (hyparquet via S3 head; pyrmts via
-  // the worker's raw-tier watermark from R2), so smart-polling drives both.
+  // Driven by `lastModified` from pyrmts (raw-tier watermark from R2).
   useSmartPolling({
     lastModified: query.data?.lastModified ?? null,
     refetch,

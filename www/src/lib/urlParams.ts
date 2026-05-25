@@ -4,7 +4,6 @@
 
 import { encodeTimeRange, decodeTimeRange } from './timeRangeCodec'
 import type { Device } from '../services/awairService'
-import type { DataSourceType } from '../services/dataSource'
 import type { Param } from 'use-prms'
 
 /**
@@ -569,22 +568,6 @@ export const rawOpacityParam: Param<number> = {
     const num = parseInt(encoded, 10)
     return isNaN(num) ? 65 : Math.max(0, Math.min(100, num))
   },
-}
-
-/**
- * Data source param. `pyrmts-cfw` is default; `s3-hyparquet` is the legacy
- * read path, opt-in for A/B vs. the pyrmts CFW worker (which handles
- * missing-shard 403s, tier-steps for wide views, and stays fresh via
- * Lambda piggyback). See `specs/pyrmts-migration.md`.
- *
- * Examples:
- *   (omitted)        → pyrmts-cfw (default)
- *   ?src=s3          → s3-hyparquet (legacy)
- *   ?src=pyrmts      → pyrmts-cfw (explicit)
- */
-export const dataSourceParam: Param<DataSourceType> = {
-  encode: (v) => v === 'pyrmts-cfw' ? undefined : 's3',
-  decode: (s) => s === 's3' ? 's3-hyparquet' : 'pyrmts-cfw',
 }
 
 /**

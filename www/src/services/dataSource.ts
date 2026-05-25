@@ -45,12 +45,10 @@ export interface FetchTiming {
   source: DataSourceType
 }
 
-export type DataSourceType =
-  | 's3-hyparquet'      // Direct S3 read with hyparquet
-  | 'pyrmts-cfw'        // Cloudflare Worker serving pyrmts pyramid shards (R2)
-  | 's3-duckdb-wasm'    // Direct S3 read with DuckDB-WASM
-  | 'lambda'            // AWS Lambda endpoint
-  | 'cfw'               // CloudFlare Worker endpoint (generic)
+// Only pyrmts-cfw is wired today. `HyparquetSource` was retired in favor of
+// pyrmts (see `specs/pyrmts-migration.md`). Type kept as a union so future
+// sources (s3-duckdb-wasm, lambda, etc.) can plug in via the same interface.
+export type DataSourceType = 'pyrmts-cfw'
 
 /**
  * Abstract interface for data sources.
