@@ -193,23 +193,33 @@ bands. The monoid keeps the state; the adapter is throwaway.)
 
 ## Phasing
 
-1. **Backfill** (offline): build tier shards for the existing months (~all
-   of awair's history). Validate via `pyrmts inspect` (or by spot-checking
-   a/b vs current chart).
-2. **CFW serve** (offline): deploy `cfw/serve/` with the R2 binding. Smoke
-   test with `curl`. Add CORS for the chart's origin.
-3. **A/B in chart**: add `PyrmtsSource` as a selectable `DataSource`, keep
-   `HyparquetSource` as default. Compare latency, bytes, parity on a few
-   real ranges. Toggle via URL param or env.
-4. **Switch default + clean up**: promote `PyrmtsSource` to default; delete
-   `HyparquetSource`, `parquetCache.ts`, and the client-side aggregation in
-   `useDataAggregation.ts` and `useMultiDeviceAggregation.ts`.
-5. **In-progress / live tail** (phase 2): a Lambda step (or builder cron)
-   keeps `raw` watermark within ~1 minute of now; the worker reports
-   `authoritativeEnd` and the chart can decide what to render past it.
-
-Phases 1–4 are the v0.1 commitment. Phase 5 closes the SPEC §Open questions
-"In-progress-tier caching" loop.
+1. ✅ **Backfill** (offline): build tier shards for all 4 devices across
+   their full history. Done via `awair pyramid backfill` writing to
+   `r2://awair/pyramid/`.
+2. ✅ **CFW serve**: `cfw/serve/` deployed at `awair-serve.ryan-0dc.workers.dev`
+   with R2 binding to `awair` and `cors: true`. Smoke-tested.
+3. ✅ **A/B in chart**: `PyrmtsSource` lives at
+   `www/src/services/dataSources/pyrmtsSource.ts`. Toggle via `?src=pyrmts`
+   URL param or `⇧S` hotkey. Visual parity confirmed against `HyparquetSource`
+   for both fresh "Latest" ranges and historical multi-month ranges.
+4. ⏳ **Switch default + clean up**: promote `PyrmtsSource` to default;
+   delete `HyparquetSource`, `parquetCache.ts`, and the client-side
+   aggregation in `useDataAggregation.ts` / `useMultiDeviceAggregation.ts`.
+   Probably wait until phase 5 closes and pyrmts wins the bytes-per-query
+   comparison at typical chart widths.
+5. ✅ **Live tail / freshness**: done in two pieces:
+   - Lambda piggyback: after the existing `atomic_edit` S3 write,
+     `update_s3_data` derives the pyrmts `raw` shard from the same merged
+     df and writes it to R2. All 4 devices' raw shards stay within 60s of
+     S3. (See `src/awair/lmbda/updater.py:write_pyrmts_raw_shard`.)
+   - Worker watermarks: `cfw/serve/src/index.ts:resolveWatermarks` HEADs
+     each tier's current-period shard per request and passes
+     `Last-Modified` into `serveQuery`. The pyrmts planner clamps
+     coarser-tier watermarks to the raw watermark, so queries that cross
+     a stale coarse-tier edge get segmented (pre-built tier + raw
+     re-aggregated on the fly via `PlanSegment.reaggregate=true`). End
+     user sees continuous data through *current* time without a
+     per-coarse-tier rebuild cron.
 
 ## Open questions
 
