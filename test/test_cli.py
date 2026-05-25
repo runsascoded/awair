@@ -179,7 +179,8 @@ def test_command_help_includes_docstrings():
         '  --help  Show this message and exit.',
         '',
         'Commands:',
-        '  api     Direct API interaction commands.',
-        '  data    Analyze archived data.',
-        '  lambda  AWS Lambda operations for scheduled data updates.'
+        '  api      Direct API interaction commands.',
+        '  data     Analyze archived data.',
+        '  lambda   AWS Lambda operations for scheduled data updates.',
+        '  pyramid  Build/serve pyrmts pyramid shards.'
     ])
