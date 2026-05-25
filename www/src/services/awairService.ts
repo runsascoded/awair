@@ -1,6 +1,8 @@
 import { parquetRead } from 'hyparquet'
 import { HyparquetSource } from './dataSources/hyparquetSource'
+import { PyrmtsSource } from './dataSources/pyrmtsSource'
 import { splitDate } from "../utils/dateFormat"
+import type { DataSource, DataSourceType } from './dataSource'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
 export interface Device {
@@ -17,8 +19,14 @@ export interface Device {
 // devices.parquet: name, deviceId, deviceType, deviceUUID, lat, lon, preference, locationName, roomType, spaceType, macAddress, timezone, lastUpdated, active, dataPath
 type DeviceRow = [string, bigint, string, string, bigint, bigint, string, string, string, string, string, string, string, boolean, string]
 
-// Singleton instance for cached data fetching
+// Singleton sources; A/B selected at fetch time via the `source` arg
 const hyparquetSource = new HyparquetSource()
+const pyrmtsSource = new PyrmtsSource()
+
+function pickSource(source: DataSourceType): DataSource {
+  if (source === 'pyrmts-cfw') return pyrmtsSource
+  return hyparquetSource
+}
 
 /**
  * S3 root for all data storage.
@@ -138,7 +146,8 @@ export function getFileBounds(deviceId: number): { earliest: Date; latest: Date 
 export async function fetchAwairData(
   deviceId: number | undefined,
   timeRange: { timestamp: Date | null; duration: number },
-  lookbackMinutes: number = 0
+  lookbackMinutes: number = 0,
+  source: DataSourceType = 's3-hyparquet',
 ): Promise<{ records: AwairRecord[]; summary: DataSummary; lastModified?: Date }> {
   // If no device ID provided, use first available device
   if (!deviceId) {
@@ -154,8 +163,7 @@ export async function fetchAwairData(
   const lookbackMs = lookbackMinutes * 60 * 1000
   const from = new Date(to.getTime() - timeRange.duration - lookbackMs)
 
-  // Use HyparquetSource with caching
-  const result = await hyparquetSource.fetch({
+  const result = await pickSource(source).fetch({
     deviceId,
     range: { from, to },
   })
@@ -196,8 +204,10 @@ export async function fetchAwairData(
 
 /**
  * Refresh cache for a device (check for new data).
- * Returns true if new data was available.
+ * Returns true if new data was available. No-op for sources that don't have
+ * a refresh concept (pyrmts shards are immutable per-tier; rebuild is offline).
  */
-export async function refreshDeviceData(deviceId: number): Promise<boolean> {
+export async function refreshDeviceData(deviceId: number, source: DataSourceType = 's3-hyparquet'): Promise<boolean> {
+  if (source === 'pyrmts-cfw') return false
   return hyparquetSource.refresh(deviceId)
 }

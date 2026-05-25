@@ -13,7 +13,7 @@ import { HOTKEY_GROUPS, HOTKEY_GROUP_ORDER } from './config/hotkeyConfig'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import { useDevices } from './hooks/useDevices'
 import { queryClient } from './lib/queryClient'
-import { boolParam, deviceIdsParam, timeRangeParam, refetchIntervalParam, smoothingParam } from './lib/urlParams'
+import { boolParam, dataSourceParam, deviceIdsParam, timeRangeParam, refetchIntervalParam, smoothingParam } from './lib/urlParams'
 import './App.scss'
 
 // Custom group renderers for ShortcutsModal
@@ -47,6 +47,9 @@ function AppContent() {
 
   // Smoothing window for rolling averages (extends fetch range for edge accuracy)
   const [smoothing] = useUrlState('s', smoothingParam)
+
+  // Data source A/B: ?src=pyrmts → cfw/serve worker; default → S3+hyparquet
+  const [dataSource] = useUrlState('src', dataSourceParam)
 
   // Device data results from DevicePoller components
   const [deviceResults, setDeviceResults] = useState<Map<number, DeviceDataResult>>(new Map())
@@ -143,6 +146,7 @@ function AppContent() {
             timeRange={timeRange}
             lookbackMinutes={smoothing}
             smartPolling={smartPolling}
+            dataSource={dataSource}
             onResult={handleDeviceResult}
           />
         ))}
@@ -166,6 +170,7 @@ function AppContent() {
             timeRange={timeRange}
             lookbackMinutes={smoothing}
             smartPolling={smartPolling}
+            dataSource={dataSource}
             onResult={handleDeviceResult}
           />
         ))}
@@ -183,6 +188,7 @@ function AppContent() {
           timeRange={timeRange}
           lookbackMinutes={smoothing}
           smartPolling={smartPolling}
+          dataSource={dataSource}
           onResult={handleDeviceResult}
         />
       ))}

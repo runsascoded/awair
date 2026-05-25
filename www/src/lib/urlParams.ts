@@ -4,6 +4,7 @@
 
 import { encodeTimeRange, decodeTimeRange } from './timeRangeCodec'
 import type { Device } from '../services/awairService'
+import type { DataSourceType } from '../services/dataSource'
 import type { Param } from 'use-prms'
 
 /**
@@ -568,6 +569,20 @@ export const rawOpacityParam: Param<number> = {
     const num = parseInt(encoded, 10)
     return isNaN(num) ? 65 : Math.max(0, Math.min(100, num))
   },
+}
+
+/**
+ * Data source param — A/B between `s3-hyparquet` (legacy, default) and
+ * `pyrmts-cfw` (new, via cfw/serve).
+ *
+ * Examples:
+ *   (omitted)        → s3-hyparquet (default)
+ *   ?src=pyrmts      → pyrmts-cfw
+ *   ?src=s3          → s3-hyparquet (explicit)
+ */
+export const dataSourceParam: Param<DataSourceType> = {
+  encode: (v) => v === 's3-hyparquet' ? undefined : 'pyrmts',
+  decode: (s) => s === 'pyrmts' ? 'pyrmts-cfw' : 's3-hyparquet',
 }
 
 /**

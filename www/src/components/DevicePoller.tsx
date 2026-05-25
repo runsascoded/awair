@@ -4,6 +4,7 @@ import { useSmartPolling } from '../hooks/useSmartPolling'
 import { encodeTimeRange } from '../lib/timeRangeCodec'
 import { fetchAwairData, refreshDeviceData } from '../services/awairService'
 import type { TimeRange } from '../lib/urlParams'
+import type { DataSourceType } from '../services/dataSource'
 import type { AwairRecord, DataSummary } from '../types/awair'
 
 export interface DeviceDataResult {
@@ -21,6 +22,7 @@ export interface DevicePollerProps {
   timeRange: TimeRange
   lookbackMinutes?: number  // Extra time to fetch before range start (for rolling averages)
   smartPolling?: boolean
+  dataSource?: DataSourceType  // 's3-hyparquet' (default) or 'pyrmts-cfw'
   onResult: (result: DeviceDataResult) => void
 }
 
@@ -33,6 +35,7 @@ export function DevicePoller({
   timeRange,
   lookbackMinutes = 0,
   smartPolling = true,
+  dataSource = 's3-hyparquet',
   onResult,
 }: DevicePollerProps) {
   // Manual keepPreviousData implementation
@@ -42,8 +45,8 @@ export function DevicePoller({
   const isLatestMode = useMemo(() => timeRange.timestamp === null, [timeRange.timestamp])
 
   const query = useQuery({
-    queryKey: ['awair-data', deviceId, encodeTimeRange(timeRange), lookbackMinutes],
-    queryFn: () => fetchAwairData(deviceId, timeRange, lookbackMinutes),
+    queryKey: ['awair-data', deviceId, encodeTimeRange(timeRange), lookbackMinutes, dataSource],
+    queryFn: () => fetchAwairData(deviceId, timeRange, lookbackMinutes, dataSource),
     enabled: deviceId !== undefined,
   })
 
@@ -51,15 +54,17 @@ export function DevicePoller({
   // then re-run the query to read from the updated cache.
   // This separates "check for new data" (polling) from "read cached data" (navigation).
   const refetch = useCallback(async () => {
-    await refreshDeviceData(deviceId)
+    await refreshDeviceData(deviceId, dataSource)
     await query.refetch()
-  }, [deviceId, query.refetch])
+  }, [deviceId, dataSource, query.refetch])
 
-  // Independent smart polling for this device (only when viewing Latest)
+  // Independent smart polling for this device (only when viewing Latest).
+  // pyrmts source has no lastModified yet (immutable shards, watermarks deferred to phase 5),
+  // so smart polling naturally stays idle there.
   useSmartPolling({
     lastModified: query.data?.lastModified ?? null,
     refetch,
-    enabled: smartPolling && isLatestMode,
+    enabled: smartPolling && isLatestMode && dataSource === 's3-hyparquet',
     deviceId,
     isLatestMode,
   })

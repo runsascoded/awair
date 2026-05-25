@@ -45,9 +45,10 @@ export interface FetchTiming {
 
 export type DataSourceType =
   | 's3-hyparquet'      // Direct S3 read with hyparquet
+  | 'pyrmts-cfw'        // Cloudflare Worker serving pyrmts pyramid shards (R2)
   | 's3-duckdb-wasm'    // Direct S3 read with DuckDB-WASM
   | 'lambda'            // AWS Lambda endpoint
-  | 'cfw'               // CloudFlare Worker endpoint
+  | 'cfw'               // CloudFlare Worker endpoint (generic)
 
 /**
  * Abstract interface for data sources.
