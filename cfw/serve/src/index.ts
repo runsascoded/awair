@@ -12,6 +12,10 @@
  * pyrmts planner clamps coarser tiers to never exceed finer tiers'
  * watermarks, so stale coarse-tier shards trigger re-aggregation from
  * fresher raw at the query's tail (per `PlanSegment.reaggregate`).
+ *
+ * `tolerateMissingShards: true` lets pyrmts return [] for objects that
+ * don't exist (e.g. yearly d1 shards before a device started recording)
+ * instead of erroring the whole query.
  */
 
 import { parsePyramidYaml, pyramidFromConfig, type Pyramid } from 'pyrmts'
@@ -42,7 +46,8 @@ export default {
       return serveQuery({
         pyramid,
         request,
-        watermarks: (req) => resolveWatermarks(req, env),
+        watermarks: req => resolveWatermarks(req, env),
+        tolerateMissingShards: true,
         cors: true,
       })
     }
@@ -72,12 +77,9 @@ async function resolveWatermarks(
   const y = String(now.getUTCFullYear())
 
   const heads = await Promise.all(
-    pyramidConfig.tiers.map(async (tier) => {
+    pyramidConfig.tiers.map(async tier => {
       const period = tier.shard === '1mo' ? ym : tier.shard === '1y' ? y : null
-      if (period === null) {
-        // Unsupported shard span for watermark derivation; skip.
-        return [tier.name, null] as const
-      }
+      if (period === null) return [tier.name, null] as const
       const key = pyramidConfig.keyTemplate
         .replaceAll('{device_id}', deviceId)
         .replaceAll('{tier}', tier.name)
