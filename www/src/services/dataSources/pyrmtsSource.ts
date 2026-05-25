@@ -12,9 +12,9 @@ import type { DataSource, FetchOptions, FetchResult } from '../dataSource'
 
 const DEFAULT_PYRMTS_URL = 'https://awair-serve.ryan-0dc.workers.dev/q'
 
-// For phase 3 A/B: request raw-equivalent density. Phase 4 will pass the
-// actual chart container px width and remove the client-side re-aggregation.
-const DEFAULT_BIN_BUDGET = 50_000
+// Fallback bin budget if the caller doesn't pass one. Generous so we don't
+// silently over-aggregate at typical chart widths.
+const DEFAULT_BIN_BUDGET = 4_000
 
 const METRICS = ['temp', 'co2', 'pm10', 'pm25', 'humid', 'voc'] as const
 
@@ -70,7 +70,7 @@ export class PyrmtsSource implements DataSource {
     url.searchParams.set('from', opts.range.from.toISOString())
     url.searchParams.set('to', opts.range.to.toISOString())
     url.searchParams.set('device_id', String(opts.deviceId))
-    url.searchParams.set('bin_budget', String(DEFAULT_BIN_BUDGET))
+    url.searchParams.set('bin_budget', String(opts.binBudget ?? DEFAULT_BIN_BUDGET))
 
     const networkStart = performance.now()
     const resp = await fetch(url.toString())

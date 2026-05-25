@@ -19,6 +19,8 @@ export interface FetchOptions {
   range: TimeRange
   /** Optional: specific columns to fetch (default: all) */
   columns?: (keyof AwairRecord)[]
+  /** Optional: maximum bins the source should return (pyrmts uses this to pick a tier). */
+  binBudget?: number
 }
 
 export interface FetchResult {

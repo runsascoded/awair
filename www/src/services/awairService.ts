@@ -148,6 +148,7 @@ export async function fetchAwairData(
   timeRange: { timestamp: Date | null; duration: number },
   lookbackMinutes: number = 0,
   source: DataSourceType = 's3-hyparquet',
+  binBudget?: number,
 ): Promise<{ records: AwairRecord[]; summary: DataSummary; lastModified?: Date }> {
   // If no device ID provided, use first available device
   if (!deviceId) {
@@ -166,6 +167,7 @@ export async function fetchAwairData(
   const result = await pickSource(source).fetch({
     deviceId,
     range: { from, to },
+    binBudget,
   })
 
   let fileEarliest: string | null = null

@@ -1,11 +1,28 @@
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useUrlState } from 'use-prms'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import { encodeTimeRange } from '../lib/timeRangeCodec'
+import { xGroupingParam, type TimeRange } from '../lib/urlParams'
 import { fetchAwairData, refreshDeviceData } from '../services/awairService'
-import type { TimeRange } from '../lib/urlParams'
 import type { DataSourceType } from '../services/dataSource'
 import type { AwairRecord, DataSummary } from '../types/awair'
+
+const { floor, max, min } = Math
+
+/**
+ * Pyrmts `bin_budget` derived the same way as `useDataAggregation`'s
+ * `targetPoints`: prefer explicit `targetPx` from URL state, else clamp
+ * `containerWidth / 4` into [100, 400].
+ *
+ * Approximates the chart container with `window.innerWidth` — close enough
+ * for tier selection (real container is ~20px narrower).
+ */
+function computeBinBudget(targetPx: number | null): number {
+  const w = typeof window !== 'undefined' ? window.innerWidth : 1280
+  if (targetPx !== null && targetPx > 0) return floor(w / targetPx)
+  return max(100, min(400, floor(w / 4)))
+}
 
 export interface DeviceDataResult {
   deviceId: number
@@ -44,9 +61,15 @@ export function DevicePoller({
   // Latest mode = timestamp is null (viewing most recent data)
   const isLatestMode = useMemo(() => timeRange.timestamp === null, [timeRange.timestamp])
 
+  // Read `xGrouping` URL state to derive pyrmts `bin_budget` matching what
+  // `useDataAggregation` will compute downstream.
+  const [xGrouping] = useUrlState('x', xGroupingParam)
+  const targetPx = xGrouping.mode === 'auto' ? xGrouping.targetPx : null
+  const binBudget = useMemo(() => computeBinBudget(targetPx), [targetPx])
+
   const query = useQuery({
-    queryKey: ['awair-data', deviceId, encodeTimeRange(timeRange), lookbackMinutes, dataSource],
-    queryFn: () => fetchAwairData(deviceId, timeRange, lookbackMinutes, dataSource),
+    queryKey: ['awair-data', deviceId, encodeTimeRange(timeRange), lookbackMinutes, dataSource, binBudget],
+    queryFn: () => fetchAwairData(deviceId, timeRange, lookbackMinutes, dataSource, binBudget),
     enabled: deviceId !== undefined,
   })
 
