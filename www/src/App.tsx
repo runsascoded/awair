@@ -2,7 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FaGithub } from 'react-icons/fa'
 import { MdBrightnessAuto, MdDarkMode, MdLightMode } from 'react-icons/md'
-import { HotkeysProvider, LookupModal, Omnibar, SequenceModal, ShortcutsModal, SpeedDial } from 'use-kbd'
+import { HotkeysProvider, LookupModal, Omnibar, SequenceModal, ShortcutsModal, SpeedDial, useAction } from 'use-kbd'
 import { useUrlState } from 'use-prms'
 import 'use-kbd/styles.css'
 import { AwairChart } from './components/AwairChart'
@@ -49,7 +49,14 @@ function AppContent() {
   const [smoothing] = useUrlState('s', smoothingParam)
 
   // Data source A/B: ?src=pyrmts → cfw/serve worker; default → S3+hyparquet
-  const [dataSource] = useUrlState('src', dataSourceParam)
+  const [dataSource, setDataSource] = useUrlState('src', dataSourceParam)
+  useAction('source:toggle', {
+    label: `Switch source (current: ${dataSource})`,
+    group: 'Data Source',
+    defaultBindings: ['S'],
+    keywords: ['source', 'pyrmts', 's3', 'cfw', 'toggle'],
+    handler: () => setDataSource(dataSource === 'pyrmts-cfw' ? 's3-hyparquet' : 'pyrmts-cfw'),
+  })
 
   // Device data results from DevicePoller components
   const [deviceResults, setDeviceResults] = useState<Map<number, DeviceDataResult>>(new Map())

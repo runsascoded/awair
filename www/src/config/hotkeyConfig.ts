@@ -12,5 +12,6 @@ export const HOTKEY_GROUP_ORDER = [
   'X Grouping',
   'Smoothing',
   'Toggle devices on/off',
+  'Data Source',
   'Table Navigation',
 ]
