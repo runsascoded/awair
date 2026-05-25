@@ -7,10 +7,11 @@
  *   GET /q      pyrmts serveQuery (see pyrmts-cfw for query-param grammar)
  *   GET /health "ok"
  *
- * Watermarks: derived lazily from R2 head-object timestamps of the
- * current-period raw shard for each device. (Per-tier watermarks could be
- * computed similarly; for v0.1 we only watermark `raw` and treat coarser
- * tiers as authoritative through `to`.)
+ * Watermarks: each request HEADs every tier's current-period shard in
+ * parallel and uses R2 `uploaded` (Last-Modified) as the watermark. The
+ * pyrmts planner clamps coarser tiers to never exceed finer tiers'
+ * watermarks, so stale coarse-tier shards trigger re-aggregation from
+ * fresher raw at the query's tail (per `PlanSegment.reaggregate`).
  */
 
 import { parsePyramidYaml, pyramidFromConfig, type Pyramid } from 'pyrmts'
@@ -41,6 +42,7 @@ export default {
       return serveQuery({
         pyramid,
         request,
+        watermarks: (req) => resolveWatermarks(req, env),
         cors: true,
       })
     }
@@ -50,6 +52,50 @@ export default {
       { status: 404, headers: corsHeaders(request) },
     )
   },
+}
+
+/**
+ * Resolve per-tier watermarks for the requested device by HEADing each tier's
+ * current-period shard in R2 and using its `uploaded` timestamp. Missing
+ * shards yield no entry, which the planner treats as "complete through `to`".
+ */
+async function resolveWatermarks(
+  request: Request,
+  env: Env,
+): Promise<Record<string, Date>> {
+  const url = new URL(request.url)
+  const deviceId = url.searchParams.get('device_id')
+  if (deviceId === null) return {}
+
+  const now = new Date()
+  const ym = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
+  const y = String(now.getUTCFullYear())
+
+  const heads = await Promise.all(
+    pyramidConfig.tiers.map(async (tier) => {
+      const period = tier.shard === '1mo' ? ym : tier.shard === '1y' ? y : null
+      if (period === null) {
+        // Unsupported shard span for watermark derivation; skip.
+        return [tier.name, null] as const
+      }
+      const key = pyramidConfig.keyTemplate
+        .replaceAll('{device_id}', deviceId)
+        .replaceAll('{tier}', tier.name)
+        .replaceAll('{period}', period)
+      try {
+        const obj = await env.PYRAMID.head(key)
+        return [tier.name, obj?.uploaded ?? null] as const
+      } catch {
+        return [tier.name, null] as const
+      }
+    }),
+  )
+
+  const out: Record<string, Date> = {}
+  for (const [name, ts] of heads) {
+    if (ts !== null) out[name] = ts
+  }
+  return out
 }
 
 function corsHeaders(_request: Request): Record<string, string> {
