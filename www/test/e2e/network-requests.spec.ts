@@ -171,7 +171,7 @@ test.describe('Network Request Behavior', () => {
     test.beforeEach(async ({ page }) => {
       // Navigate with 3d duration, Gym device only, fixed endpoint
       // 3d = 4320 minutes, RGs are ~7d (~10080 min), so first `<` stays in last RG
-      await page.goto('/?y=th&d=gym&w=3d&t=251129T1740')
+      await page.goto('/?y=th&d=gym&w=3d&t=251129T1740&src=s3')
       await page.waitForSelector('.data-table', { timeout: 30000 })
 
       // Wait for initial load to complete
@@ -320,7 +320,7 @@ test.describe('Network Request Behavior', () => {
 
   test.describe('No HEAD requests on navigation', () => {
     test.beforeEach(async ({ page }) => {
-      await page.goto('/?y=th&d=gym&w=3d&t=251129T1740')
+      await page.goto('/?y=th&d=gym&w=3d&t=251129T1740&src=s3')
       await page.waitForSelector('.data-table', { timeout: 30000 })
       await waitForNetworkSettle(page)
     })

@@ -102,7 +102,7 @@ test.describe('Table Pagination Navigation', () => {
     })
 
     // Navigate to the page with Gym device, using fixed endpoint at 17:40 UTC (just after test data end at 17:39 UTC) to trigger Latest mode
-    await page.goto('/?y=th&d=gym&t=251129T1740')
+    await page.goto('/?y=th&d=gym&t=251129T1740&src=s3')
 
     // Wait for data to load (increased timeout for first load)
     await page.waitForSelector('.data-table', { timeout: 30000 })

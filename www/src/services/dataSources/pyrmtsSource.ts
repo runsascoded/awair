@@ -96,8 +96,16 @@ export class PyrmtsSource implements DataSource {
         `records=${records.length} bytes=${bytesTransferred} segments=${body.plan.segments.map(s => `${s.tier}[${s.keys.length}]`).join(',')}`,
     )
 
+    // authoritativeEnd = the raw-tier watermark from R2 Last-Modified.
+    // Surfacing it as lastModified lets DevicePoller's smart-polling cycle
+    // detect "new data available" the same way it does for hyparquet.
+    const lastModified = body.plan.authoritativeEnd
+      ? new Date(body.plan.authoritativeEnd)
+      : undefined
+
     return {
       records,
+      lastModified,
       timing: {
         totalMs: t1 - t0,
         networkMs: networkEnd - networkStart,

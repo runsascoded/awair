@@ -82,12 +82,12 @@ export function DevicePoller({
   }, [deviceId, dataSource, query.refetch])
 
   // Independent smart polling for this device (only when viewing Latest).
-  // pyrmts source has no lastModified yet (immutable shards, watermarks deferred to phase 5),
-  // so smart polling naturally stays idle there.
+  // Both sources now expose `lastModified` (hyparquet via S3 head; pyrmts via
+  // the worker's raw-tier watermark from R2), so smart-polling drives both.
   useSmartPolling({
     lastModified: query.data?.lastModified ?? null,
     refetch,
-    enabled: smartPolling && isLatestMode && dataSource === 's3-hyparquet',
+    enabled: smartPolling && isLatestMode,
     deviceId,
     isLatestMode,
   })

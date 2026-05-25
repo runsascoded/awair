@@ -572,17 +572,19 @@ export const rawOpacityParam: Param<number> = {
 }
 
 /**
- * Data source param — A/B between `s3-hyparquet` (legacy, default) and
- * `pyrmts-cfw` (new, via cfw/serve).
+ * Data source param. `pyrmts-cfw` is default; `s3-hyparquet` is the legacy
+ * read path, opt-in for A/B vs. the pyrmts CFW worker (which handles
+ * missing-shard 403s, tier-steps for wide views, and stays fresh via
+ * Lambda piggyback). See `specs/pyrmts-migration.md`.
  *
  * Examples:
- *   (omitted)        → s3-hyparquet (default)
- *   ?src=pyrmts      → pyrmts-cfw
- *   ?src=s3          → s3-hyparquet (explicit)
+ *   (omitted)        → pyrmts-cfw (default)
+ *   ?src=s3          → s3-hyparquet (legacy)
+ *   ?src=pyrmts      → pyrmts-cfw (explicit)
  */
 export const dataSourceParam: Param<DataSourceType> = {
-  encode: (v) => v === 's3-hyparquet' ? undefined : 'pyrmts',
-  decode: (s) => s === 'pyrmts' ? 'pyrmts-cfw' : 's3-hyparquet',
+  encode: (v) => v === 'pyrmts-cfw' ? undefined : 's3',
+  decode: (s) => s === 's3' ? 's3-hyparquet' : 'pyrmts-cfw',
 }
 
 /**
