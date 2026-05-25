@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """CDK app for Awair Lambda infrastructure."""
 
+import os
+
 import aws_cdk as cdk
 from aws_cdk import (
     CfnOutput,
@@ -112,7 +114,13 @@ class AwairLambdaStack(Stack):
                 "AWAIR_TOKEN": awair_token,
                 "AWAIR_DATA_PATH": data_path,
                 "AWAIR_VERSION": version or "unknown",
-                "AWAIR_REFRESH_INTERVAL_MINUTES": str(refresh_interval_minutes)
+                "AWAIR_REFRESH_INTERVAL_MINUTES": str(refresh_interval_minutes),
+                # R2 credentials for the pyrmts pyramid piggyback (best-effort
+                # write of the raw tier shard to R2 after the S3 commit).
+                # Empty values disable the piggyback gracefully.
+                "R2_ACCESS_KEY_ID": os.environ.get('R2_ACCESS_KEY_ID', ''),
+                "R2_SECRET_ACCESS_KEY": os.environ.get('R2_SECRET_ACCESS_KEY', ''),
+                "R2_ENDPOINT_URL": os.environ.get('R2_ENDPOINT_URL', ''),
             },
             layers=[
                 _lambda.LayerVersion.from_layer_version_arn(

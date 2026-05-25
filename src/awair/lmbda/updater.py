@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -52,12 +53,52 @@ def get_monthly_s3_config(dt: datetime = None):
     return bucket, key
 
 
+def device_id_from_data_path(base_path: str) -> int:
+    """Extract numeric device ID from an `awair-{id}` path component.
+
+    Examples:
+        's3://380nwk/awair-17617' → 17617
+        's3://bucket/awair-137496.parquet' → 137496
+    """
+    m = re.search(r'awair-(\d+)', base_path)
+    if not m:
+        raise ValueError(f'cannot extract device_id from {base_path!r}')
+    return int(m.group(1))
+
+
+def write_pyrmts_raw_shard(df: pd.DataFrame, device_id: int, now: datetime) -> None:
+    """Write the pyrmts `raw` tier shard for the current month from the just-merged df.
+
+    Called after the S3 atomic_edit completes. Best-effort: if R2 isn't reachable
+    (creds missing, network blip, …), log and continue — the S3 write already
+    succeeded and is the source of truth.
+    """
+    from awair.pyramid.builder import aggregate_raw, format_key, repo_pyramid_config
+    from awair.pyramid.io import write_parquet
+
+    config = repo_pyramid_config()
+    raw_tier = config.tier('raw')
+    period = now.strftime('%Y-%m')
+
+    shard = aggregate_raw(df, device_id=device_id, tier=raw_tier, metrics=config.metrics)
+    key = format_key(config.key_template, device_id=device_id, tier='raw', period=period)
+    bucket = config.storage.get('bucket')
+    if not bucket:
+        raise ValueError("pyramid storage config missing 'bucket'")
+    url = f'r2://{bucket}/{key}'
+    write_parquet(shard, url)
+    print(f'Wrote pyrmts raw shard: {url} ({len(shard)} rows)')
+
+
 def update_s3_data():
     """Update the monthly S3 Parquet file with latest data using atomic_edit.
 
     Uses monthly sharding: data is stored in files like awair-17617/2025-01.parquet.
     Each Lambda invocation only touches the current month's file, reducing write
     amplification as historical months are immutable.
+
+    After the S3 write commits, also writes the pyrmts `raw` tier shard to R2
+    so the cfw/serve worker sees fresh data within a Lambda interval.
     """
     from pathlib import Path
 
@@ -66,7 +107,8 @@ def update_s3_data():
     # Get S3 configuration for current month's file
     now = datetime.now(timezone.utc)
     s3_bucket, s3_key = get_monthly_s3_config(now)
-    print(f'Target file: s3://{s3_bucket}/{s3_key}')
+    device_id = device_id_from_data_path(get_data_base_path())
+    print(f'Target file: s3://{s3_bucket}/{s3_key} (device {device_id})')
 
     # Change to /tmp directory for Lambda write permissions
     original_cwd = os.getcwd()
@@ -136,7 +178,26 @@ def update_s3_data():
                     max_requests=max_requests,
                 )
 
-                return inserted
+                # Snapshot the merged df *before* `storage` flushes on __exit__,
+                # so we can derive the pyrmts raw shard from the same bytes that
+                # land in S3.
+                merged_df = storage.read_data()
+
+        # atomic_edit __exit__ has uploaded tmp_path → S3 by this point.
+        # Now do the pyrmts piggyback: best-effort R2 write of the raw tier.
+        # Silently skipped if R2 isn't configured (e.g. before R2 creds land
+        # in the Lambda env).
+        if os.environ.get('R2_ENDPOINT_URL'):
+            try:
+                write_pyrmts_raw_shard(merged_df, device_id, now)
+            except Exception as e:
+                print(f'WARN: pyrmts R2 write failed: {e}')
+                import traceback
+                traceback.print_exc()
+        else:
+            print('R2_ENDPOINT_URL unset; skipping pyrmts piggyback')
+
+        return inserted
     finally:
         # Restore original working directory
         os.chdir(original_cwd)
