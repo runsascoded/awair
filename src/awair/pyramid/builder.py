@@ -188,6 +188,27 @@ def shards_overlapping(start: datetime, end: datetime, shard: str) -> list[str]:
     return periods
 
 
+def row_group_size_for_bin(bin_spec: str) -> int | None:
+    """Pick a parquet row-group size targeting ~1 day of data per RG.
+
+    Returns `None` for tiers where one RG covers the whole shard sensibly
+    (`7d`, `1mo`, `1y` bins — total rows are already small). pyrmts' RGF
+    skips RGs whose `binCol` stats miss the query, so smaller RGs trade
+    a bit of metadata overhead for tighter range pruning.
+    """
+    m = _BIN_RE.match(bin_spec)
+    if not m:
+        raise ValueError(f'invalid bin spec: {bin_spec!r}')
+    count, unit = int(m.group(1)), m.group(2)
+    if unit == 'min':
+        return max(100, 1440 // count)       # 1min→1440, 5min→288, 30min→48 (clamped 100)
+    if unit == 'h':
+        return max(100, 24 // count)         # 1h→24 (clamped 100), 3h→100
+    if unit == 'd':
+        return max(100, 1)                   # always 100; d1/d7 shards are small
+    return None                              # mo/y bins: one RG per shard
+
+
 def _floor_to_bin(ts: pd.Series, bin_spec: str) -> pd.Series:
     """Floor a timestamp series to the bin boundary, matching pyrmts axis semantics.
 

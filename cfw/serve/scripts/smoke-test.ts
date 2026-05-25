@@ -65,7 +65,7 @@ function fsStorage(root: string): Storage {
 }
 
 async function main(): Promise<void> {
-  const yamlText = await readFile(join(REPO_ROOT, 'pyramid.yml'), 'utf-8')
+  const yamlText = await readFile(join(REPO_ROOT, 'src/awair/pyramid.yml'), 'utf-8')
   const config = parsePyramidYaml(yamlText)
   const pyramid = pyramidFromConfig(config, fsStorage(SHARD_BASE))
 

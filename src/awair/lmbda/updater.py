@@ -73,7 +73,7 @@ def write_pyrmts_raw_shard(df: pd.DataFrame, device_id: int, now: datetime) -> N
     (creds missing, network blip, …), log and continue — the S3 write already
     succeeded and is the source of truth.
     """
-    from awair.pyramid.builder import aggregate_raw, format_key, repo_pyramid_config
+    from awair.pyramid.builder import aggregate_raw, format_key, repo_pyramid_config, row_group_size_for_bin
     from awair.pyramid.io import write_parquet
 
     config = repo_pyramid_config()
@@ -86,7 +86,7 @@ def write_pyrmts_raw_shard(df: pd.DataFrame, device_id: int, now: datetime) -> N
     if not bucket:
         raise ValueError("pyramid storage config missing 'bucket'")
     url = f'r2://{bucket}/{key}'
-    write_parquet(shard, url)
+    write_parquet(shard, url, row_group_size=row_group_size_for_bin(raw_tier.bin))
     print(f'Wrote pyrmts raw shard: {url} ({len(shard)} rows)')
 
 

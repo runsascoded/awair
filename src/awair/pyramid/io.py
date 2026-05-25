@@ -36,16 +36,26 @@ def read_parquet(url: str) -> pd.DataFrame:
     return pd.read_parquet(url)
 
 
-def write_parquet(df: pd.DataFrame, url: str) -> None:
+def write_parquet(df: pd.DataFrame, url: str, row_group_size: int | None = None) -> None:
+    """Write a DataFrame to parquet. Pass `row_group_size` to control RG count.
+
+    pyrmts' row-group filtering (in `fetchShardData`) prunes RGs whose
+    `binCol` min/max stats miss the query range, so smaller RGs = finer
+    pruning. For typical chart queries on awair raw shards, ~1 day of data
+    per RG is a good balance (see `awair.pyramid.builder.row_group_size_for_bin`).
+    """
     table = pa.Table.from_pandas(df, preserve_index=False)
+    kw: dict = {}
+    if row_group_size is not None:
+        kw['row_group_size'] = row_group_size
     if url.startswith('r2://'):
         bucket, key = _split_r2(url)
         buf = BytesIO()
-        pq.write_table(table, buf)
+        pq.write_table(table, buf, **kw)
         buf.seek(0)
         _r2_client().upload_fileobj(buf, bucket, key)
         return
-    pq.write_table(table, url)
+    pq.write_table(table, url, **kw)
 
 
 def head(url: str) -> dict | None:

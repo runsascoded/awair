@@ -15,6 +15,7 @@ from ..pyramid.builder import (
     format_key,
     parse_period,
     repo_pyramid_config,
+    row_group_size_for_bin,
     shards_overlapping,
 )
 from ..pyramid.config import PyramidConfig, Tier
@@ -96,7 +97,7 @@ def build(
         return
 
     _ensure_parent(out_path)
-    write_parquet(shard, out_path)
+    write_parquet(shard, out_path, row_group_size=row_group_size_for_bin(target.bin))
     err(f'  Wrote: {out_path}')
 
 
@@ -227,7 +228,7 @@ def backfill(
                         source = config.previous_tier(tier.name)
                         shard = _build_coarsened(config, tier, source, dev_id, period, start, end, out_base)
                     _ensure_parent(out_path)
-                    write_parquet(shard, out_path)
+                    write_parquet(shard, out_path, row_group_size=row_group_size_for_bin(tier.bin))
                     err(f'    Wrote {len(shard):,} rows')
                     total_built += 1
                 except Exception as e:
