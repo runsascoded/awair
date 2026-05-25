@@ -92,12 +92,19 @@ export function DevicePoller({
     isLatestMode,
   })
 
-  // Build result with fallback to previous data
+  // Build result with fallback to previous data. Critically, treat an empty
+  // `currentData` array as "no data this fetch" — fall back to previous —
+  // so a temporarily-empty refetch (e.g. range crossing a 404'd shard
+  // boundary) doesn't unmount the chart via `App.tsx`'s
+  // `combinedData.length > 0` gate. Once a non-empty refetch lands,
+  // previousDataRef advances below.
   const currentData = query.data?.records
   const currentSummary = query.data?.summary || null
   const currentLastModified = query.data?.lastModified || null
 
-  const data = currentData || previousDataRef.current?.records || []
+  const data = (currentData && currentData.length > 0)
+    ? currentData
+    : previousDataRef.current?.records || currentData || []
   const summary = currentSummary || previousDataRef.current?.summary || null
   const lastModified = currentLastModified || previousDataRef.current?.lastModified || null
 
