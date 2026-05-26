@@ -12,8 +12,8 @@
     "smoke": "tsx scripts/smoke-test.ts"
   },
   "dependencies": {
-    "pyrmts": "https://github.com/runsascoded/pyrmts#6db65ed7f6d6a3ed392cbbd30677b502d4714c0f&path:/js/packages/pyrmts",
-    "pyrmts-cfw": "https://github.com/runsascoded/pyrmts#6db65ed7f6d6a3ed392cbbd30677b502d4714c0f&path:/js/packages/pyrmts-cfw"
+    "pyrmts": "https://github.com/runsascoded/pyrmts#61f091b67c0162ff7b256ead7bfb48a5944cc3f3&path:/js/packages/pyrmts",
+    "pyrmts-cfw": "https://github.com/runsascoded/pyrmts#61f091b67c0162ff7b256ead7bfb48a5944cc3f3&path:/js/packages/pyrmts-cfw"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240725.0",

@@ -21,6 +21,14 @@ export interface FetchOptions {
   columns?: (keyof AwairRecord)[]
   /** Optional: maximum bins the source should return (pyrmts uses this to pick a tier). */
   binBudget?: number
+  /**
+   * Optional smoothing window. Numeric = minutes (≤1 means "off").
+   * String = pyrmts Duration syntax (`'4h'`, `'30min'`, `'1d'`) or
+   * `'auto'` / `'auto25'` etc. — passed through to the worker which
+   * snaps it to a representable width and returns the chosen value
+   * back on `plan.smoothing.smoothBin`.
+   */
+  smoothing?: number | string
 }
 
 export interface FetchResult {

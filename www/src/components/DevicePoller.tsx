@@ -36,7 +36,7 @@ export interface DeviceDataResult {
 export interface DevicePollerProps {
   deviceId: number
   timeRange: TimeRange
-  lookbackMinutes?: number  // Extra time to fetch before range start (for rolling averages)
+  smoothing?: number | string  // Numeric minutes or pyrmts Duration / 'auto' / 'auto25'
   smartPolling?: boolean
   onResult: (result: DeviceDataResult) => void
 }
@@ -48,7 +48,7 @@ export interface DevicePollerProps {
 export function DevicePoller({
   deviceId,
   timeRange,
-  lookbackMinutes = 0,
+  smoothing,
   smartPolling = true,
   onResult,
 }: DevicePollerProps) {
@@ -65,8 +65,8 @@ export function DevicePoller({
   const binBudget = useMemo(() => computeBinBudget(targetPx), [targetPx])
 
   const query = useQuery({
-    queryKey: ['awair-data', deviceId, encodeTimeRange(timeRange), lookbackMinutes, binBudget],
-    queryFn: () => fetchAwairData(deviceId, timeRange, lookbackMinutes, binBudget),
+    queryKey: ['awair-data', deviceId, encodeTimeRange(timeRange), binBudget, smoothing ?? null],
+    queryFn: () => fetchAwairData(deviceId, timeRange, binBudget, smoothing),
     enabled: deviceId !== undefined,
   })
 
@@ -137,7 +137,9 @@ export function DevicePoller({
     error: query.error ? (query.error as Error).message : null,
   }
 
-  // Report result to parent
+  // Report result to parent. Track `query.dataUpdatedAt` so the effect fires
+  // on every fresh fetch, even when row count + lastModified are unchanged
+  // (e.g. smoothing param changed → same records, new `_smooth_*` columns).
   useEffect(() => {
     onResult(result)
   }, [
@@ -146,6 +148,7 @@ export function DevicePoller({
     data.length,
     summary?.count,
     lastModified?.getTime(),
+    query.dataUpdatedAt,
     query.isFetching,
     query.isLoading,
     query.error,

@@ -141,7 +141,7 @@ function AppContent() {
             key={deviceId}
             deviceId={deviceId}
             timeRange={timeRange}
-            lookbackMinutes={smoothing}
+            smoothing={smoothing}
             smartPolling={smartPolling}
             onResult={handleDeviceResult}
           />
@@ -164,7 +164,7 @@ function AppContent() {
             key={deviceId}
             deviceId={deviceId}
             timeRange={timeRange}
-            lookbackMinutes={smoothing}
+            smoothing={smoothing}
             smartPolling={smartPolling}
             onResult={handleDeviceResult}
           />
@@ -181,7 +181,7 @@ function AppContent() {
           key={deviceId}
           deviceId={deviceId}
           timeRange={timeRange}
-          lookbackMinutes={smoothing}
+          smoothing={smoothing}
           smartPolling={smartPolling}
           onResult={handleDeviceResult}
         />

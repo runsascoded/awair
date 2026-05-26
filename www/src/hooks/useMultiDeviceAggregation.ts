@@ -35,6 +35,31 @@ function detectInputBinMs(records: AwairRecord[]): number | undefined {
 
 const METRICS = ['temp', 'co2', 'humid', 'pm25', 'voc'] as const
 
+/**
+ * If any record has server-side smoothed columns (`<metric>_smooth`), pull them
+ * out into an `AggregatedData[]`. Returns `null` if no smoothed values are
+ * present — caller falls back to pltly's client-side smoothing.
+ *
+ * Pyrmts emits smoothed columns at the same bin grid as the raw output, so
+ * we just transform record-by-record without rebinning.
+ */
+function smoothedFromRecords(records: AwairRecord[]): AggregatedData[] | null {
+  if (records.length === 0) return null
+  if (typeof records[0].temp_smooth !== 'number') return null
+  return records.map(r => {
+    const rec = r as unknown as Record<string, number | undefined>
+    return {
+      timestamp: new Date(r.timestamp),
+      temp_avg:  rec.temp_smooth  ?? null,  temp_stddev:  rec.temp_smooth_stddev  ?? null,
+      co2_avg:   rec.co2_smooth   ?? null,  co2_stddev:   rec.co2_smooth_stddev   ?? null,
+      humid_avg: rec.humid_smooth ?? null,  humid_stddev: rec.humid_smooth_stddev ?? null,
+      pm25_avg:  rec.pm25_smooth  ?? null,  pm25_stddev:  rec.pm25_smooth_stddev  ?? null,
+      voc_avg:   rec.voc_smooth   ?? null,  voc_stddev:   rec.voc_smooth_stddev   ?? null,
+      count: 1,
+    } satisfies AggregatedData
+  })
+}
+
 export interface DeviceAggregatedData {
   deviceId: number
   deviceName: string
@@ -79,6 +104,17 @@ export function useMultiDeviceAggregation(
     }
   }
 
+  // Per-device server-side smoothing (if pyrmts returned `_smooth_*` cols).
+  // Computed up front so pltly can be told to skip client-side smoothing.
+  const serverSmoothedByDevice = new Map<number, AggregatedData[] | null>()
+  for (const r of deviceDataResults) {
+    serverSmoothedByDevice.set(r.deviceId, smoothedFromRecords(r.data))
+  }
+  const hasAnyServerSmoothed = Array.from(serverSmoothedByDevice.values()).some(s => s !== null)
+  const smoothingMs = hasAnyServerSmoothed
+    ? 0  // pyrmts handled smoothing; tell pltly to skip
+    : (smoothingMinutes > 1 ? smoothingMinutes * MS_PER_MIN : 0)
+
   // Use agg-plot's useMultiSeriesAggregation
   const result = useMultiSeriesAggregation({
     series: deviceDataResults.map(r => ({
@@ -92,7 +128,7 @@ export function useMultiDeviceAggregation(
     containerWidth,
     targetPxPerPoint: targetPx ?? (containerWidth / getTargetPoints(containerWidth)),
     fixedWindowSize: effectiveOverrideWindow ? effectiveOverrideWindow.minutes * MS_PER_MIN : undefined,
-    smoothingWindowSize: smoothingMinutes > 1 ? smoothingMinutes * MS_PER_MIN : 0,
+    smoothingWindowSize: smoothingMs,
     xRange,
     gapThreshold: 3,
   })
@@ -101,13 +137,19 @@ export function useMultiDeviceAggregation(
   const isRawData = selectedWindow.minutes === 1
 
   // Convert to awair's DeviceAggregatedData format
-  const deviceAggregations: DeviceAggregatedData[] = result.series.map(s => ({
-    deviceId: s.id as number,
-    deviceName: s.name,
-    aggregatedData: flattenDateAll(s.aggregated, [...METRICS]) as unknown as AggregatedData[],
-    smoothedData: s.smoothed ? flattenDateAll(s.smoothed, [...METRICS]) as unknown as AggregatedData[] : null,
-    isRawData,
-  }))
+  const deviceAggregations: DeviceAggregatedData[] = result.series.map(s => {
+    const serverSmoothed = serverSmoothedByDevice.get(s.id as number) ?? null
+    const pltlySmoothed = s.smoothed
+      ? flattenDateAll(s.smoothed, [...METRICS]) as unknown as AggregatedData[]
+      : null
+    return {
+      deviceId: s.id as number,
+      deviceName: s.name,
+      aggregatedData: flattenDateAll(s.aggregated, [...METRICS]) as unknown as AggregatedData[],
+      smoothedData: serverSmoothed ?? pltlySmoothed,
+      isRawData,
+    }
+  })
 
   return {
     deviceAggregations,

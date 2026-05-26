@@ -84,8 +84,8 @@ export async function fetchDevices(): Promise<Device[]> {
 export async function fetchAwairData(
   deviceId: number | undefined,
   timeRange: { timestamp: Date | null; duration: number },
-  lookbackMinutes: number = 0,
   binBudget?: number,
+  smoothing?: number | string,
 ): Promise<{ records: AwairRecord[]; summary: DataSummary; lastModified?: Date }> {
   if (!deviceId) {
     const devices = await fetchDevices()
@@ -95,15 +95,16 @@ export async function fetchAwairData(
     deviceId = devices[0].deviceId
   }
 
-  // Calculate time range, extending start by lookback for rolling average edge accuracy
+  // Server (pyrmts) handles the smoothing edge-buffer fetch itself, so no
+  // need to extend `from` here anymore.
   const to = timeRange.timestamp || new Date()
-  const lookbackMs = lookbackMinutes * 60 * 1000
-  const from = new Date(to.getTime() - timeRange.duration - lookbackMs)
+  const from = new Date(to.getTime() - timeRange.duration)
 
   const result = await pyrmtsSource.fetch({
     deviceId,
     range: { from, to },
     binBudget,
+    smoothing,
   })
 
   let fileEarliest: string | null = null
