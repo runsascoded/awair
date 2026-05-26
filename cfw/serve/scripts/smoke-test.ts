@@ -82,7 +82,11 @@ async function main(): Promise<void> {
   for (const binBudget of [10, 50, 200, 1000, 50_000]) {
     const plan = planQuery(pyramid, { range, binBudget, filter })
     const shardRows = await Promise.all(
-      plan.segments.map(seg => fetchSegmentRows(pyramid.storage, seg.keys)),
+      plan.segments.map(seg => fetchSegmentRows(pyramid.storage, seg.keys, {
+        binCol: pyramid.binCol,
+        range: { from: seg.from, to: seg.to },
+        tolerate404: true,
+      })),
     )
     const records = stitch({ pyramid, plan, shardRows })
     console.log(

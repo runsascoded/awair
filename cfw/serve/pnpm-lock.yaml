@@ -4,19 +4,16 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  pyrmts: file:../../../pyrmts/js/packages/pyrmts
-
 importers:
 
   .:
     dependencies:
       pyrmts:
-        specifier: file:../../../pyrmts/js/packages/pyrmts
-        version: file:../../../pyrmts/js/packages/pyrmts(react@19.2.6)
+        specifier: https://github.com/runsascoded/pyrmts#6db65ed7f6d6a3ed392cbbd30677b502d4714c0f&path:/js/packages/pyrmts
+        version: https://codeload.github.com/runsascoded/pyrmts/tar.gz/6db65ed7f6d6a3ed392cbbd30677b502d4714c0f#path:/js/packages/pyrmts(react@19.2.6)
       pyrmts-cfw:
-        specifier: file:../../../pyrmts/js/packages/pyrmts-cfw
-        version: file:../../../pyrmts/js/packages/pyrmts-cfw(react@19.2.6)
+        specifier: https://github.com/runsascoded/pyrmts#6db65ed7f6d6a3ed392cbbd30677b502d4714c0f&path:/js/packages/pyrmts-cfw
+        version: https://codeload.github.com/runsascoded/pyrmts/tar.gz/6db65ed7f6d6a3ed392cbbd30677b502d4714c0f#path:/js/packages/pyrmts-cfw(react@19.2.6)
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20240725.0
@@ -24,12 +21,6 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.19
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.15
-      react:
-        specifier: ^19.2.6
-        version: 19.2.6
       tsx:
         specifier: ^4.19.0
         version: 4.22.3
@@ -39,6 +30,38 @@ importers:
       wrangler:
         specifier: ^3.80.0
         version: 3.114.17(@cloudflare/workers-types@4.20260524.1)
+
+  ../../../pyrmts/js/packages/pyrmts:
+    dependencies:
+      hyparquet:
+        specifier: ^1.26.0
+        version: 1.26.0
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.15
+        version: 19.2.15
+      hyparquet-writer:
+        specifier: ^0.15.2
+        version: 0.15.3
+      react:
+        specifier: ^19.2.6
+        version: 19.2.6
+
+  ../../../pyrmts/js/packages/pyrmts-cfw:
+    dependencies:
+      pyrmts:
+        specifier: file:../pyrmts
+        version: link:../pyrmts
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20260524.1
+        version: 4.20260524.1
+      hyparquet-writer:
+        specifier: ^0.15.2
+        version: 0.15.3
 
 packages:
 
@@ -599,6 +622,9 @@ packages:
   glob-to-regexp@0.4.1:
     resolution: {integrity: sha512-lkX1HJXwyMcprw/5YUZc2s7DrpAiHB21/V+E1rHUrVNokkvB6bqMzT0VfV6/86ZNabt1k14YOIaT7nDvOX3Iiw==}
 
+  hyparquet-writer@0.15.3:
+    resolution: {integrity: sha512-c0CrTR+275fBzL7gP1DZ68vRQnfM8a4m7WGJL+P5Jxe/SSsNOLsQ9O1AjML7VANbjL6Wd1flkzk5uj9uDFkTQQ==}
+
   hyparquet@1.26.0:
     resolution: {integrity: sha512-yxUiViPZ+z5h+xdX4rA1G+k30jXoEsG9I2xEpjaM84imGznbKjZzxuZFsdzqg6C4LxNnnAlDFvzpk4uxQWTbTQ==}
 
@@ -634,11 +660,13 @@ packages:
   printable-characters@1.0.42:
     resolution: {integrity: sha512-dKp+C4iXWK4vVYZmYSd0KBH5F/h1HoZRsbJ82AVKRO3PEo8L4lBS/vLwhVtpwwuYcoIsVY+1JYKR268yn480uQ==}
 
-  pyrmts-cfw@file:../../../pyrmts/js/packages/pyrmts-cfw:
-    resolution: {directory: ../../../pyrmts/js/packages/pyrmts-cfw, type: directory}
+  pyrmts-cfw@https://codeload.github.com/runsascoded/pyrmts/tar.gz/6db65ed7f6d6a3ed392cbbd30677b502d4714c0f#path:/js/packages/pyrmts-cfw:
+    resolution: {path: /js/packages/pyrmts-cfw, tarball: https://codeload.github.com/runsascoded/pyrmts/tar.gz/6db65ed7f6d6a3ed392cbbd30677b502d4714c0f}
+    version: 0.0.0
 
-  pyrmts@file:../../../pyrmts/js/packages/pyrmts:
-    resolution: {directory: ../../../pyrmts/js/packages/pyrmts, type: directory}
+  pyrmts@https://codeload.github.com/runsascoded/pyrmts/tar.gz/6db65ed7f6d6a3ed392cbbd30677b502d4714c0f#path:/js/packages/pyrmts:
+    resolution: {path: /js/packages/pyrmts, tarball: https://codeload.github.com/runsascoded/pyrmts/tar.gz/6db65ed7f6d6a3ed392cbbd30677b502d4714c0f}
+    version: 0.0.0
     peerDependencies:
       react: '>=18'
     peerDependenciesMeta:
@@ -1149,6 +1177,10 @@ snapshots:
 
   glob-to-regexp@0.4.1: {}
 
+  hyparquet-writer@0.15.3:
+    dependencies:
+      hyparquet: 1.26.0
+
   hyparquet@1.26.0: {}
 
   is-arrayish@0.3.4:
@@ -1187,13 +1219,13 @@ snapshots:
 
   printable-characters@1.0.42: {}
 
-  pyrmts-cfw@file:../../../pyrmts/js/packages/pyrmts-cfw(react@19.2.6):
+  pyrmts-cfw@https://codeload.github.com/runsascoded/pyrmts/tar.gz/6db65ed7f6d6a3ed392cbbd30677b502d4714c0f#path:/js/packages/pyrmts-cfw(react@19.2.6):
     dependencies:
-      pyrmts: file:../../../pyrmts/js/packages/pyrmts(react@19.2.6)
+      pyrmts: https://codeload.github.com/runsascoded/pyrmts/tar.gz/6db65ed7f6d6a3ed392cbbd30677b502d4714c0f#path:/js/packages/pyrmts(react@19.2.6)
     transitivePeerDependencies:
       - react
 
-  pyrmts@file:../../../pyrmts/js/packages/pyrmts(react@19.2.6):
+  pyrmts@https://codeload.github.com/runsascoded/pyrmts/tar.gz/6db65ed7f6d6a3ed392cbbd30677b502d4714c0f#path:/js/packages/pyrmts(react@19.2.6):
     dependencies:
       hyparquet: 1.26.0
       yaml: 2.9.0
