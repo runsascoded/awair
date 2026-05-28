@@ -180,22 +180,31 @@ def update_s3_data():
 
                 # Snapshot the merged df *before* `storage` flushes on __exit__,
                 # so we can derive the pyrmts raw shard from the same bytes that
-                # land in S3.
-                merged_df = storage.read_data()
+                # land in S3. Only needed when there's new data to write.
+                merged_df = storage.read_data() if inserted > 0 else None
 
-        # atomic_edit __exit__ has uploaded tmp_path → S3 by this point.
-        # Now do the pyrmts piggyback: best-effort R2 write of the raw tier.
-        # Silently skipped if R2 isn't configured (e.g. before R2 creds land
-        # in the Lambda env).
-        if os.environ.get('R2_ENDPOINT_URL'):
-            try:
-                write_pyrmts_raw_shard(merged_df, device_id, now)
-            except Exception as e:
-                print(f'WARN: pyrmts R2 write failed: {e}')
-                import traceback
-                traceback.print_exc()
-        else:
-            print('R2_ENDPOINT_URL unset; skipping pyrmts piggyback')
+            # When no new records came in (sensor offline / API down),
+            # remove the tmp file so `atomic_edit` skips its unconditional
+            # PUT. The monitor uses S3 Last-Modified to detect staleness;
+            # bumping it every Lambda invocation would mask sensor outages.
+            if inserted == 0:
+                print('No new records; skipping S3 + R2 writes')
+                tmp_path.unlink(missing_ok=True)
+
+        # atomic_edit __exit__ has uploaded tmp_path → S3 by this point
+        # (unless it was unlinked above). Pyrmts R2 piggyback follows the
+        # same gate — best-effort write of the raw tier, only when new data
+        # actually arrived.
+        if inserted > 0:
+            if os.environ.get('R2_ENDPOINT_URL'):
+                try:
+                    write_pyrmts_raw_shard(merged_df, device_id, now)
+                except Exception as e:
+                    print(f'WARN: pyrmts R2 write failed: {e}')
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print('R2_ENDPOINT_URL unset; skipping pyrmts piggyback')
 
         return inserted
     finally:
