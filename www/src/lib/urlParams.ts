@@ -475,7 +475,10 @@ export const rangeFloorsParam: Param<RangeFloors> = {
  * Default: 1 (no smoothing / raw data, omitted from URL)
  * Any positive duration is valid (presets are just UI convenience)
  */
-export const SMOOTHING_PRESETS = [1, 5, 10, 15, 30, 60, 120, 240, 360, 720, 1440] as const
+// `0` is the sentinel for "Auto" — pyrmts picks a smoothing window relative
+// to the output bin (~50× by default). `1` means "Off" (no smoothing).
+export const SMOOTHING_AUTO = 0 as const
+export const SMOOTHING_PRESETS = [SMOOTHING_AUTO, 1, 5, 10, 15, 30, 60, 120, 240, 360, 720, 1440] as const
 
 /**
  * Parse duration string to minutes: 1d, 6h, 30m, 1d6h, etc.
@@ -517,9 +520,14 @@ function encodeDurationMinutes(minutes: number): string {
 }
 
 export const smoothingParam: Param<number> = {
-  encode: (value) => value === 1 ? undefined : encodeDurationMinutes(value),
+  encode: (value) => {
+    if (value === 1) return undefined
+    if (value === SMOOTHING_AUTO) return 'auto'
+    return encodeDurationMinutes(value)
+  },
   decode: (encoded) => {
     if (!encoded) return 1
+    if (encoded === 'auto') return SMOOTHING_AUTO
     // Try humanized format first (6h, 1d, etc.)
     const parsed = parseDurationMinutes(encoded)
     if (parsed > 0) return parsed

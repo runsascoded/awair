@@ -12,7 +12,7 @@ import { useMetrics } from '../hooks/useMetrics'
 import { useMobile } from '../hooks/useMobile'
 import { useMultiDeviceAggregation } from '../hooks/useMultiDeviceAggregation'
 import { useTimeRangeParam } from '../hooks/useTimeRangeParam'
-import { deviceRenderStrategyParam, hsvConfigParam, intFromList, rangeFloorsParam, rawOpacityParam, smoothingParam, stddevOpacityParam, xGroupingParam } from '../lib/urlParams'
+import { deviceRenderStrategyParam, hsvConfigParam, intFromList, rangeFloorsParam, rawOpacityParam, SMOOTHING_AUTO, smoothingParam, stddevOpacityParam, xGroupingParam } from '../lib/urlParams'
 import { formatForPlotly } from '../utils/dateFormat'
 import { getDeviceLineProps } from '../utils/deviceRenderStrategy'
 import type { PxOption } from './AggregationControl'
@@ -492,6 +492,8 @@ export const AwairChart = memo(function AwairChart(
   }, [setSmoothing]) })
 
   useAction('smooth:off', { label: 'Smooth: Off', group: 'Smoothing', defaultBindings: ['0 M', 'O'], keywords: ['smooth', 'off', 'none', 'disable'], handler: () => setSmoothing(1) })
+
+  useAction('smooth:auto', { label: 'Smooth: Auto', group: 'Smoothing', defaultBindings: ['M A', 'A M'], keywords: ['smooth', 'auto', 'adaptive'], handler: () => setSmoothing(SMOOTHING_AUTO) })
 
   // Dynamic page title: "Gym BR 🌡️ 💦" format
   useEffect(() => {

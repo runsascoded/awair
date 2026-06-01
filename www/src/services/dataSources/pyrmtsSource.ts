@@ -97,6 +97,7 @@ function encodeSmoothing(s: FetchOptions['smoothing']): string | null {
   if (s === undefined || s === null) return null
   if (typeof s === 'string') return s   // 'auto', 'auto25', '4h', etc — passed through
   if (typeof s === 'number') {
+    if (s === 0) return 'auto'           // sentinel "auto" — worker picks ~50× bin
     if (s <= 1) return null              // sentinel "off"
     return `${s}min`                     // minutes → server's Duration syntax
   }
