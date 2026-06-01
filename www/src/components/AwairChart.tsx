@@ -93,11 +93,14 @@ export const AwairChart = memo(function AwairChart(
 
   // Latest data timestamp per device — surfaced in the devices panel to show
   // how recently each sensor reported (sensors report ~1/min, so ages >>1min
-  // mean a device has dropped offline).
+  // mean a device has dropped offline). pyrmts returns records ascending, so
+  // prefer `summary.latest` (already a max) and fall back to the last array
+  // element to stay robust against ordering changes.
   const deviceLatestTimestamps = useMemo(() => {
     const map = new Map<number, Date | null>()
     for (const r of deviceDataResults) {
-      map.set(r.deviceId, r.data.length > 0 ? new Date(r.data[0].timestamp) : null)
+      const latestStr = r.summary?.latest ?? (r.data.length > 0 ? r.data[r.data.length - 1].timestamp : null)
+      map.set(r.deviceId, latestStr ? new Date(latestStr) : null)
     }
     return map
   }, [deviceDataResults])
