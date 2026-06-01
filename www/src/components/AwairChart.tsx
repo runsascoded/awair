@@ -6,6 +6,7 @@ import { useUrlState } from 'use-prms'
 import { ChartControls, metricConfig, getRangeFloor } from './ChartControls'
 import { CustomLegend } from './CustomLegend'
 import { DataTable } from './DataTable'
+import { ExamplesBar } from './ExamplesBar'
 import { TIME_WINDOWS, getWindowForDuration } from '../hooks/useDataAggregation'
 import { useLatestMode } from '../hooks/useLatestMode'
 import { useMetrics } from '../hooks/useMetrics'
@@ -1184,6 +1185,8 @@ export const AwairChart = memo(function AwairChart(
           containerWidth={viewportWidth}
         />
       )}
+
+      {!isOgMode && <ExamplesBar />}
 
       {!isOgMode && (
         <DataTable
