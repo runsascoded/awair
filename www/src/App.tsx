@@ -119,6 +119,20 @@ function AppContent() {
       combinedSummary = { count, earliest, latest, dateRange }
     }
 
+    // Emit a one-line state snapshot per render. Captured by errorOverlay
+    // (when `?dbg`) so we can diagnose "blank page" cases on mobile —
+    // tells us at a glance whether `combinedData.length === 0` etc.
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('dbg')) {
+      const perDevice = deviceDataResults.map(r =>
+        `${r.deviceId}:${r.data.length}${r.error ? '!' : ''}${r.isInitialLoad ? '⏳' : ''}`,
+      ).join(' ')
+      console.log(
+        `[state] devices=${devices.length} selected=[${selectedDeviceIds.join(',')}] ` +
+          `fetching=[${deviceIdsToFetch.join(',')}] results={${perDevice}} ` +
+          `data=${allData.length} initLoad=${anyInitialLoad} err=${firstError ?? 'null'}`,
+      )
+    }
+
     return {
       combinedData: allData,
       combinedSummary,

@@ -12,6 +12,13 @@ export default defineConfig({
     allowedHosts: ['host.docker.internal', ...allowedHosts],
   },
 
+  // Ship sourcemaps to prod so minified stack frames (especially the lazy
+  // `plotly.js/factory` chunk) map back to real source. ~+15% to bundle
+  // *transfer* (.map files), but only fetched when devtools is open.
+  build: {
+    sourcemap: true,
+  },
+
   resolve: {
     alias: {
       // Use plotly-basic (smaller bundle) from fixed GitHub branch
