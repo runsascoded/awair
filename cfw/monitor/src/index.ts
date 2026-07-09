@@ -31,16 +31,35 @@ interface Env {
 
 const FRESH_THRESHOLD_MIN = 5
 const TIERS_MIN = [5, 15, 60]
-const HOURLY_AFTER_MIN = 60
+
+/**
+ * Cadence between alerts scales up with staleness — a multi-day outage
+ * shouldn't page every hour. Whichever entry has the largest `minTier`
+ * ≤ prevTier wins.
+ */
+const BACKOFF_BANDS: ReadonlyArray<{ minTier: number; cadenceMin: number }> = [
+  { minTier: 60,          cadenceMin: 60 },       // 1h..6h:  +1h
+  { minTier: 6 * 60,      cadenceMin: 2 * 60 },   // 6h..24h: +2h
+  { minTier: 24 * 60,     cadenceMin: 6 * 60 },   // 1d..7d:  +6h
+  { minTier: 7 * 24 * 60, cadenceMin: 24 * 60 },  // 7d+:     +1d
+]
 
 /** Wait this many minutes after UTC month rollover before treating a missing current-month file as "stale" rather than "Lambda hasn't created it yet". */
 const NEW_MONTH_GRACE_MIN = 5
+
+function cadenceForTier(prevTier: number): number {
+  let cadence = BACKOFF_BANDS[0].cadenceMin
+  for (const b of BACKOFF_BANDS) {
+    if (prevTier >= b.minTier) cadence = b.cadenceMin
+  }
+  return cadence
+}
 
 function nextTier(prevTier: number): number {
   for (const t of TIERS_MIN) {
     if (prevTier < t) return t
   }
-  return prevTier + HOURLY_AFTER_MIN
+  return prevTier + cadenceForTier(prevTier)
 }
 
 function currentUTCMonth(now: Date): string {

@@ -8,7 +8,7 @@ Every minute, for each of the 4 devices (Gym/BR/Desk/RT):
 
 1. HEAD `s3://380nwk/awair-{id}/{YYYY-MM}.parquet` (current UTC month, falls back to previous month if 404).
 2. Compute `staleMin = (now - Last-Modified) / 60s`.
-3. Alert at tier crossings: **5 min**, **15 min**, **60 min**, then every additional **60 min**.
+3. Alert at tier crossings: **5 min**, **15 min**, **60 min**, then exp-backoff — **+1h** up to 6h stale, **+2h** up to 24h, **+6h** up to 7d, **+1d** beyond.
 4. State per device kept in KV so we don't re-alert at the same tier.
 5. When a previously-alerted device returns to <5 min stale, send one `✅ recovered after Xh Ym` Pushover.
 
