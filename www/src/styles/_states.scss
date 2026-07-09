@@ -55,3 +55,58 @@
     transform: rotate(360deg);
   }
 }
+
+.empty-state {
+  max-width: 42rem;
+  margin: 3rem auto;
+  padding: 1.5rem 2rem;
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+
+  h1 {
+    font-size: 1.25rem;
+    margin: 0 0 0.75rem;
+  }
+
+  p, ul {
+    margin: 0.5rem 0;
+    line-height: 1.5;
+  }
+
+  ul {
+    padding-left: 1.5rem;
+  }
+
+  a {
+    color: var(--accent-primary);
+  }
+
+  code {
+    background: var(--bg-tertiary, rgba(127, 127, 127, 0.15));
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  details {
+    margin-top: 1rem;
+
+    summary {
+      cursor: pointer;
+      color: var(--text-secondary, currentColor);
+      opacity: 0.75;
+    }
+
+    pre {
+      margin-top: 0.5rem;
+      padding: 0.75rem;
+      background: var(--bg-tertiary, rgba(127, 127, 127, 0.15));
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+  }
+}

@@ -140,10 +140,13 @@ export class PyrmtsSource implements DataSource {
     const smoothInfo = body.plan.smoothing
       ? ` smooth=${body.plan.smoothing.smoothBin}(${body.plan.smoothing.smoothBinCount}×${body.plan.outputBin}, ${body.plan.smoothing.smoothMode})`
       : ''
-    console.log(
-      `[${opts.deviceId}] pyrmts: tier=${body.plan.outputTier} bin=${body.plan.outputBin}${smoothInfo} ` +
-        `records=${records.length} bytes=${bytesTransferred} segments=${body.plan.segments.map(s => `${s.tier}[${s.keys.length}]`).join(',')}`,
-    )
+    const line = `[${opts.deviceId}] pyrmts: tier=${body.plan.outputTier} bin=${body.plan.outputBin}${smoothInfo} ` +
+      `records=${records.length} bytes=${bytesTransferred} segments=${body.plan.segments.map(s => `${s.tier}[${s.keys.length}]`).join(',')}`
+    // `records=0` from a successful fetch means the tier shard is empty/missing
+    // for the requested range — surface as a warning so it stands out in the
+    // console. This is the signature of a stale pyrmts upper-tier backfill.
+    if (records.length === 0) console.warn(line + ' ⚠️ empty shard')
+    else console.log(line)
 
     const lastModified = body.plan.authoritativeEnd
       ? new Date(body.plan.authoritativeEnd)

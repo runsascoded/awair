@@ -187,6 +187,18 @@ function AppContent() {
     )
   }
 
+  // Fetch returned but yielded no rows for the current selection. Most common
+  // cause is a stale/missing pyrmts upper-tier shard for a device — the shard
+  // exists but is empty at the requested tier (see `pyrmtsSource.ts` warn).
+  // Show a clear panel with quick-links to try different params, so the page
+  // is never silently blank.
+  const showEmptyState =
+    !isInitialLoad &&
+    !error &&
+    combinedData.length === 0 &&
+    deviceIdsToFetch.length > 0 &&
+    deviceDataResults.some(r => r.summary !== null || r.data !== undefined)
+
   return (
     <div className="app">
       {/* Headless device pollers - one per selected device */}
@@ -205,6 +217,42 @@ function AppContent() {
         {isInitialLoad && combinedData.length > 0 && (
           <div className="loading-overlay">
             <div className="spinner" />
+          </div>
+        )}
+        {showEmptyState && (
+          <div className="empty-state">
+            <h1>No data for current selection</h1>
+            <p>
+              The server returned <strong>0 records</strong> for the requested
+              tier &times; time range &times; device(s). This usually means a
+              pyrmts upper-tier shard is stale — check the console for the
+              <code>⚠️ empty shard</code> warning to see which tier.
+            </p>
+            <p>Quick fixes to try:</p>
+            <ul>
+              <li>
+                Widen the viewport (or close DevTools) — a wider window picks a
+                finer tier, and <code>raw</code> is usually populated even when
+                aggregates aren't.
+              </li>
+              <li>
+                <a href="?t=-7d">Try a 7d range</a> (older data may cross a
+                working shard boundary).
+              </li>
+              <li>
+                <a href="?d=+desk+br+rt">Add other devices</a> to the selection.
+              </li>
+            </ul>
+            <details>
+              <summary>Diagnostics</summary>
+              <pre>
+{`viewport=${typeof window !== 'undefined' ? window.innerWidth : '?'}
+devices=${deviceIdsToFetch.join(',')}
+range=${timeRange.timestamp ?? 'latest'}/${timeRange.duration}ms
+smoothing=${smoothing}
+per-device=${deviceDataResults.map(r => `${r.deviceId}:${r.data.length}rows`).join(' ')}`}
+              </pre>
+            </details>
           </div>
         )}
         {combinedData.length > 0 && (
