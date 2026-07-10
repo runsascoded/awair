@@ -20,7 +20,9 @@ interface Env {
   DB: D1Database
   DEVICES_URL: string
   TOTAL_BUDGET_MS: string
-  PYRAMID_NAME?: string
+  // Prefix for per-device pyramid names (`${prefix}-{device_id}`). Prod
+  // defaults to `awair`; the `dev` wrangler env overrides to `awair-dev`.
+  PYRAMID_NAME?: string  // read as pyramidNamePrefix
   MANUAL_KEY?: string
 }
 
@@ -45,7 +47,7 @@ async function runConverge(env: Env, url: URL): Promise<ConvergeAllReport> {
     { R2: env.R2, DB: env.DB },
     {
       totalBudgetMs: parseBudget(env),
-      pyramidName: env.PYRAMID_NAME,
+      pyramidNamePrefix: env.PYRAMID_NAME,
       deviceIds: deviceIds && deviceIds.length > 0 ? deviceIds : undefined,
       tiers: tiers && tiers.length > 0 ? tiers : undefined,
       dryRun,
@@ -58,7 +60,7 @@ export default {
     ctx.waitUntil(
       convergeAll(
         { R2: env.R2, DB: env.DB },
-        { totalBudgetMs: parseBudget(env), pyramidName: env.PYRAMID_NAME },
+        { totalBudgetMs: parseBudget(env), pyramidNamePrefix: env.PYRAMID_NAME },
       )
         .then(r => {
           // Log summary; per-device details are noise on quiet ticks.

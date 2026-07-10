@@ -23,7 +23,7 @@ bucket_name = "awair"
 binding = "DB"
 database_name = "awair-cascade"
 # `database_id` populated after `wrangler d1 create` — see cfw/cascade/DEPLOY.md.
-database_id = "REPLACE_ME_WITH_WRANGLER_D1_CREATE_OUTPUT"
+database_id = "2a8ff541-9898-48a9-8a7d-17ae7c310986"
 migrations_dir = "migrations"
 
 [vars]
@@ -51,7 +51,7 @@ bucket_name = "awair"
 [[env.dev.d1_databases]]
 binding = "DB"
 database_name = "awair-cascade"
-database_id = "REPLACE_ME_WITH_WRANGLER_D1_CREATE_OUTPUT"
+database_id = "2a8ff541-9898-48a9-8a7d-17ae7c310986"
 migrations_dir = "migrations"
 
 [env.dev.vars]

@@ -13,13 +13,15 @@ import {
 } from 'pyrmts'
 import { D1ShardIndex } from 'pyrmts-cfw'
 import { DEVICES, type Device } from './devices'
-import { DEFAULT_PYRAMID_NAME, makePyramid, PYRAMID_CONFIG, RAW_TIER, TIER_ORDER } from './pyramid'
+import { DEFAULT_PYRAMID_NAME_PREFIX, makePyramid, PYRAMID_CONFIG, pyramidNameFor, RAW_TIER, TIER_ORDER } from './pyramid'
 import { writeShard, type WriteResult } from './write'
 
 export interface ConvergeAllOpts {
   now?: Date
   totalBudgetMs?: number
-  pyramidName?: string
+  // Per-tenant pyramid names are `${pyramidNamePrefix}-{device_id}`. See
+  // `pyramid.ts` for why we tenant-separate at this granularity.
+  pyramidNamePrefix?: string
   // Optional filters (mainly for `/converge?...` manual invocations).
   deviceIds?: number[]
   tiers?: string[]
@@ -39,7 +41,7 @@ export interface PerDeviceReport {
 
 export interface ConvergeAllReport {
   now: string
-  pyramidName: string
+  pyramidNamePrefix: string
   totalBudgetMs: number
   elapsedMs: number
   perDevice: PerDeviceReport[]
@@ -71,7 +73,7 @@ async function convergeOne(
   device: Device,
   now: Date,
   opts: {
-    pyramidName: string
+    pyramidNamePrefix: string
     remainingBudgetMs: number
     tierFilter: Set<string> | null
     dryRun: boolean
@@ -80,6 +82,7 @@ async function convergeOne(
   const started = Date.now()
   const pyramid = makePyramid(env.R2)
   const shardIndex = new D1ShardIndex(env.DB)
+  const pyramidName = pyramidNameFor(device.id, opts.pyramidNamePrefix)
 
   // Range = [device.genesis, now]. pyrmts clips shards to
   // `effective{Start,End}` around this — pre-genesis periods are pruned,
@@ -87,7 +90,7 @@ async function convergeOne(
   const range = { from: device.genesisDate, to: now }
   const filter = { device_id: device.id }
 
-  let missing = await listMissingShards(pyramid, opts.pyramidName, shardIndex, range, filter)
+  let missing = await listMissingShards(pyramid, pyramidName, shardIndex, range, filter)
 
   // Cascade never writes raw — filter it out entirely.
   missing = missing.filter(m => m.tier !== RAW_TIER)
@@ -124,7 +127,7 @@ async function convergeOne(
         r.inputsExpected !== undefined &&
         r.inputsPresent === r.inputsExpected) {
       await shardIndex.recordShard({
-        pyramidName: opts.pyramidName,
+        pyramidName,
         tier: m.tier,
         shardDur: m.shardDur,
         periodStart: m.periodStart,
@@ -148,7 +151,7 @@ export async function convergeAll(
 ): Promise<ConvergeAllReport> {
   const now = opts.now ?? new Date()
   const totalBudgetMs = opts.totalBudgetMs ?? 25_000
-  const pyramidName = opts.pyramidName ?? DEFAULT_PYRAMID_NAME
+  const pyramidNamePrefix = opts.pyramidNamePrefix ?? DEFAULT_PYRAMID_NAME_PREFIX
   const deviceIdsFilter = opts.deviceIds ? new Set(opts.deviceIds) : null
   const tierFilter = opts.tiers ? new Set(opts.tiers) : null
   const dryRun = opts.dryRun ?? false
@@ -167,7 +170,7 @@ export async function convergeAll(
     }
     try {
       const r = await convergeOne(env, device, now, {
-        pyramidName, remainingBudgetMs, tierFilter, dryRun,
+        pyramidNamePrefix, remainingBudgetMs, tierFilter, dryRun,
       })
       perDevice.push({ deviceId: device.id, name: device.name, status: 'ok', ...r })
     } catch (e) {
@@ -182,7 +185,7 @@ export async function convergeAll(
 
   return {
     now: now.toISOString(),
-    pyramidName,
+    pyramidNamePrefix,
     totalBudgetMs,
     elapsedMs: Date.now() - started,
     perDevice,
