@@ -1,0 +1,26 @@
+{
+  "name": "awair-cascade",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker maintaining awair pyrmts tier shards via converge() self-heal.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "typecheck": "tsc --noEmit",
+    "d1:apply": "wrangler d1 migrations apply awair-cascade",
+    "d1:apply:remote": "wrangler d1 migrations apply awair-cascade --remote"
+  },
+  "dependencies": {
+    "hyparquet": "^1.25.6",
+    "hyparquet-writer": "^0.13.0",
+    "pyrmts": "https://github.com/runsascoded/pyrmts#f96532b&path:/js/packages/pyrmts",
+    "pyrmts-cfw": "https://github.com/runsascoded/pyrmts#f96532b&path:/js/packages/pyrmts-cfw"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240725.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^3.80.0"
+  }
+}

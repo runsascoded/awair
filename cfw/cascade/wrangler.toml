@@ -1,0 +1,63 @@
+name = "awair-cascade"
+main = "src/index.ts"
+compatibility_date = "2026-07-09"
+compatibility_flags = ["nodejs_compat"]
+
+# Bundle the shared pyramid YAML at the repo root as raw text.
+rules = [
+  { type = "Text", globs = ["**/*.yml"], fallthrough = true },
+]
+
+# Cascade tick every minute. Each tick calls `convergeAll` with a 25s
+# budget; whatever's still missing rolls to the next tick.
+[triggers]
+crons = ["* * * * *"]
+
+[[r2_buckets]]
+binding = "PYRAMID"
+bucket_name = "awair"
+
+# D1 backs the `ShardIndex` (which shards have we already written?) and
+# will also hold the `devices` table in Phase 1b.
+[[d1_databases]]
+binding = "DB"
+database_name = "awair-cascade"
+# `database_id` populated after `wrangler d1 create` — see cfw/cascade/DEPLOY.md.
+database_id = "REPLACE_ME_WITH_WRANGLER_D1_CREATE_OUTPUT"
+migrations_dir = "migrations"
+
+[vars]
+# Where to read the device list from during Phase 1a. Switches to D1 in Phase 1b.
+DEVICES_URL = "https://380nwk.s3.amazonaws.com/devices.parquet"
+# Total per-tick wall-clock budget. Bundled paid CFW allows 30s CPU / no
+# strict wall-clock cap, but keep well under so we don't tail off cron ticks.
+TOTAL_BUDGET_MS = "25000"
+
+[observability]
+enabled = true
+
+# ─── Dev environment ───────────────────────────────────────────────────
+# Sibling worker `awair-cascade-dev` for iterating without touching prod
+# cron. Same R2 + D1 bindings (uses a different `pyramidName` in D1 so
+# prod's watermark grid is untouched). Cron disabled; trigger via
+# `wrangler dev --remote --test-scheduled` or `curl /converge?...`.
+[env.dev]
+name = "awair-cascade-dev"
+
+[[env.dev.r2_buckets]]
+binding = "PYRAMID"
+bucket_name = "awair"
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "awair-cascade"
+database_id = "REPLACE_ME_WITH_WRANGLER_D1_CREATE_OUTPUT"
+migrations_dir = "migrations"
+
+[env.dev.vars]
+DEVICES_URL = "https://380nwk.s3.amazonaws.com/devices.parquet"
+TOTAL_BUDGET_MS = "25000"
+PYRAMID_NAME = "awair-dev"
+
+[env.dev.triggers]
+crons = []
