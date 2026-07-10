@@ -225,8 +225,11 @@ def get_devices(force_refresh: bool = False):
     s3_root = get_s3_root()
     df['dataPath'] = df['deviceId'].apply(lambda did: f'{s3_root}/awair-{did}.parquet')
 
-    # Save to S3 Parquet
-    df.to_parquet(devices_path, index=False)
+    # Save to S3 Parquet (best-effort: read-only compute nodes lack write creds)
+    try:
+        df.to_parquet(devices_path, index=False)
+    except Exception as e:
+        err(f'Warning: failed to update devices cache at {devices_path}: {e}')
 
     return devices
 
