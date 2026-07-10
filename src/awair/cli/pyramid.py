@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+from datetime import datetime
 from pathlib import Path
 from sys import stderr
 from typing import Optional
@@ -238,6 +240,159 @@ def backfill(
     err(f'\nDone: built={total_built} skipped={total_skipped} failed={total_failed}')
     if total_failed > 0:
         raise SystemExit(1)
+
+
+@pyramid.command('seed-index')
+@option('-c', '--config', 'config_path', type=str, default=None, help="Pyramid YAML config (default: ./pyramid.yml at repo root)")
+@option('-n', '--pyramid-name', 'pyramid_name', type=str, default='awair', help='Pyramid name to record under (default: awair)')
+@option('-o', '--out', 'out_path', type=str, default='-', help="Output SQL file ('-' for stdout, default)")
+@option('-b', '--bucket', type=str, default='awair', help='R2 bucket to enumerate (default: awair)')
+@option('-p', '--prefix', type=str, default='pyramid/', help="Key prefix to walk (default: 'pyramid/')")
+def seed_index(
+    config_path: Optional[str],
+    pyramid_name: str,
+    out_path: str,
+    bucket: str,
+    prefix: str,
+):
+    """Walk R2 pyramid shards and emit D1 seed SQL for `pyramid_shards` +
+    `pyramid_watermarks`.
+
+    Meant as a one-time post-backfill bootstrap for `cfw/cascade`'s
+    `D1ShardIndex`. Statements are idempotent (upsert `ON CONFLICT`),
+    so re-running is safe.
+
+    Emit + apply:
+
+        awair pyramid seed-index -o /tmp/seed.sql
+        cd cfw/cascade && pnpm wrangler d1 execute awair-cascade --remote --file /tmp/seed.sql
+    """
+    from ..pyramid.io import _r2_client  # type: ignore[attr-defined]
+
+    config = repo_pyramid_config() if config_path is None else _load_external(config_path)
+    tier_by_name = {t.name: t for t in config.tiers}
+
+    r2 = _r2_client()
+    paginator = r2.get_paginator('list_objects_v2')
+    entries: list[tuple[str, str, str, datetime, datetime, str, datetime]] = []
+    #                  ^pyramid ^tier ^shard   ^p_start  ^p_end   ^key  ^written_at
+
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get('Contents', []):
+            key = obj['Key']
+            if not key.endswith('.parquet'):
+                continue
+            parsed = _parse_pyramid_key(key, prefix=prefix)
+            if parsed is None:
+                err(f'  SKIP unrecognized key: {key}')
+                continue
+            device_id, tier_name, period = parsed
+            tier = tier_by_name.get(tier_name)
+            if tier is None:
+                err(f'  SKIP unknown tier {tier_name!r} in key: {key}')
+                continue
+            try:
+                p_start, p_end = parse_period(period, tier.shard)
+            except ValueError as e:
+                err(f'  SKIP unparseable period in {key}: {e}')
+                continue
+            written_at = obj['LastModified']
+            entries.append((pyramid_name, tier_name, tier.shard, p_start, p_end, key, written_at))
+
+    if not entries:
+        err(f'No pyramid shards found under r2://{bucket}/{prefix}')
+        return
+
+    err(f'Emitting seed SQL for {len(entries)} shard(s) → {out_path}')
+    stream = sys.stdout if out_path == '-' else open(out_path, 'w')
+    try:
+        stream.write(_seed_sql_header(pyramid_name))
+        # `pyramid_shards`: upsert one row per shard.
+        for e in entries:
+            stream.write(_shards_insert_sql(*e))
+        # `pyramid_watermarks`: one row per (pyramid, tier, shard_dur). Take
+        # max(period_end) across shards.
+        watermarks: dict[tuple[str, str, str], tuple[int, int]] = {}
+        for pyr, tier_name, shard, _p_start, p_end, _key, written_at in entries:
+            wm_key = (pyr, tier_name, shard)
+            end_ms = int(p_end.timestamp() * 1000)
+            written_ms = int(written_at.timestamp() * 1000)
+            prev = watermarks.get(wm_key)
+            if prev is None or end_ms > prev[0]:
+                watermarks[wm_key] = (end_ms, written_ms)
+        for (pyr, tier_name, shard), (end_ms, updated_ms) in watermarks.items():
+            stream.write(_watermarks_insert_sql(pyr, tier_name, shard, end_ms, updated_ms))
+        err(f'Wrote {len(entries)} shard row(s) + {len(watermarks)} watermark row(s).')
+    finally:
+        if stream is not sys.stdout:
+            stream.close()
+
+
+def _parse_pyramid_key(key: str, *, prefix: str) -> Optional[tuple[int, str, str]]:
+    """Parse `{prefix}awair-{id}/{tier}/{period}.parquet` → (id, tier, period).
+
+    Returns None if the key doesn't match the expected shape.
+    """
+    if not key.startswith(prefix):
+        return None
+    rest = key[len(prefix):]
+    parts = rest.split('/')
+    if len(parts) != 3:
+        return None
+    device_dir, tier, period_pq = parts
+    if not device_dir.startswith('awair-'):
+        return None
+    try:
+        device_id = int(device_dir[len('awair-'):])
+    except ValueError:
+        return None
+    if not period_pq.endswith('.parquet'):
+        return None
+    period = period_pq[:-len('.parquet')]
+    return device_id, tier, period
+
+
+def _seed_sql_header(pyramid_name: str) -> str:
+    return (
+        f"-- Seed D1 `pyramid_shards` + `pyramid_watermarks` for pyramid={pyramid_name!r}.\n"
+        f"-- Generated by `awair pyramid seed-index`. Statements are idempotent.\n"
+        f"-- Apply: cd cfw/cascade && pnpm wrangler d1 execute awair-cascade --remote --file <this-file>\n\n"
+    )
+
+
+def _shards_insert_sql(
+    pyramid_name: str, tier: str, shard_dur: str,
+    p_start: datetime, p_end: datetime, key: str, written_at: datetime,
+) -> str:
+    return (
+        'INSERT INTO "pyramid_shards" '
+        '(pyramid, tier, shard_dur, period_start, period_end, key, written_at) '
+        f"VALUES ('{_sql_str(pyramid_name)}', '{_sql_str(tier)}', '{_sql_str(shard_dur)}', "
+        f"{int(p_start.timestamp() * 1000)}, {int(p_end.timestamp() * 1000)}, "
+        f"'{_sql_str(key)}', {int(written_at.timestamp() * 1000)}) "
+        'ON CONFLICT(pyramid, tier, shard_dur, period_start) DO UPDATE SET '
+        'period_end = excluded.period_end, key = excluded.key, '
+        'written_at = excluded.written_at;\n'
+    )
+
+
+def _watermarks_insert_sql(
+    pyramid_name: str, tier: str, shard_dur: str,
+    latest_period_end_ms: int, updated_at_ms: int,
+) -> str:
+    return (
+        'INSERT INTO "pyramid_watermarks" '
+        '(pyramid, tier, shard_dur, latest_period_end, updated_at) '
+        f"VALUES ('{_sql_str(pyramid_name)}', '{_sql_str(tier)}', '{_sql_str(shard_dur)}', "
+        f"{latest_period_end_ms}, {updated_at_ms}) "
+        'ON CONFLICT(pyramid, tier, shard_dur) DO UPDATE SET '
+        'latest_period_end = MAX(excluded.latest_period_end, "pyramid_watermarks".latest_period_end), '
+        'updated_at = excluded.updated_at;\n'
+    )
+
+
+def _sql_str(s: str) -> str:
+    return s.replace("'", "''")
 
 
 def _resolve_devices(filter_: Optional[str]) -> list[tuple[str, int]]:
