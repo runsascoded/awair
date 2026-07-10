@@ -1,0 +1,5 @@
+# SPA fallback: any unmatched path renders `index.html` with a 200 (edge
+# rewrite, no redirect hop, no `Location:` header). Client-side JS reads
+# `location.pathname` to route between the chart (`/`) and the health
+# dashboard (`/health`).
+/*  /index.html  200

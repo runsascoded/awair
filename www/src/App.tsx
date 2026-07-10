@@ -23,13 +23,16 @@ const GROUP_RENDERERS = {
   'Table Navigation': TableNavigationRenderer,
 }
 
-// Top-level dispatcher: `?health` renders the diagnostic dashboard,
+// Top-level dispatcher: `/health` renders the diagnostic dashboard,
 // everything else falls through to the chart app. Splitting the two
 // keeps hook counts stable per instance (rules of hooks — the chart
 // branch calls many more hooks than the health branch does).
+//
+// Path-based routing (not query-key) so the URL is `/health` rather
+// than `/?health`. CF Pages rewrites `/*` → `/index.html` with a 200
+// (see `www/public/_redirects`); no redirect hop, no extra RTT.
 function AppContent() {
-  const [isHealthMode] = useUrlState('health', boolParam)
-  if (isHealthMode) {
+  if (typeof window !== 'undefined' && window.location.pathname === '/health') {
     return (
       <div className="app">
         <HealthPage />
