@@ -24,6 +24,15 @@ import pyramidYamlText from '../../../src/awair/pyramid.yml'
 
 interface Env {
   PYRAMID: R2Bucket
+  DB: D1Database
+}
+
+interface DeviceRow {
+  device_id: number
+  name: string
+  device_type: string
+  genesis_ts: number
+  active: number
 }
 
 // Parse the YAML once at module load — the config is immutable per deploy.
@@ -39,6 +48,33 @@ export default {
 
     if (url.pathname === '/health') {
       return new Response('ok\n', { status: 200, headers: corsHeaders(request) })
+    }
+
+    if (url.pathname === '/devices') {
+      // FE calls this instead of fetching `s3://380nwk/devices.parquet`
+      // — same table `cfw/cascade` reads for its converge loop, so
+      // there's a single source of truth for both.
+      try {
+        const { results } = await env.DB.prepare(
+          'SELECT device_id, name, device_type, genesis_ts, active ' +
+          'FROM devices WHERE active = 1 ORDER BY device_id',
+        ).all<DeviceRow>()
+        // Map to a stable JSON shape (camelCase, ISO genesis) so the FE
+        // isn't coupled to D1 column names.
+        const body = results.map(r => ({
+          deviceId: r.device_id,
+          name: r.name,
+          deviceType: r.device_type,
+          genesisTs: r.genesis_ts,
+          active: r.active === 1,
+        }))
+        return new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { ...corsHeaders(request), 'content-type': 'application/json' },
+        })
+      } catch (e) {
+        return new Response(`devices: ${(e as Error).message}\n`, { status: 500, headers: corsHeaders(request) })
+      }
     }
 
     if (url.pathname === '/q') {

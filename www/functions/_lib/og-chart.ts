@@ -446,17 +446,17 @@ export interface ChartOverlay {
 export function buildChartOverlay(input: ChartSvgInput): ChartOverlay {
   const leftTicks: TickOverlay[] = input.leftBounds
     ? input.leftBounds.ticks.map(v => ({
-        value: v,
-        label: fmtTick(v, input.leftMetric),
-        frac: 1 - (v - input.leftBounds!.min) / (input.leftBounds!.max - input.leftBounds!.min),
-      }))
+      value: v,
+      label: fmtTick(v, input.leftMetric),
+      frac: 1 - (v - input.leftBounds!.min) / (input.leftBounds!.max - input.leftBounds!.min),
+    }))
     : []
   const rightTicks: TickOverlay[] = input.rightBounds && input.rightMetric
     ? input.rightBounds.ticks.map(v => ({
-        value: v,
-        label: fmtTick(v, input.rightMetric!),
-        frac: 1 - (v - input.rightBounds!.min) / (input.rightBounds!.max - input.rightBounds!.min),
-      }))
+      value: v,
+      label: fmtTick(v, input.rightMetric!),
+      frac: 1 - (v - input.rightBounds!.min) / (input.rightBounds!.max - input.rightBounds!.min),
+    }))
     : []
   const tSpan = input.range.to.getTime() - input.range.from.getTime()
   const timeTicks: TimeTickOverlay[] = niceTimeTicks(input.range, 6).map(d => ({
@@ -652,7 +652,6 @@ function fmtTimeLabel(d: Date, range: ResolvedRange): string {
   const mm = String(d.getUTCMinutes()).padStart(2, '0')
   return `${hh}:${mm}`
 }
-
 
 function wrap(W: number, H: number, body: string): string {
   const svg =

@@ -12,5 +12,13 @@ rules = [
 binding = "PYRAMID"
 bucket_name = "awair"
 
+# Shared with `cfw/cascade` — the `devices` table is the FE's source of
+# truth for the device list, and `pyramid_watermarks` / `pyramid_shards`
+# will back the `/health` snapshot in Phase 2.
+[[d1_databases]]
+binding = "DB"
+database_name = "awair-cascade"
+database_id = "2a8ff541-9898-48a9-8a7d-17ae7c310986"
+
 [observability]
 enabled = true

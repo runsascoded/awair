@@ -1,4 +1,3 @@
-import { parquetRead } from 'hyparquet'
 import { PyrmtsSource } from './dataSources/pyrmtsSource'
 import { splitDate } from "../utils/dateFormat"
 import type { AwairRecord, DataSummary } from '../types/awair'
@@ -7,77 +6,50 @@ export interface Device {
   name: string
   deviceId: number
   deviceType: string
-  dataPath?: string
   active?: boolean
-  lastUpdated?: string
+  // Milliseconds since epoch — first-of-month UTC of the device's
+  // earliest raw shard. Emitted by `cfw/serve /devices` (Phase 1b).
+  genesisTs?: number
 }
 
-// Parquet row tuple types (match column order in files)
-// devices.parquet: name, deviceId, deviceType, deviceUUID, lat, lon, preference, locationName, roomType, spaceType, macAddress, timezone, lastUpdated, active, dataPath
-type DeviceRow = [string, bigint, string, string, bigint, bigint, string, string, string, string, string, string, string, boolean, string]
+/** `cfw/serve` endpoint that reads the D1 `devices` table (Phase 1b).
+ *  Replaces the previous `s3://380nwk/devices.parquet` fetch. */
+const PYRMTS_ORIGIN = 'https://awair-serve.ryan-0dc.workers.dev'
 
 const pyrmtsSource = new PyrmtsSource()
 
-/**
- * S3 root for the devices registry. Per-device time-series data lives in R2
- * now (served via the pyrmts CFW worker); only `devices.parquet` is still
- * read from S3 directly because it's tiny and infrequently changed.
- */
-const S3_ROOT = 'https://380nwk.s3.amazonaws.com'
-
-export function getDevicesUrl(): string {
-  return `${S3_ROOT}/devices.parquet`
+interface DeviceResponse {
+  deviceId: number
+  name: string
+  deviceType: string
+  genesisTs: number
+  active: boolean
 }
 
 export async function fetchDevices(): Promise<Device[]> {
+  const url = `${PYRMTS_ORIGIN}/devices`
+  console.log('🔄 Fetching devices list from /devices…')
   try {
-    const url = getDevicesUrl()
-    console.log('🔄 Fetching devices list from S3...')
-    // Use no-cache to bypass browser HTTP cache - ensures fresh data when React Query refetches
     const response = await fetch(url, { cache: 'no-cache' })
     if (!response.ok) {
       throw new Error(`Failed to fetch devices: ${response.status}`)
     }
-
-    const arrayBuffer = await response.arrayBuffer()
-
-    let rows: DeviceRow[] = []
-    await parquetRead({
-      file: arrayBuffer,
-      onComplete: (data) => {
-        if (Array.isArray(data)) {
-          rows = data as DeviceRow[]
-        }
-      }
-    })
-
-    if (rows.length === 0) {
-      throw new Error('No devices found in Parquet file')
-    }
-
-    // Convert tuple rows to typed records
-    // Note: deviceId is BigInt from parquet, convert to Number for JS compatibility
-    const devices: Device[] = rows.map((row) => ({
-      name: row[0],
-      deviceId: Number(row[1]),
-      deviceType: row[2],
-      // Skip deviceUUID, lat, lon, preference, locationName, roomType, spaceType, macAddress, timezone (indices 3-11)
-      lastUpdated: row[12],
-      active: row[13],
-      dataPath: row[14],
-    }))
-
-    // Filter to active devices only
-    const activeDevices = devices.filter(d => d.active !== false)
-
-    // Sort devices by ID (ascending) - gym (17617) is lowest ID and will be first
-    activeDevices.sort((a, b) => a.deviceId - b.deviceId)
-
-    console.log(`📋 Loaded ${activeDevices.length} active devices`)
-    return activeDevices
+    const rows = (await response.json()) as DeviceResponse[]
+    const devices: Device[] = rows
+      .map(r => ({
+        name: r.name,
+        deviceId: r.deviceId,
+        deviceType: r.deviceType,
+        genesisTs: r.genesisTs,
+        active: r.active,
+      }))
+      .filter(d => d.active !== false)
+      .sort((a, b) => a.deviceId - b.deviceId)
+    console.log(`📋 Loaded ${devices.length} active devices`)
+    return devices
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    throw new Error(`Failed to fetch devices from S3: ${message}`)
+    throw new Error(`Failed to fetch devices: ${message}`)
   }
 }
 

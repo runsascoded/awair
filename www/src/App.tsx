@@ -246,7 +246,7 @@ function AppContent() {
             <details>
               <summary>Diagnostics</summary>
               <pre>
-{`viewport=${typeof window !== 'undefined' ? window.innerWidth : '?'}
+                {`viewport=${typeof window !== 'undefined' ? window.innerWidth : '?'}
 devices=${deviceIdsToFetch.join(',')}
 range=${timeRange.timestamp ?? 'latest'}/${timeRange.duration}ms
 smoothing=${smoothing}
