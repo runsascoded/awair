@@ -60,6 +60,37 @@ function smoothedFromRecords(records: AwairRecord[]): AggregatedData[] | null {
   })
 }
 
+const NULL_ROW: Omit<AggregatedData, 'timestamp'> = {
+  temp_avg: null,  temp_stddev: null,
+  co2_avg:  null,  co2_stddev:  null,
+  humid_avg: null, humid_stddev: null,
+  pm25_avg: null,  pm25_stddev: null,
+  voc_avg:  null,  voc_stddev:  null,
+  count: 0,
+}
+
+/**
+ * Align a server-smoothed series to the raw-aggregated bin grid, filling
+ * missing bins with null-valued rows so plotly draws a proper break in the
+ * smoothed line + stddev band at data gaps.
+ *
+ * Pyrmts drops bins where the source has no records — that's fine for the
+ * raw trace because `agg-plot`'s `gapThreshold: 3` will insert nulls into
+ * `aggregatedData`. But smoothed data bypasses the gap-inserting pipeline
+ * (it's mapped 1:1 from server rows above), so plotly sees a smaller series
+ * and connects across the gap with a straight bridging line. Snapping to the
+ * raw grid gives both series the same x-values and lets nulls-in-y do the
+ * gap rendering.
+ */
+function alignSmoothedToGrid(
+  smoothed: AggregatedData[] | null,
+  grid: AggregatedData[],
+): AggregatedData[] | null {
+  if (smoothed === null) return null
+  const byTs = new Map(smoothed.map(s => [s.timestamp.getTime(), s]))
+  return grid.map(g => byTs.get(g.timestamp.getTime()) ?? { timestamp: g.timestamp, ...NULL_ROW })
+}
+
 export interface DeviceAggregatedData {
   deviceId: number
   deviceName: string
@@ -142,11 +173,18 @@ export function useMultiDeviceAggregation(
     const pltlySmoothed = s.smoothed
       ? flattenDateAll(s.smoothed, [...METRICS]) as unknown as AggregatedData[]
       : null
+    const aggregatedData = flattenDateAll(s.aggregated, [...METRICS]) as unknown as AggregatedData[]
+    // Align server-smoothed to the raw grid so plotly draws proper null
+    // gaps in the smoothed line + stddev band. `pltlySmoothed` is already
+    // gap-aware (agg-plot inserted the nulls) — pass through as-is.
+    const smoothedData = serverSmoothed
+      ? alignSmoothedToGrid(serverSmoothed, aggregatedData)
+      : pltlySmoothed
     return {
       deviceId: s.id as number,
       deviceName: s.name,
-      aggregatedData: flattenDateAll(s.aggregated, [...METRICS]) as unknown as AggregatedData[],
-      smoothedData: serverSmoothed ?? pltlySmoothed,
+      aggregatedData,
+      smoothedData,
       isRawData,
     }
   })
