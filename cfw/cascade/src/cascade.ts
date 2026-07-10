@@ -12,7 +12,7 @@ import {
   type Tier,
 } from 'pyrmts'
 import { D1ShardIndex } from 'pyrmts-cfw'
-import { DEVICES, type Device } from './devices'
+import { readDevices, type Device } from './devices'
 import { DEFAULT_PYRAMID_NAME_PREFIX, makePyramid, PYRAMID_CONFIG, pyramidNameFor, RAW_TIER, TIER_ORDER } from './pyramid'
 import { writeShard, type WriteResult } from './write'
 
@@ -158,9 +158,10 @@ export async function convergeAll(
   const started = Date.now()
 
   const perDevice: PerDeviceReport[] = []
+  const allDevices = await readDevices(env.DB)
   const devices = deviceIdsFilter
-    ? DEVICES.filter(d => deviceIdsFilter.has(d.id))
-    : DEVICES
+    ? allDevices.filter(d => deviceIdsFilter.has(d.id))
+    : allDevices
 
   for (const device of devices) {
     const remainingBudgetMs = totalBudgetMs - (Date.now() - started)

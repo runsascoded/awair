@@ -108,6 +108,20 @@ curl 'https://awair-cascade.<subdomain>.workers.dev/converge?dryRun=1&key=<MANUA
 open 'https://air.rbw.sh/?x=4px&d=+desk+br+rt&y=tcaA&s=2h&t=-1d'
 ```
 
+## Adding / renaming / deactivating a device
+
+Devices live in the D1 `devices` table (Phase 1b). Refresh flow:
+
+```bash
+# 1. Refresh the S3 parquet cache from Awair's API (rate-limited by upstream).
+awair api devices --refresh
+
+# 2. Regenerate + apply the D1 seed. Idempotent UPSERTs; safe to re-run.
+awair pyramid seed-devices | pnpm -C cfw/cascade wrangler d1 execute awair-cascade --remote --file -
+```
+
+Cascade picks up the new device on the next cron tick; FE picks it up on the next `useDevices` refetch (1 h stale-time, force with a page reload).
+
 ## Dev environment
 
 `wrangler.toml` declares `[env.dev]` for iteration without touching prod

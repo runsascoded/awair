@@ -1,27 +1,28 @@
-// Device list for cascade Phase 1a. Hardcoded here (mirrors `cfw/monitor`
-// style) — cheap and lets Phase 1a ship without a D1 devices table.
-// Phase 1b migrates this to D1 alongside the ShardIndex tables.
-//
-// `genesisDate` is each device's earliest S3 monthly shard (first-of-
-// month UTC). pyrmts uses it via `filter={device_id, genesisDate}` to
-// clip shard `effective{Start,End}` — a shard straddling genesis emits
-// `inputsExpected` counting only post-genesis source periods, not
-// pre-existent-source ones that will never materialize.
+// Device list — Phase 1b source is D1 (schema in `migrations/0002_devices.sql`).
+// Refreshed by `awair api devices --refresh` (dual-writes S3 parquet + D1
+// during the transition); FE reads from `cfw/serve /devices` which
+// consults this same table.
 
 export interface Device {
   id: number
   name: string
-  // First-of-month UTC of the device's earliest raw shard. Cheap approx
-  // (a few extra pre-genesis-day tiles for the current month at that
-  // resolution — negligible cost).
+  // First-of-month UTC of the device's earliest raw shard, as ms since
+  // epoch. pyrmts uses it to clip shard `effective{Start,End}` around
+  // range boundaries so pre-genesis periods don't count as "missing
+  // inputs".
   genesisDate: Date
 }
 
-// Sourced from `aws s3 ls s3://380nwk/awair-<id>/` — first monthly shard
-// present. Update when a new device is provisioned.
-export const DEVICES: Device[] = [
-  { id: 17617,  name: 'Gym',  genesisDate: new Date('2025-06-01T00:00:00Z') },
-  { id: 137496, name: 'BR',   genesisDate: new Date('2025-11-01T00:00:00Z') },
-  { id: 137506, name: 'RT',   genesisDate: new Date('2025-12-01T00:00:00Z') },
-  { id: 136824, name: 'Desk', genesisDate: new Date('2026-02-01T00:00:00Z') },
-]
+/** Read active devices from D1. Ordered by `device_id` so per-device
+ *  reports have a stable device sequence across ticks. */
+export async function readDevices(db: D1Database): Promise<Device[]> {
+  const stmt = db.prepare(
+    'SELECT device_id, name, genesis_ts FROM devices WHERE active = 1 ORDER BY device_id',
+  )
+  const { results } = await stmt.all<{ device_id: number; name: string; genesis_ts: number }>()
+  return results.map(r => ({
+    id: r.device_id,
+    name: r.name,
+    genesisDate: new Date(r.genesis_ts),
+  }))
+}
