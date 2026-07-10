@@ -1,6 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { PYRMTS_ORIGIN } from '../services/awairService'
 
+export interface HealthShard {
+  shardDur: string
+  periodStart: number
+  periodEnd: number
+  writtenAt: number
+}
+
 export interface HealthTier {
   tier: string
   shardDur: string
@@ -9,6 +16,7 @@ export interface HealthTier {
   earliestPeriodStart: number | null
   latestWrittenAt: number | null
   d1UpdatedAt: number | null
+  shards: HealthShard[]
 }
 
 export interface HealthPyramid {

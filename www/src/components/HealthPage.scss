@@ -123,6 +123,88 @@
   }
   .age-unknown .hp-age { color: var(--text-secondary); }
 
+  .tier-timeline {
+    margin: 0.25rem 0 0.75rem;
+
+    .tier-timeline-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    }
+
+    .tt-bg {
+      fill: var(--bg-tertiary);
+    }
+
+    // Ctbk uses a bright green; matching that so this reads as
+    // "healthy coverage".
+    .tt-shard {
+      fill: #22c55e;
+      stroke: var(--bg-secondary);
+      stroke-width: 0.5;
+    }
+
+    // Bright/contrasting so it reads against the shard green.
+    .tt-now {
+      stroke: #ef4444;
+      stroke-width: 2;
+      fill: none;
+    }
+
+    .tt-grid-major {
+      stroke: var(--border-secondary);
+      stroke-width: 0.6;
+    }
+    .tt-grid-minor {
+      stroke: var(--border-tertiary);
+      stroke-width: 0.4;
+      opacity: 0.5;
+    }
+
+    .tt-label {
+      fill: var(--text-secondary);
+      font-size: 10px;
+    }
+    .tt-axis-major {
+      fill: var(--text-primary);
+      font-size: 9px;
+      font-weight: 600;
+    }
+    .tt-axis-minor {
+      fill: var(--text-secondary);
+      font-size: 9px;
+    }
+
+    .tt-legend {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      margin-top: 0.15rem;
+      flex-wrap: wrap;
+
+      .tt-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .tt-legend-swatch {
+        display: inline-block;
+        width: 12px;
+        height: 10px;
+        border-radius: 1px;
+      }
+      .tt-shard-swatch { background: #22c55e; }
+      .tt-bg-swatch { background: var(--bg-tertiary); border: 1px solid var(--border-tertiary); }
+      .tt-now-swatch {
+        background: transparent;
+        border-left: 2px solid #ef4444;
+        width: 8px;
+      }
+    }
+  }
+
   .hp-loading, .hp-error {
     color: var(--text-secondary);
     padding: 2rem 0;

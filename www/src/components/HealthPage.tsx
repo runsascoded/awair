@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useHealth, type HealthTier } from '../hooks/useHealth'
+import { TierTimeline, coverageWindow } from './TierTimeline'
 import './HealthPage.scss'
 
 /** Format a ms timestamp as compact ISO `YYYY-MM-DD HH:MM:SSZ` (UTC). */
@@ -134,6 +135,9 @@ export function HealthPage() {
         {pyramids.map(p => {
           const device = devices.find(d => d.deviceId === p.deviceId)
           const byTier = new Map(p.tiers.map(t => [t.tier, t]))
+          const window = device?.genesisTs !== undefined
+            ? coverageWindow(device.genesisTs, now)
+            : null
           return (
             <div key={p.pyramid} className="hp-pyramid">
               <h3>
@@ -143,6 +147,14 @@ export function HealthPage() {
                   <span className="hp-dim"> · genesis {fmtTs(device.genesisTs)}</span>
                 )}
               </h3>
+              {window && (
+                <TierTimeline
+                  tiers={p.tiers}
+                  tierOrder={tierOrder}
+                  genesis={window.genesis}
+                  now={window.now}
+                />
+              )}
               <table className="hp-table">
                 <thead>
                   <tr>

@@ -163,14 +163,21 @@ interface WatermarkRow {
   updated_at: number
 }
 
-interface ShardStatsRow {
+interface ShardRow {
   pyramid: string
   tier: string
   shard_dur: string
-  shard_count: number
-  latest_written_at: number
-  earliest_period_start: number
-  latest_period_end: number
+  period_start: number
+  period_end: number
+  key: string
+  written_at: number
+}
+
+interface HealthShard {
+  shardDur: string
+  periodStart: number
+  periodEnd: number
+  writtenAt: number
 }
 
 interface TierHealth {
@@ -181,6 +188,9 @@ interface TierHealth {
   earliestPeriodStart: number | null
   latestWrittenAt: number | null
   d1UpdatedAt: number | null
+  // Per-shard rows keyed on (period_start). Used by the FE to draw the
+  // coverage timeline. Sorted by period_start ascending.
+  shards: HealthShard[]
 }
 
 interface DeviceRawHealth {
@@ -224,8 +234,12 @@ interface HealthSnapshot {
 async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
   const now = Date.now()
 
+  // Pull raw shard rows and derive per-tier stats in JS — total is small
+  // (per-tenant × per-tier × O(months); tens of rows in prod today), well
+  // under D1's payload limits, and folds the aggregation with the
+  // per-shard timeline data the FE needs.
   const batchResults = await env.DB.batch<
-    DeviceRow | WatermarkRow | ShardStatsRow
+    DeviceRow | WatermarkRow | ShardRow
   >([
     env.DB.prepare(
       'SELECT device_id, name, device_type, genesis_ts, active FROM devices ORDER BY device_id',
@@ -234,13 +248,9 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
       'SELECT pyramid, tier, shard_dur, latest_period_end, updated_at FROM pyramid_watermarks',
     ),
     env.DB.prepare(
-      `SELECT pyramid, tier, shard_dur,
-              COUNT(*) AS shard_count,
-              MAX(written_at) AS latest_written_at,
-              MIN(period_start) AS earliest_period_start,
-              MAX(period_end) AS latest_period_end
+      `SELECT pyramid, tier, shard_dur, period_start, period_end, key, written_at
        FROM pyramid_shards
-       GROUP BY pyramid, tier, shard_dur`,
+       ORDER BY pyramid, tier, shard_dur, period_start`,
     ),
   ])
   const [devicesRes, watermarksRes, shardsRes] = batchResults
@@ -257,13 +267,19 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
   }))
 
   const watermarks = watermarksRes.results as unknown as WatermarkRow[]
-  const shards = shardsRes.results as unknown as ShardStatsRow[]
+  const shardRows = shardsRes.results as unknown as ShardRow[]
 
-  // Bucket D1 rows by pyramid name (= `awair-{device_id}`) → tier.
+  // Bucket D1 rows by (pyramid, tier, shard_dur). Watermarks are point,
+  // shards are lists.
   const wmIdx = new Map<string, WatermarkRow>()
   for (const w of watermarks) wmIdx.set(`${w.pyramid}|${w.tier}|${w.shard_dur}`, w)
-  const shardIdx = new Map<string, ShardStatsRow>()
-  for (const s of shards) shardIdx.set(`${s.pyramid}|${s.tier}|${s.shard_dur}`, s)
+  const shardsByKey = new Map<string, ShardRow[]>()
+  for (const s of shardRows) {
+    const k = `${s.pyramid}|${s.tier}|${s.shard_dur}`
+    let list = shardsByKey.get(k)
+    if (!list) { list = []; shardsByKey.set(k, list) }
+    list.push(s)
+  }
 
   const ym = `${new Date(now).getUTCFullYear()}-${String(new Date(now).getUTCMonth() + 1).padStart(2, '0')}`
 
@@ -299,16 +315,32 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
   const pyramids: PyramidHealth[] = devices.map(d => {
     const pyramidName = `awair-${d.deviceId}`
     const tiers: TierHealth[] = pyramidConfig.tiers.map(t => {
-      const wm = wmIdx.get(`${pyramidName}|${t.name}|${t.shard}`) ?? null
-      const st = shardIdx.get(`${pyramidName}|${t.name}|${t.shard}`) ?? null
+      const key = `${pyramidName}|${t.name}|${t.shard}`
+      const wm = wmIdx.get(key) ?? null
+      const shards = shardsByKey.get(key) ?? []
+      // Derive aggregates in JS instead of a second GROUP BY.
+      let earliest: number | null = null
+      let latestEnd: number | null = null
+      let latestWritten: number | null = null
+      for (const s of shards) {
+        if (earliest === null || s.period_start < earliest) earliest = s.period_start
+        if (latestEnd === null || s.period_end > latestEnd) latestEnd = s.period_end
+        if (latestWritten === null || s.written_at > latestWritten) latestWritten = s.written_at
+      }
       return {
         tier: t.name,
         shardDur: t.shard,
-        shardCount: st?.shard_count ?? 0,
-        latestPeriodEnd: st?.latest_period_end ?? wm?.latest_period_end ?? null,
-        earliestPeriodStart: st?.earliest_period_start ?? null,
-        latestWrittenAt: st?.latest_written_at ?? null,
+        shardCount: shards.length,
+        latestPeriodEnd: latestEnd ?? wm?.latest_period_end ?? null,
+        earliestPeriodStart: earliest,
+        latestWrittenAt: latestWritten,
         d1UpdatedAt: wm?.updated_at ?? null,
+        shards: shards.map(s => ({
+          shardDur: s.shard_dur,
+          periodStart: s.period_start,
+          periodEnd: s.period_end,
+          writtenAt: s.written_at,
+        })),
       }
     })
     return { pyramid: pyramidName, deviceId: d.deviceId, tiers }
