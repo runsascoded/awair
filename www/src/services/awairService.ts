@@ -12,9 +12,9 @@ export interface Device {
   genesisTs?: number
 }
 
-/** `cfw/serve` endpoint that reads the D1 `devices` table (Phase 1b).
- *  Replaces the previous `s3://380nwk/devices.parquet` fetch. */
-const PYRMTS_ORIGIN = 'https://awair-serve.ryan-0dc.workers.dev'
+/** `cfw/serve` origin. Serves `/q` (pyrmts pyramid queries), `/devices` (D1
+ *  devices table), and `/health` (full HealthSnapshot). */
+export const PYRMTS_ORIGIN = 'https://awair-serve.ryan-0dc.workers.dev'
 
 const pyrmtsSource = new PyrmtsSource()
 

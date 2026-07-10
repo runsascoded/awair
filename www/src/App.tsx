@@ -7,6 +7,7 @@ import { useUrlState } from 'use-prms'
 import 'use-kbd/styles.css'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
+import { HealthPage } from './components/HealthPage'
 import { TableNavigationRenderer, YAxisMetricsRenderer } from './components/groupRenderers'
 import { KbdTooltip } from './components/Tooltip'
 import { HOTKEY_GROUPS, HOTKEY_GROUP_ORDER } from './config/hotkeyConfig'
@@ -22,7 +23,23 @@ const GROUP_RENDERERS = {
   'Table Navigation': TableNavigationRenderer,
 }
 
+// Top-level dispatcher: `?health` renders the diagnostic dashboard,
+// everything else falls through to the chart app. Splitting the two
+// keeps hook counts stable per instance (rules of hooks — the chart
+// branch calls many more hooks than the health branch does).
 function AppContent() {
+  const [isHealthMode] = useUrlState('health', boolParam)
+  if (isHealthMode) {
+    return (
+      <div className="app">
+        <HealthPage />
+      </div>
+    )
+  }
+  return <ChartApp />
+}
+
+function ChartApp() {
   const [isOgMode] = useUrlState('og', boolParam)
   const { theme, setTheme } = useTheme()
 
