@@ -134,6 +134,26 @@ async function convergeOne(
         periodEnd: m.periodEnd,
         key: r.key,
       })
+      // Stats columns aren't part of pyrmts' ShardIndex API — stamp them
+      // directly. All cascade writes are single-RG (one `.write()` call
+      // in `write.ts::encodeShard`), so n_rgs=1 and rg_row_counts=[rows].
+      // If the writer ever splits into multiple RGs, update this.
+      if (r.bytes !== undefined && r.rows !== undefined) {
+        await env.DB.prepare(
+          `UPDATE pyramid_shards
+             SET size_bytes = ?, n_rows = ?, n_rgs = ?, rg_row_counts = ?
+           WHERE pyramid = ? AND tier = ? AND shard_dur = ? AND period_start = ?`,
+        ).bind(
+          r.bytes,
+          r.rows,
+          1,
+          JSON.stringify([r.rows]),
+          pyramidName,
+          m.tier,
+          m.shardDur,
+          m.periodStart.getTime(),
+        ).run()
+      }
     }
   }
 
