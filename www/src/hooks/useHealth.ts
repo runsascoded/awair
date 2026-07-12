@@ -6,6 +6,18 @@ export interface HealthShard {
   periodStart: number
   periodEnd: number
   writtenAt: number
+  sizeBytes: number | null
+  nRows: number | null
+  nRgs: number | null
+  rgRowCounts: number[] | null
+}
+
+export interface TierStats {
+  avgSizeBytes: number | null
+  avgNRows: number | null
+  avgNRgs: number | null
+  avgRowsPerRg: number | null
+  count: number
 }
 
 export interface HealthTier {
@@ -16,6 +28,7 @@ export interface HealthTier {
   earliestPeriodStart: number | null
   latestWrittenAt: number | null
   d1UpdatedAt: number | null
+  stats: TierStats
   shards: HealthShard[]
 }
 

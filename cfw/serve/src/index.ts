@@ -171,6 +171,10 @@ interface ShardRow {
   period_end: number
   key: string
   written_at: number
+  size_bytes: number | null
+  n_rows: number | null
+  n_rgs: number | null
+  rg_row_counts: string | null  // JSON array of ints
 }
 
 interface HealthShard {
@@ -178,6 +182,21 @@ interface HealthShard {
   periodStart: number
   periodEnd: number
   writtenAt: number
+  sizeBytes: number | null
+  nRows: number | null
+  nRgs: number | null
+  rgRowCounts: number[] | null
+}
+
+interface TierStats {
+  // Averages computed across shards where the stat is non-null. `count`
+  // is the number of shards that contributed. If `count == 0` the value
+  // is `null` (shown as `—` on the FE).
+  avgSizeBytes: number | null
+  avgNRows: number | null
+  avgNRgs: number | null
+  avgRowsPerRg: number | null
+  count: number
 }
 
 interface TierHealth {
@@ -188,6 +207,7 @@ interface TierHealth {
   earliestPeriodStart: number | null
   latestWrittenAt: number | null
   d1UpdatedAt: number | null
+  stats: TierStats
   // Per-shard rows keyed on (period_start). Used by the FE to draw the
   // coverage timeline. Sorted by period_start ascending.
   shards: HealthShard[]
@@ -248,7 +268,8 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
       'SELECT pyramid, tier, shard_dur, latest_period_end, updated_at FROM pyramid_watermarks',
     ),
     env.DB.prepare(
-      `SELECT pyramid, tier, shard_dur, period_start, period_end, key, written_at
+      `SELECT pyramid, tier, shard_dur, period_start, period_end, key, written_at,
+              size_bytes, n_rows, n_rgs, rg_row_counts
        FROM pyramid_shards
        ORDER BY pyramid, tier, shard_dur, period_start`,
     ),
@@ -322,10 +343,45 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
       let earliest: number | null = null
       let latestEnd: number | null = null
       let latestWritten: number | null = null
+      // Per-tier stat sums, ignoring shards where the value is null (not
+      // yet backfilled). `avg = sum / count` at the end.
+      let sizeSum = 0, sizeN = 0
+      let rowsSum = 0, rowsN = 0
+      let rgsSum = 0, rgsN = 0
+      let rpgSum = 0, rpgN = 0
+      const outShards: HealthShard[] = []
       for (const s of shards) {
         if (earliest === null || s.period_start < earliest) earliest = s.period_start
         if (latestEnd === null || s.period_end > latestEnd) latestEnd = s.period_end
         if (latestWritten === null || s.written_at > latestWritten) latestWritten = s.written_at
+        if (s.size_bytes !== null) { sizeSum += s.size_bytes; sizeN++ }
+        if (s.n_rows !== null)     { rowsSum += s.n_rows;     rowsN++ }
+        if (s.n_rgs !== null)      { rgsSum  += s.n_rgs;      rgsN++  }
+        if (s.n_rows !== null && s.n_rgs !== null && s.n_rgs > 0) {
+          rpgSum += s.n_rows / s.n_rgs
+          rpgN++
+        }
+        let rgRowCounts: number[] | null = null
+        if (s.rg_row_counts !== null) {
+          try { rgRowCounts = JSON.parse(s.rg_row_counts) as number[] } catch { rgRowCounts = null }
+        }
+        outShards.push({
+          shardDur: s.shard_dur,
+          periodStart: s.period_start,
+          periodEnd: s.period_end,
+          writtenAt: s.written_at,
+          sizeBytes: s.size_bytes,
+          nRows: s.n_rows,
+          nRgs: s.n_rgs,
+          rgRowCounts,
+        })
+      }
+      const stats: TierStats = {
+        avgSizeBytes:  sizeN > 0 ? sizeSum / sizeN : null,
+        avgNRows:      rowsN > 0 ? rowsSum / rowsN : null,
+        avgNRgs:       rgsN  > 0 ? rgsSum  / rgsN  : null,
+        avgRowsPerRg:  rpgN  > 0 ? rpgSum  / rpgN  : null,
+        count:         shards.length,
       }
       return {
         tier: t.name,
@@ -335,12 +391,8 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
         earliestPeriodStart: earliest,
         latestWrittenAt: latestWritten,
         d1UpdatedAt: wm?.updated_at ?? null,
-        shards: shards.map(s => ({
-          shardDur: s.shard_dur,
-          periodStart: s.period_start,
-          periodEnd: s.period_end,
-          writtenAt: s.written_at,
-        })),
+        stats,
+        shards: outShards,
       }
     })
     return { pyramid: pyramidName, deviceId: d.deviceId, tiers }

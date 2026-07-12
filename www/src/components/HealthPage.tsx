@@ -32,6 +32,16 @@ function fmtBytes(n: number | null): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MiB`
 }
 
+/** Format a numeric count. Small ints exact, larger with 1 decimal. */
+function fmtNum(n: number | null): string {
+  if (n === null || !Number.isFinite(n)) return '—'
+  if (n < 100) return n.toFixed(n === Math.floor(n) ? 0 : 1)
+  if (n < 1000) return n.toFixed(0)
+  if (n < 10_000) return (n / 1000).toFixed(2) + 'k'
+  if (n < 1_000_000) return (n / 1000).toFixed(0) + 'k'
+  return (n / 1_000_000).toFixed(1) + 'M'
+}
+
 /** Bucket raw-shard age into a freshness class. Thresholds match `cfw/monitor`'s
  *  base cadence: <2m fresh, <10m warning, <60m degraded, >60m stale. */
 function ageClass(ms: number | null): string {
@@ -126,9 +136,10 @@ export function HealthPage() {
       <section className="hp-section">
         <h2>Pyramid tiers (D1)</h2>
         <p className="hp-sub">
-          Per-device × per-tier shard inventory from <code>pyramid_shards</code>.
-          <em> latest write</em> is when the cascade worker last wrote a shard
-          for that tier — old ages here are normal when nothing needs
+          Per-device × per-tier shard inventory + size/RG stats from
+          <code> pyramid_shards</code>. Coverage extent is in the timeline
+          above. <em>latest write</em> is when the cascade worker last wrote
+          a shard for that tier — old ages here are normal when nothing needs
           rebuilding. Rows only flag red when <em>shards = 0</em>, meaning
           cascade hasn't converged this tier at all.
         </p>
@@ -161,8 +172,10 @@ export function HealthPage() {
                     <th>tier</th>
                     <th>shard dur</th>
                     <th>shards</th>
-                    <th>earliest start</th>
-                    <th>latest end</th>
+                    <th title="Average bytes per shard.">avg size</th>
+                    <th title="Average rows per shard.">avg rows</th>
+                    <th title="Average row groups per shard.">avg RGs</th>
+                    <th title="Average rows per row group. Small values → many small RGs → good pruning, but per-RG metadata overhead. Target ~1000-10000.">rows/RG</th>
                     <th>latest write</th>
                     <th>write age</th>
                   </tr>
@@ -185,8 +198,10 @@ export function HealthPage() {
                         <td className="hp-mono">{name}</td>
                         <td className="hp-mono">{t?.shardDur ?? '—'}</td>
                         <td className="hp-num">{t?.shardCount ?? 0}</td>
-                        <td>{fmtTs(t?.earliestPeriodStart ?? null)}</td>
-                        <td>{fmtTs(t?.latestPeriodEnd ?? null)}</td>
+                        <td className="hp-num">{fmtBytes(t?.stats.avgSizeBytes ?? null)}</td>
+                        <td className="hp-num">{fmtNum(t?.stats.avgNRows ?? null)}</td>
+                        <td className="hp-num">{fmtNum(t?.stats.avgNRgs ?? null)}</td>
+                        <td className="hp-num">{fmtNum(t?.stats.avgRowsPerRg ?? null)}</td>
                         <td>{fmtTs(t?.latestWrittenAt ?? null)}</td>
                         <td className="hp-age hp-dim">{fmtAge(writeAge)}</td>
                       </tr>
