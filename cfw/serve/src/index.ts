@@ -22,7 +22,7 @@
  * instead of erroring the whole query.
  */
 
-import { parsePyramidYaml, pyramidFromConfig, type Pyramid } from 'pyrmts'
+import { parsePyramidYaml, pyramidFromConfig, type Pyramid, type Storage } from 'pyrmts'
 import { r2Storage, serveQuery } from 'pyrmts-cfw'
 import pyramidYamlText from '../../../src/awair/pyramid.yml'
 
@@ -97,14 +97,23 @@ export default {
     }
 
     if (url.pathname === '/q') {
-      const pyramid: Pyramid = pyramidFromConfig(pyramidConfig, r2Storage(env.PYRAMID))
-      return serveQuery({
-        pyramid,
-        request,
-        watermarks: req => resolveWatermarks(req, env),
-        tolerateMissingShards: true,
-        cors: true,
-      })
+      // `?debug=1` wraps `r2Storage` so every `getRange` call gets recorded
+      // as a `FetchTrace` entry. The pinned pyrmts version (61f091b) doesn't
+      // yet expose per-slice traces via serveQuery, so we tap the storage
+      // layer directly — that captures every byte-range against R2, which
+      // is what we actually care about for metadata-vs-data breakdown.
+      const debug = url.searchParams.get('debug') !== null
+      if (!debug) {
+        const pyramid: Pyramid = pyramidFromConfig(pyramidConfig, r2Storage(env.PYRAMID))
+        return serveQuery({
+          pyramid,
+          request,
+          watermarks: req => resolveWatermarks(req, env),
+          tolerateMissingShards: true,
+          cors: true,
+        })
+      }
+      return await serveQueryWithTrace(request, env)
     }
 
     return new Response(
@@ -112,6 +121,98 @@ export default {
       { status: 404, headers: corsHeaders(request) },
     )
   },
+}
+
+interface FetchTrace {
+  key: string
+  start: number
+  end: number
+  length: number
+  ms: number
+}
+
+/** Wrap an `r2Storage` so each `getRange` call gets recorded to `traces`. */
+function tracingStorage(inner: Storage, traces: FetchTrace[]): Storage {
+  return {
+    ...inner,
+    async getRange(key, start, end) {
+      const t0 = Date.now()
+      try {
+        return await inner.getRange(key, start, end)
+      } finally {
+        traces.push({ key, start, end, length: end - start, ms: Date.now() - t0 })
+      }
+    },
+  }
+}
+
+/**
+ * Wrap `serveQuery` with per-slice tracing. Records every `getRange(key,
+ * start, end)` against R2 during query planning + fetch, then attaches
+ * the trace + a rolled-up summary to the JSON response body.
+ *
+ * Heuristic phase classification: the first `getRange` per key is the
+ * parquet metadata (footer / suffix); subsequent ranges are column-chunk
+ * (data) reads. Correct for the current pyrmts backend, which uses a
+ * single suffix fetch to grab the footer before RG-selecting column
+ * chunk ranges.
+ */
+async function serveQueryWithTrace(request: Request, env: Env): Promise<Response> {
+  const traces: FetchTrace[] = []
+  const storage = tracingStorage(r2Storage(env.PYRAMID), traces)
+  const pyramid: Pyramid = pyramidFromConfig(pyramidConfig, storage)
+  const inner = await serveQuery({
+    pyramid,
+    request,
+    watermarks: req => resolveWatermarks(req, env),
+    tolerateMissingShards: true,
+    cors: true,
+  })
+  const body = await inner.json() as Record<string, unknown>
+
+  // Roll up per-key + phase (metadata vs data) totals.
+  const seenKeys = new Set<string>()
+  const perKey: Record<string, { metadataBytes: number; metadataCalls: number; dataBytes: number; dataCalls: number; totalMs: number }> = {}
+  let totalBytes = 0
+  let totalMs = 0
+  let metadataBytes = 0
+  let dataBytes = 0
+  for (const t of traces) {
+    const phase: 'metadata' | 'data' = seenKeys.has(t.key) ? 'data' : 'metadata'
+    seenKeys.add(t.key)
+    const bucket = perKey[t.key] ?? (perKey[t.key] = { metadataBytes: 0, metadataCalls: 0, dataBytes: 0, dataCalls: 0, totalMs: 0 })
+    bucket.totalMs += t.ms
+    if (phase === 'metadata') {
+      bucket.metadataBytes += t.length
+      bucket.metadataCalls++
+      metadataBytes += t.length
+    } else {
+      bucket.dataBytes += t.length
+      bucket.dataCalls++
+      dataBytes += t.length
+    }
+    totalBytes += t.length
+    totalMs += t.ms
+  }
+
+  const debug = {
+    summary: {
+      totalCalls: traces.length,
+      totalBytes,
+      totalMs,
+      metadataBytes,
+      dataBytes,
+      metadataPct: totalBytes > 0 ? metadataBytes / totalBytes : 0,
+      keysTouched: Object.keys(perKey).length,
+    },
+    perKey,
+    traces,
+  }
+  const merged = { ...body, debug }
+  return new Response(JSON.stringify(merged), {
+    status: inner.status,
+    headers: { ...corsHeaders(request), 'content-type': 'application/json' },
+  })
 }
 
 /**
