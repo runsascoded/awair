@@ -103,17 +103,8 @@ export default {
       // layer directly — that captures every byte-range against R2, which
       // is what we actually care about for metadata-vs-data breakdown.
       const debug = url.searchParams.get('debug') !== null
-      if (!debug) {
-        const pyramid: Pyramid = pyramidFromConfig(pyramidConfig, r2Storage(env.PYRAMID))
-        return serveQuery({
-          pyramid,
-          request,
-          watermarks: req => resolveWatermarks(req, env),
-          tolerateMissingShards: true,
-          cors: true,
-        })
-      }
-      return await serveQueryWithTrace(request, env)
+      const cacheOff = url.searchParams.get('no_cache') !== null
+      return await serveQueryWithCache(request, env, { debug, cacheEnabled: !cacheOff })
     }
 
     return new Response(
@@ -129,37 +120,115 @@ interface FetchTrace {
   end: number
   length: number
   ms: number
+  // Where the bytes came from. `r2` = round-trip to R2; `d1_cache` = served
+  // from D1 `pyramid_shards.footer_bytes` cache (see `0004_footer_cache.sql`).
+  source: 'r2' | 'd1_cache'
 }
 
-/** Wrap an `r2Storage` so each `getRange` call gets recorded to `traces`. */
-function tracingStorage(inner: Storage, traces: FetchTrace[]): Storage {
+/**
+ * Wrap `r2Storage` with:
+ *  1. Cache: on the first `getRange(K, …)` per key, look up D1
+ *     `pyramid_shards.size_bytes` (small — a single INTEGER). If the
+ *     request's `end` matches, load `footer_bytes` (the up-to-64 KiB
+ *     blob) and serve from D1. Subsequent calls for the same key
+ *     re-use the cached size/bytes without hitting D1. The pyrmts
+ *     fetcher is size-agnostic — it just calls `getRange` on offsets
+ *     derived from `head.size` — so this is invisible to the library.
+ *  2. Trace: record every call to `traces` for `?debug=1` reporting,
+ *     tagged with `source: 'r2' | 'd1_cache'`.
+ */
+function wrappedStorage(
+  inner: Storage,
+  env: Env,
+  traces: FetchTrace[],
+  cacheEnabled: boolean,
+): Storage {
+  // Per-request memo. A `null` entry means "D1 lookup done, no cache
+  // available (row missing or size_bytes null)" — don't re-query.
+  interface CacheEntry {
+    size: number
+    bytes: Uint8Array | null  // lazily loaded on first size match
+  }
+  const cacheByKey = new Map<string, CacheEntry | null>()
+
+  async function loadMeta(key: string): Promise<CacheEntry | null> {
+    if (cacheByKey.has(key)) return cacheByKey.get(key) ?? null
+    const row = await env.DB.prepare(
+      `SELECT size_bytes FROM pyramid_shards
+       WHERE key = ? AND footer_bytes IS NOT NULL AND size_bytes IS NOT NULL
+       LIMIT 1`,
+    ).bind(key).first<{ size_bytes: number | null }>()
+    const entry: CacheEntry | null = row?.size_bytes != null
+      ? { size: row.size_bytes, bytes: null }
+      : null
+    cacheByKey.set(key, entry)
+    return entry
+  }
+
+  async function loadBytes(key: string, entry: CacheEntry): Promise<Uint8Array | null> {
+    if (entry.bytes !== null) return entry.bytes
+    const row = await env.DB.prepare(
+      `SELECT footer_bytes FROM pyramid_shards
+       WHERE key = ? AND size_bytes = ? AND footer_bytes IS NOT NULL
+       LIMIT 1`,
+    ).bind(key, entry.size).first<{ footer_bytes: ArrayBuffer | Uint8Array | null }>()
+    if (row?.footer_bytes == null) return null
+    entry.bytes = row.footer_bytes instanceof Uint8Array
+      ? row.footer_bytes
+      : new Uint8Array(row.footer_bytes)
+    return entry.bytes
+  }
+
   return {
     ...inner,
     async getRange(key, start, end) {
       const t0 = Date.now()
+      const length = end - start
+      if (cacheEnabled) {
+        const meta = await loadMeta(key)
+        // Cache-hit condition: request's window is a tail slice
+        // (`end === size`) sitting inside the cached bytes region
+        // (`start >= size - cached.length`). Pyrmts issues
+        // `end = file_size` only for the parquet metadata fetch.
+        if (meta !== null && end === meta.size) {
+          const bytes = await loadBytes(key, meta)
+          if (bytes !== null) {
+            const cacheStart = meta.size - bytes.length
+            if (start >= cacheStart) {
+              const off = start - cacheStart
+              const slice = bytes.slice(off, off + length)
+              traces.push({ key, start, end, length, ms: Date.now() - t0, source: 'd1_cache' })
+              return slice
+            }
+          }
+        }
+      }
       try {
         return await inner.getRange(key, start, end)
       } finally {
-        traces.push({ key, start, end, length: end - start, ms: Date.now() - t0 })
+        traces.push({ key, start, end, length, ms: Date.now() - t0, source: 'r2' })
       }
     },
   }
 }
 
 /**
- * Wrap `serveQuery` with per-slice tracing. Records every `getRange(key,
- * start, end)` against R2 during query planning + fetch, then attaches
- * the trace + a rolled-up summary to the JSON response body.
+ * Serve `/q` with D1 footer cache + optional per-slice tracing.
  *
- * Heuristic phase classification: the first `getRange` per key is the
- * parquet metadata (footer / suffix); subsequent ranges are column-chunk
- * (data) reads. Correct for the current pyrmts backend, which uses a
- * single suffix fetch to grab the footer before RG-selecting column
- * chunk ranges.
+ * `?debug=1` attaches `{summary, perKey, traces}` to the JSON body.
+ * `?no_cache=1` disables the D1 footer cache for A/B measurement.
+ *
+ * Heuristic phase classification (used in rollups): the first `getRange`
+ * per key is the parquet metadata (footer / suffix); subsequent ranges
+ * are column-chunk (data) reads. Correct for the current pyrmts backend.
  */
-async function serveQueryWithTrace(request: Request, env: Env): Promise<Response> {
+async function serveQueryWithCache(
+  request: Request,
+  env: Env,
+  opts: { debug: boolean; cacheEnabled: boolean },
+): Promise<Response> {
   const traces: FetchTrace[] = []
-  const storage = tracingStorage(r2Storage(env.PYRAMID), traces)
+  const storage = wrappedStorage(r2Storage(env.PYRAMID), env, traces, opts.cacheEnabled)
   const pyramid: Pyramid = pyramidFromConfig(pyramidConfig, storage)
   const inner = await serveQuery({
     pyramid,
@@ -168,19 +237,40 @@ async function serveQueryWithTrace(request: Request, env: Env): Promise<Response
     tolerateMissingShards: true,
     cors: true,
   })
+
+  if (!opts.debug) {
+    return new Response(inner.body, {
+      status: inner.status,
+      headers: { ...corsHeaders(request), 'content-type': 'application/json' },
+    })
+  }
+
   const body = await inner.json() as Record<string, unknown>
 
   // Roll up per-key + phase (metadata vs data) totals.
   const seenKeys = new Set<string>()
-  const perKey: Record<string, { metadataBytes: number; metadataCalls: number; dataBytes: number; dataCalls: number; totalMs: number }> = {}
+  const perKey: Record<string, {
+    metadataBytes: number; metadataCalls: number;
+    dataBytes: number; dataCalls: number;
+    cachedBytes: number; cachedCalls: number;
+    totalMs: number
+  }> = {}
   let totalBytes = 0
   let totalMs = 0
   let metadataBytes = 0
   let dataBytes = 0
+  let cachedBytes = 0
+  let cachedCalls = 0
+  let r2Bytes = 0
   for (const t of traces) {
     const phase: 'metadata' | 'data' = seenKeys.has(t.key) ? 'data' : 'metadata'
     seenKeys.add(t.key)
-    const bucket = perKey[t.key] ?? (perKey[t.key] = { metadataBytes: 0, metadataCalls: 0, dataBytes: 0, dataCalls: 0, totalMs: 0 })
+    const bucket = perKey[t.key] ?? (perKey[t.key] = {
+      metadataBytes: 0, metadataCalls: 0,
+      dataBytes: 0, dataCalls: 0,
+      cachedBytes: 0, cachedCalls: 0,
+      totalMs: 0,
+    })
     bucket.totalMs += t.ms
     if (phase === 'metadata') {
       bucket.metadataBytes += t.length
@@ -190,6 +280,14 @@ async function serveQueryWithTrace(request: Request, env: Env): Promise<Response
       bucket.dataBytes += t.length
       bucket.dataCalls++
       dataBytes += t.length
+    }
+    if (t.source === 'd1_cache') {
+      bucket.cachedBytes += t.length
+      bucket.cachedCalls++
+      cachedBytes += t.length
+      cachedCalls++
+    } else {
+      r2Bytes += t.length
     }
     totalBytes += t.length
     totalMs += t.ms
@@ -204,6 +302,11 @@ async function serveQueryWithTrace(request: Request, env: Env): Promise<Response
       dataBytes,
       metadataPct: totalBytes > 0 ? metadataBytes / totalBytes : 0,
       keysTouched: Object.keys(perKey).length,
+      cacheEnabled: opts.cacheEnabled,
+      cachedCalls,
+      cachedBytes,
+      r2Bytes,
+      cacheHitPct: totalBytes > 0 ? cachedBytes / totalBytes : 0,
     },
     perKey,
     traces,
