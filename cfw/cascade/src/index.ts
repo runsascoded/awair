@@ -14,9 +14,10 @@
  */
 
 import { convergeAll, type ConvergeAllReport } from './cascade'
+import { backfillFooterCache, type BackfillReport } from './backfill'
 
 interface Env {
-  R2: R2Bucket
+  PYRAMID: R2Bucket
   DB: D1Database
   DEVICES_URL: string
   TOTAL_BUDGET_MS: string
@@ -44,7 +45,7 @@ async function runConverge(env: Env, url: URL): Promise<ConvergeAllReport> {
   const tiers = url.searchParams.get('tiers')?.split(',').map(s => s.trim()).filter(Boolean)
   const dryRun = ['1', 'true', 'yes'].includes(url.searchParams.get('dryRun') ?? '')
   return convergeAll(
-    { R2: env.R2, DB: env.DB },
+    { PYRAMID: env.PYRAMID, DB: env.DB },
     {
       totalBudgetMs: parseBudget(env),
       pyramidNamePrefix: env.PYRAMID_NAME,
@@ -59,7 +60,7 @@ export default {
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
       convergeAll(
-        { R2: env.R2, DB: env.DB },
+        { PYRAMID: env.PYRAMID, DB: env.DB },
         { totalBudgetMs: parseBudget(env), pyramidNamePrefix: env.PYRAMID_NAME },
       )
         .then(r => {
@@ -86,6 +87,27 @@ export default {
         status: 200,
         headers: { ...corsHeaders(), 'content-type': 'application/json' },
       })
+    }
+
+    if (url.pathname === '/backfill-cache') {
+      if (env.MANUAL_KEY) {
+        if (url.searchParams.get('key') !== env.MANUAL_KEY) {
+          return new Response('forbidden\n', { status: 403, headers: corsHeaders() })
+        }
+      }
+      try {
+        const limit = Number.parseInt(url.searchParams.get('limit') ?? '200', 10)
+        const report: BackfillReport = await backfillFooterCache(
+          { PYRAMID: env.PYRAMID, DB: env.DB },
+          { totalBudgetMs: parseBudget(env), limit: Number.isFinite(limit) && limit > 0 ? limit : 200 },
+        )
+        return new Response(JSON.stringify(report, null, 2) + '\n', {
+          status: 200,
+          headers: { ...corsHeaders(), 'content-type': 'application/json' },
+        })
+      } catch (e) {
+        return new Response(`error: ${(e as Error).message}\n`, { status: 500, headers: corsHeaders() })
+      }
     }
 
     if (url.pathname === '/converge') {

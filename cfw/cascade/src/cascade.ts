@@ -69,7 +69,7 @@ function sortMissing(a: ExpectedShard, b: ExpectedShard): number {
  * `PerDeviceReport`.
  */
 async function convergeOne(
-  env: { R2: R2Bucket; DB: D1Database },
+  env: { PYRAMID: R2Bucket; DB: D1Database },
   device: Device,
   now: Date,
   opts: {
@@ -80,7 +80,7 @@ async function convergeOne(
   },
 ): Promise<Omit<PerDeviceReport, 'deviceId' | 'name' | 'status'>> {
   const started = Date.now()
-  const pyramid = makePyramid(env.R2)
+  const pyramid = makePyramid(env.PYRAMID)
   const shardIndex = new D1ShardIndex(env.DB)
   const pyramidName = pyramidNameFor(device.id, opts.pyramidNamePrefix)
 
@@ -106,13 +106,13 @@ async function convergeOne(
     if (Date.now() - started >= opts.remainingBudgetMs) { stopped = 'time'; break }
     const tier = PYRAMID_CONFIG.tiers.find(t => t.name === m.tier) as Tier
     if (opts.dryRun) {
-      const exists = await env.R2.head(m.key)
+      const exists = await env.PYRAMID.head(m.key)
       const r: WriteResult = { status: exists ? 'wrote' : 'no_inputs', key: m.key }
       results.push(r); stats[r.status] = (stats[r.status] ?? 0) + 1
       continue
     }
     const r = await writeShard({
-      r2: env.R2,
+      r2: env.PYRAMID,
       device,
       targetTier: tier,
       targetPeriodStart: m.periodStart,
@@ -134,20 +134,23 @@ async function convergeOne(
         periodEnd: m.periodEnd,
         key: r.key,
       })
-      // Stats columns aren't part of pyrmts' ShardIndex API — stamp them
-      // directly. All cascade writes are single-RG (one `.write()` call
-      // in `write.ts::encodeShard`), so n_rgs=1 and rg_row_counts=[rows].
-      // If the writer ever splits into multiple RGs, update this.
+      // Stats + footer cache aren't part of pyrmts' ShardIndex API — stamp
+      // them directly. All cascade writes are single-RG (one `.write()`
+      // call in `write.ts::encodeShard`), so n_rgs=1 and
+      // rg_row_counts=[rows]. If the writer ever splits into multiple
+      // RGs, update this.
       if (r.bytes !== undefined && r.rows !== undefined) {
         await env.DB.prepare(
           `UPDATE pyramid_shards
-             SET size_bytes = ?, n_rows = ?, n_rgs = ?, rg_row_counts = ?
+             SET size_bytes = ?, n_rows = ?, n_rgs = ?, rg_row_counts = ?,
+                 footer_bytes = ?
            WHERE pyramid = ? AND tier = ? AND shard_dur = ? AND period_start = ?`,
         ).bind(
           r.bytes,
           r.rows,
           1,
           JSON.stringify([r.rows]),
+          r.footerBytes ?? null,
           pyramidName,
           m.tier,
           m.shardDur,
@@ -166,7 +169,7 @@ async function convergeOne(
  * continues to the next device with whatever budget remains.
  */
 export async function convergeAll(
-  env: { R2: R2Bucket; DB: D1Database },
+  env: { PYRAMID: R2Bucket; DB: D1Database },
   opts: ConvergeAllOpts = {},
 ): Promise<ConvergeAllReport> {
   const now = opts.now ?? new Date()
