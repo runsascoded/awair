@@ -35,6 +35,19 @@ _BIN_RE = re.compile(r'^(\d+)(min|h|d|mo|y)$')
 _MS_PER_UNIT = {'min': 60_000, 'h': 3_600_000, 'd': 86_400_000}
 
 
+def _bin_ms(bin_spec: str) -> int:
+    """Fixed-width ms for a `Nmin`/`Nh`/`Nd` bin. Throws for calendar
+    (mo/y) — use only for divisibility-checking cascade sources, where
+    the source tier's bin is always fixed-width."""
+    m = _BIN_RE.match(bin_spec)
+    if not m:
+        raise ValueError(f'invalid bin: {bin_spec!r}')
+    count, unit = int(m.group(1)), m.group(2)
+    if unit in _MS_PER_UNIT:
+        return count * _MS_PER_UNIT[unit]
+    raise ValueError(f'calendar-variable bin {bin_spec!r} has no fixed ms')
+
+
 def aggregate_raw(
     raw: pd.DataFrame,
     *,
@@ -119,29 +132,55 @@ def parse_period(period: str, shard: str) -> tuple[datetime, datetime]:
     """Convert a period descriptor + shard span into [start, end) UTC datetimes.
 
     Examples:
-        parse_period('2026-05', '1mo') → (2026-05-01, 2026-06-01)
-        parse_period('2026',    '1y')  → (2026-01-01, 2027-01-01)
+        parse_period('2026-05',     '1mo')  → (2026-05-01, 2026-06-01)
+        parse_period('2026-05',     '3mo')  → (2026-04-01, 2026-07-01)   # snap to Q
+        parse_period('2026',        '1y')   → (2026-01-01, 2027-01-01)
+        parse_period('2026-05-24',  '1d')   → (2026-05-24, 2026-05-25)
+        parse_period('2026-05-24',  '32d')  → epoch-aligned 32d span containing 2026-05-24
     """
-    if shard == '1mo':
+    if shard == 'all':
+        raise NotImplementedError("shard='all' not yet supported")
+    m = _BIN_RE.match(shard)
+    if not m:
+        raise ValueError(f'unknown shard span: {shard!r}')
+    count, unit = int(m.group(1)), m.group(2)
+    if unit == 'mo':
+        if 12 % count != 0:
+            raise ValueError(f"shard={shard!r}: 12 must be divisible by {count}")
         try:
             y_str, m_str = period.split('-')
-            y, m = int(y_str), int(m_str)
+            y, mo = int(y_str), int(m_str)
         except (ValueError, AttributeError):
-            raise ValueError(f"shard='1mo' requires period 'YYYY-MM', got {period!r}")
-        start = datetime(y, m, 1, tzinfo=timezone.utc)
-        end = datetime(y + (1 if m == 12 else 0), (m % 12) + 1, 1, tzinfo=timezone.utc)
-    elif shard == '1y':
+            raise ValueError(f"shard={shard!r} requires period 'YYYY-MM', got {period!r}")
+        # Snap to the containing N-month bucket start (1-indexed months).
+        floored_mo = (mo - 1) // count * count
+        start = datetime(y, floored_mo + 1, 1, tzinfo=timezone.utc)
+        m_end = start.month + count
+        y_end = start.year + (m_end - 1) // 12
+        m_end = ((m_end - 1) % 12) + 1
+        end = datetime(y_end, m_end, 1, tzinfo=timezone.utc)
+    elif unit == 'y':
         try:
             y = int(period)
         except ValueError:
-            raise ValueError(f"shard='1y' requires period 'YYYY', got {period!r}")
-        start = datetime(y, 1, 1, tzinfo=timezone.utc)
-        end = datetime(y + 1, 1, 1, tzinfo=timezone.utc)
-    elif shard == '1d':
-        start = datetime.strptime(period, '%Y-%m-%d').replace(tzinfo=timezone.utc)
-        end = start + timedelta(days=1)
-    elif shard == 'all':
-        raise NotImplementedError("shard='all' not yet supported")
+            raise ValueError(f"shard={shard!r} requires period 'YYYY', got {period!r}")
+        floored_yr = y // count * count
+        start = datetime(floored_yr, 1, 1, tzinfo=timezone.utc)
+        end = datetime(floored_yr + count, 1, 1, tzinfo=timezone.utc)
+    elif unit in ('d', 'h', 'min'):
+        # Period label format matches pyrmts' `formatPeriod` — parse just
+        # enough of the label to get the containing epoch-aligned span.
+        if unit == 'd':
+            base = datetime.strptime(period, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+        elif unit == 'h':
+            base = datetime.strptime(period, '%Y-%m-%dT%H').replace(tzinfo=timezone.utc)
+        else:  # min
+            base = datetime.strptime(period, '%Y-%m-%dT%H-%M').replace(tzinfo=timezone.utc)
+        span_ms = count * _MS_PER_UNIT[unit]
+        base_ms = int(base.timestamp() * 1000)
+        floored_ms = (base_ms // span_ms) * span_ms
+        start = datetime.fromtimestamp(floored_ms / 1000, tz=timezone.utc)
+        end = datetime.fromtimestamp((floored_ms + span_ms) / 1000, tz=timezone.utc)
     else:
         raise ValueError(f'unknown shard span: {shard!r}')
     return start, end
@@ -165,24 +204,55 @@ def shards_overlapping(start: datetime, end: datetime, shard: str) -> list[str]:
     For coarsening: the target shard spans `[start, end)`; the source tier's
     shards may be shorter (e.g. coarsening 1mo shards of `h1` into 1y shards
     of `d1` means we need all 12 monthly source periods).
+
+    Supports `Nmo`, `Ny`, `Nd`, `Nh`, `Nmin` (arbitrary count for fixed-width
+    units — matches pyrmts' `parseDuration`). `Nmo` with `12 % N != 0` is
+    rejected (pyrmts' floor rule).
     """
+    m = _BIN_RE.match(shard)
+    if not m:
+        raise ValueError(f'invalid shard duration: {shard!r}')
+    count, unit = int(m.group(1)), m.group(2)
     periods: list[str] = []
-    if shard == '1mo':
-        cursor = datetime(start.year, start.month, 1, tzinfo=timezone.utc)
+    if unit == 'mo':
+        if 12 % count != 0:
+            raise ValueError(f'shard={shard!r}: 12 must be divisible by {count} for month spans')
+        # Floor to the start of the containing N-month bucket.
+        floored_mo = (start.month - 1) // count * count
+        cursor = datetime(start.year, floored_mo + 1, 1, tzinfo=timezone.utc)
         while cursor < end:
+            # Same format as `1mo` for backward-compat (2026-01 for Q1, etc.).
             periods.append(f'{cursor.year:04d}-{cursor.month:02d}')
-            cursor = datetime(cursor.year + (1 if cursor.month == 12 else 0),
-                              (cursor.month % 12) + 1, 1, tzinfo=timezone.utc)
-    elif shard == '1y':
-        cursor = datetime(start.year, 1, 1, tzinfo=timezone.utc)
+            m_end = cursor.month + count
+            y_end = cursor.year + (m_end - 1) // 12
+            m_end = ((m_end - 1) % 12) + 1
+            cursor = datetime(y_end, m_end, 1, tzinfo=timezone.utc)
+    elif unit == 'y':
+        # Floor to floor(year / N) * N.
+        floored_yr = start.year // count * count
+        cursor = datetime(floored_yr, 1, 1, tzinfo=timezone.utc)
         while cursor < end:
             periods.append(f'{cursor.year:04d}')
-            cursor = datetime(cursor.year + 1, 1, 1, tzinfo=timezone.utc)
-    elif shard == '1d':
-        cursor = datetime(start.year, start.month, start.day, tzinfo=timezone.utc)
-        while cursor < end:
-            periods.append(cursor.strftime('%Y-%m-%d'))
-            cursor += timedelta(days=1)
+            cursor = datetime(cursor.year + count, 1, 1, tzinfo=timezone.utc)
+    elif unit in ('d', 'h', 'min'):
+        # Fixed-width epoch-aligned span (matches pyrmts' `floorToSpan` for
+        # count>1). Compute span_ms, floor start to it, walk to end.
+        span_ms = count * _MS_PER_UNIT[unit]
+        start_ms = int(start.replace(tzinfo=timezone.utc).timestamp() * 1000)
+        end_ms = int(end.replace(tzinfo=timezone.utc).timestamp() * 1000)
+        floored_ms = (start_ms // span_ms) * span_ms
+        cursor_ms = floored_ms
+        while cursor_ms < end_ms:
+            cursor = datetime.fromtimestamp(cursor_ms / 1000, tz=timezone.utc)
+            # `formatPeriod` label matches pyrmts: `YYYY-MM-DD` for d, add
+            # `THH` for h, `-MM` for min. Cascade + serve read the same key.
+            if unit == 'd':
+                periods.append(cursor.strftime('%Y-%m-%d'))
+            elif unit == 'h':
+                periods.append(cursor.strftime('%Y-%m-%dT%H'))
+            else:  # min
+                periods.append(cursor.strftime('%Y-%m-%dT%H-%M'))
+            cursor_ms += span_ms
     else:
         raise ValueError(f'cannot enumerate periods for shard {shard!r}')
     return periods

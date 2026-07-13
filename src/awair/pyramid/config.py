@@ -32,8 +32,15 @@ class Metric:
 @dataclass(frozen=True)
 class Tier:
     name: str
-    bin: str    # e.g. '1min', '1h', '1d', '1mo'
-    shard: str  # e.g. '1mo', '1y', 'all'
+    bin: str                    # e.g. '1min', '1h', '1d', '1mo'
+    shards: tuple[str, ...]     # ascending, divisibility-chained ladder;
+                                # `shards[0]` is smallest, `shards[-1]` is
+                                # the max-rung the Python builder writes.
+                                # Cascade fills the smaller rungs itself.
+
+    @property
+    def max_shard(self) -> str:
+        return self.shards[-1]
 
 
 @dataclass(frozen=True)
@@ -53,13 +60,32 @@ class PyramidConfig:
         raise KeyError(f'tier {name!r} not in pyramid (have {[t.name for t in self.tiers]})')
 
     def previous_tier(self, name: str) -> Tier:
-        """Return the tier one step finer than `name`. For coarsening, this is the source tier."""
-        for i, t in enumerate(self.tiers):
+        """Return the source tier for coarsening `name` — the largest tier T'
+        such that `bin(T') < bin(name)` AND `bin(name) % bin(T') == 0`.
+
+        Bin-divisibility guarantees exact `floor(ts, targetBin)` rebinning.
+        A source whose bin doesn't divide the target's would silently smear
+        source buckets across neighboring target bins (silent aggregation
+        corruption). Matches ctbk's `sourceTierFor` semantics in
+        `gbfs/cascade/src/avail3/cascade.ts`.
+        """
+        from .builder import _bin_ms  # local import to avoid cycle
+        target = self.tier(name)
+        target_ms = _bin_ms(target.bin)
+        best: Tier | None = None
+        best_ms = 0
+        for t in self.tiers:
             if t.name == name:
-                if i == 0:
-                    raise ValueError(f'tier {name!r} is the finest tier; no source tier to coarsen from')
-                return self.tiers[i - 1]
-        raise KeyError(f'tier {name!r} not in pyramid')
+                break
+            t_ms = _bin_ms(t.bin)
+            if t_ms < target_ms and target_ms % t_ms == 0 and t_ms > best_ms:
+                best, best_ms = t, t_ms
+        if best is None:
+            raise ValueError(
+                f'tier {name!r} has no bin-divisible source in the pyramid '
+                f'(candidates: {[t.name for t in self.tiers if t.name != name]})',
+            )
+        return best
 
 
 def load_config(path: str | Path) -> PyramidConfig:
@@ -141,11 +167,23 @@ def _parse_tier(raw: object, i: int) -> Tier:
         raise ValueError(f'pyramid config: tiers[{i}] must be a mapping')
     name = raw.get('name')
     bin_ = raw.get('bin')
-    shard = raw.get('shard')
     if not isinstance(name, str):
         raise ValueError(f'pyramid config: tiers[{i}].name must be a string')
     if not isinstance(bin_, str):
         raise ValueError(f'pyramid config: tiers[{i}].bin must be a string')
-    if not isinstance(shard, str):
-        raise ValueError(f'pyramid config: tiers[{i}].shard must be a string')
-    return Tier(name=name, bin=bin_, shard=shard)
+    # Accept new plural `shards: [rung0, ..., maxRung]`; fall back to
+    # legacy singular `shard: <dur>` and wrap as a single-rung ladder.
+    shards_raw = raw.get('shards')
+    if shards_raw is None:
+        shard = raw.get('shard')
+        if not isinstance(shard, str):
+            raise ValueError(
+                f'pyramid config: tiers[{i}] needs either `shards: [...]` '
+                f'(plural) or legacy `shard: <dur>` (singular)',
+            )
+        shards = (shard,)
+    else:
+        if not isinstance(shards_raw, list) or len(shards_raw) == 0 or not all(isinstance(s, str) for s in shards_raw):
+            raise ValueError(f'pyramid config: tiers[{i}].shards must be a non-empty list of strings')
+        shards = tuple(shards_raw)
+    return Tier(name=name, bin=bin_, shards=shards)

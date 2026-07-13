@@ -1,13 +1,20 @@
 # pyrmts pyramid config for the awair time-series.
 # Read by both the Python builder (src/awair/pyramid/) and the CFW serving
-# worker (cfw/serve/). See pyrmts/SPEC.md §YAML schema for the grammar.
+# worker (cfw/serve/) + cascade (cfw/cascade/). See pyrmts/SPEC.md.
 #
-# Tier density: SUF ~3-4× between adjacent tiers (down from 5-8× in the
-# original ladder — see the health page + `/q?debug=1` traces prior to
-# commit 966dd02 for the empirical case). Constrained to 1mo + 1y shards
-# because the Python builder's `shards_overlapping` only enumerates those
-# two + 1d today. Drops d7/mo1 — multi-year views at bin_budget=1024 land
-# on d1 with more bins; add them back if we ever need coarser aggregates.
+# Multi-rung `shards: [...]` ladders (unified shard-duration ladder), per
+# ctbk's `configs/pyramids/avail.yaml` pattern. Each rung ≤ 4× the
+# previous; divisibility-chained so pyrmts' gap-discovery can tile the
+# current partial period with progressively smaller rungs and consolidate
+# to the max-rung once it closes. Cascade fills the smaller rungs itself;
+# the Python `awair pyramid backfill` CLI writes ONLY the max-rung per
+# tier (cascade covers the rest self-sufficiently).
+#
+# SUF (bin ratio between adjacent bin-divisible tiers) is 3-4×. Some tier
+# pairs don't chain (10 % 3 ≠ 0) — `previous_tier` uses bin-divisibility
+# to pick a valid source (skipping non-dividing intermediates) rather
+# than blindly walking prev-in-list, which would silently smear
+# aggregates. Matches ctbk `sourceTierFor`.
 
 storage:
   type: r2
@@ -27,10 +34,15 @@ metrics:
   - { name: voc,   monoid: sum }
 
 tiers:
-  - { name: raw, bin: 1min,  shard: 1mo }   # base — Lambda piggyback writes per-minute
-  - { name: m3,  bin: 3min,  shard: 1mo }   # 3×
-  - { name: m10, bin: 10min, shard: 1mo }   # 3.3×
-  - { name: m30, bin: 30min, shard: 1mo }   # 3×
-  - { name: h2,  bin: 2h,    shard: 1y  }   # 4×
-  - { name: h6,  bin: 6h,    shard: 1y  }   # 3×
-  - { name: d1,  bin: 1d,    shard: 1y  }   # 4×
+  # Lambda-owned. Cascade never writes raw; keeps key template `2026-07`
+  # (1mo) so it matches Lambda's monthly parquet naming.
+  - { name: raw, bin: 1min,  shards: [1mo] }
+  # Cascade fills 1d rungs for the current partial 32d period, then
+  # consolidates to 4d, then 32d as boundaries close.
+  - { name: m3,  bin: 3min,  shards: [1d, 4d, 32d] }
+  # 10 % 3 ≠ 0 → source is raw, not m3 (silent-smear avoidance).
+  - { name: m10, bin: 10min, shards: [1d, 4d, 32d] }
+  - { name: m30, bin: 30min, shards: [4d, 32d, 128d] }
+  - { name: h2,  bin: 2h,    shards: [16d, 128d, 512d] }
+  - { name: h6,  bin: 6h,    shards: [16d, 128d, 512d] }
+  - { name: d1,  bin: 1d,    shards: [32d, 128d, 512d] }

@@ -75,7 +75,7 @@ def build(
 
     target = config.tier(tier_name)
 
-    start, end = parse_period(period, target.shard)
+    start, end = parse_period(period, target.max_shard)
     out_key = format_key(config.key_template, device_id=dev_id_int, tier=tier_name, period=period)
     out_path = _join_base(out_base, out_key)
 
@@ -110,12 +110,12 @@ def _build_raw(
     period: str,
     from_s3: Optional[str],
 ) -> pd.DataFrame:
-    if target.shard != '1mo':
+    if target.max_shard != '1mo':
         # The existing awair raw layout in S3 is monthly. If you want a non-monthly
         # raw target, supply --from-s3 explicitly.
         if from_s3 is None:
             raise SystemExit(
-                f"tier=raw with shard={target.shard!r} needs --from-s3 (only shard='1mo' has a default S3 source)"
+                f"tier=raw with shard={target.max_shard!r} needs --from-s3 (only shard='1mo' has a default S3 source)"
             )
     src = from_s3 if from_s3 is not None else f's3://380nwk/awair-{device_id}/{period}.parquet'
     err(f'  Reading raw: {src}')
@@ -133,7 +133,7 @@ def _build_coarsened(
     end,
     out_base: str,
 ) -> pd.DataFrame:
-    src_periods = shards_overlapping(start, end, source.shard)
+    src_periods = shards_overlapping(start, end, source.max_shard)
     err(f'  Coarsening from {source.name} ({len(src_periods)} source shard(s))')
 
     frames: list[pd.DataFrame] = []
@@ -208,7 +208,7 @@ def backfill(
         err(f'\n[{dev_id} {dev_name}] {len(months)} month(s) of raw, {len(years)} year(s)')
 
         for tier in tiers:
-            periods = months if tier.shard == '1mo' else years
+            periods = months if tier.max_shard == '1mo' else years
             for period in periods:
                 out_key = format_key(config.key_template, device_id=dev_id, tier=tier.name, period=period)
                 out_path = _join_base(out_base, out_key)
@@ -223,7 +223,7 @@ def backfill(
                     continue
 
                 try:
-                    start, end = parse_period(period, tier.shard)
+                    start, end = parse_period(period, tier.max_shard)
                     if tier.name == 'raw':
                         shard = _build_raw(config, tier, dev_id, period, from_s3=None)
                     else:
@@ -297,13 +297,13 @@ def seed_index(
                 err(f'  SKIP unknown tier {tier_name!r} in key: {key}')
                 continue
             try:
-                p_start, p_end = parse_period(period, tier.shard)
+                p_start, p_end = parse_period(period, tier.max_shard)
             except ValueError as e:
                 err(f'  SKIP unparseable period in {key}: {e}')
                 continue
             written_at = obj['LastModified']
             pyramid_name = f'{pyramid_name_prefix}-{device_id}'
-            entries.append((pyramid_name, tier_name, tier.shard, p_start, p_end, key, written_at))
+            entries.append((pyramid_name, tier_name, tier.max_shard, p_start, p_end, key, written_at))
 
     if not entries:
         err(f'No pyramid shards found under r2://{bucket}/{prefix}')
@@ -396,7 +396,7 @@ def stats_backfill(
                 err(f'  SKIP unknown tier {tier_name!r} in key: {key}')
                 continue
             try:
-                p_start, _p_end = parse_period(period, tier.shard)
+                p_start, _p_end = parse_period(period, tier.max_shard)
             except ValueError as e:
                 err(f'  SKIP unparseable period in {key}: {e}')
                 continue
@@ -412,7 +412,7 @@ def stats_backfill(
             # matches what cfw/serve serves the pyrmts fetcher.
             footer = body[-footer_size:] if len(body) >= footer_size else body
             updates.append((
-                pyramid_name, tier_name, tier.shard,
+                pyramid_name, tier_name, tier.max_shard,
                 int(p_start.timestamp() * 1000),
                 len(body), n_rows, n_rgs, rg_rows, footer,
             ))
