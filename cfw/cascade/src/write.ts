@@ -44,10 +44,18 @@ export interface WriteResult {
   key: string
   bytes?: number
   rows?: number
+  // Last 64 KiB of the written parquet body — cached in D1 so `cfw/serve
+  // /q` can skip the metadata fetch (see `0004_footer_cache.sql`). Only
+  // present when `status === 'wrote'`.
+  footerBytes?: Uint8Array
   inputsPresent?: number
   inputsExpected?: number
   error?: string
 }
+
+/** Match pyrmts' `DEFAULT_INITIAL_FETCH_SIZE`; oversize the cache so a
+ *  single D1 read serves whatever hyparquet asks for on the initial slice. */
+const FOOTER_CACHE_SIZE = 64 * 1024
 
 /** Format an R2 key from the pyramid.yml `keyTemplate`. */
 function shardKey(deviceId: number, tier: string, periodLabel: string): string {
@@ -219,11 +227,17 @@ export async function writeShard(opts: WriteOpts): Promise<WriteResult> {
   const bytes = encodeShard(coarsened)
   await r2.put(key, bytes)
 
+  // Grab the tail slice for D1's footer cache. If the shard is smaller
+  // than the cache window, use the whole buffer.
+  const footerStart = Math.max(0, bytes.byteLength - FOOTER_CACHE_SIZE)
+  const footerBytes = bytes.slice(footerStart)
+
   return {
     status: 'wrote',
     key,
     bytes: bytes.byteLength,
     rows: coarsened.length,
+    footerBytes,
     inputsPresent,
     inputsExpected: sourcePeriods.length,
   }
