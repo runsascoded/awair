@@ -12,26 +12,17 @@ import {
   addSpan,
   floorToSpan,
   formatPeriod,
+  listExpectedShards,
   parseDuration,
   shardPeriodsCovering,
   type Shard,
   type Tier,
 } from 'pyrmts'
-import { PYRAMID_CONFIG, sourceTierFor } from './pyramid'
+import { makePyramid, PYRAMID_CONFIG, sourceTierFor } from './pyramid'
 import type { Device } from './devices'
 
 const METRIC_NAMES = PYRAMID_CONFIG.metrics.map(m => m.name)
 const STATE_SUFFIXES = ['_n', '_sum', '_sumsq'] as const
-
-/** Pick a tier's max shard-duration. `shards` is a ladder (unified
- *  shard-duration ladder — commit `2a3d234`), but awair currently
- *  declares one entry per tier so `[last]` == `[0]`. Kept as
- *  `[last]` so we're right when we adopt sub-shard rungs later. */
-function maxShard(tier: Tier): Shard {
-  const s = tier.shards[tier.shards.length - 1]
-  if (s === undefined) throw new Error(`tier ${tier.name} has no shards declared`)
-  return s
-}
 
 interface AwairRow {
   ts: number             // ms since epoch (source parquet stores INT64 → we normalize to number)
@@ -163,6 +154,10 @@ export interface WriteOpts {
   r2: R2Bucket
   device: Device
   targetTier: Tier
+  /** Which rung of `targetTier.shards` this write is for. Determines
+   *  the key's period label (e.g. `2026-07-13` for a 1d rung vs
+   *  `2026-07-13T14` for a 1h rung). */
+  targetShardDur: Shard
   targetPeriodStart: Date
   targetPeriodEnd: Date       // exclusive
   effectiveStart: Date        // clipped to genesis / query range
@@ -184,8 +179,8 @@ export interface WriteOpts {
  * inputs than its notional period would suggest).
  */
 export async function writeShard(opts: WriteOpts): Promise<WriteResult> {
-  const { r2, device, targetTier, targetPeriodStart, effectiveStart, effectiveEnd } = opts
-  const key = shardKey(device.id, targetTier.name, formatPeriod(targetPeriodStart, parseDuration(maxShard(targetTier))))
+  const { r2, device, targetTier, targetShardDur, targetPeriodStart, effectiveStart, effectiveEnd } = opts
+  const key = shardKey(device.id, targetTier.name, formatPeriod(targetPeriodStart, parseDuration(targetShardDur)))
 
   if (targetTier.name === 'raw') {
     return { status: 'raw_skip', key }
@@ -200,8 +195,11 @@ export async function writeShard(opts: WriteOpts): Promise<WriteResult> {
     return { status: 'error', key, error: `unknown source tier ${sourceTierName}` }
   }
 
-  const sourcePeriods = shardPeriodsCovering(effectiveStart, effectiveEnd, maxShard(sourceTier))
-  if (sourcePeriods.length === 0) {
+  // Source-shard enumeration depends on whether the source is single- or
+  // multi-rung. See docstring above.
+  const filter = { device_id: device.id }
+  const sourceKeys = enumerateSourceKeys(sourceTier, device, effectiveStart, effectiveEnd, filter, r2)
+  if (sourceKeys.length === 0) {
     return { status: 'no_inputs', key, inputsPresent: 0, inputsExpected: 0 }
   }
 
@@ -210,16 +208,15 @@ export async function writeShard(opts: WriteOpts): Promise<WriteResult> {
 
   const allRows: AwairRow[] = []
   let inputsPresent = 0
-  for (const period of sourcePeriods) {
-    const sourceKey = shardKey(device.id, sourceTier.name, period.label)
-    const rows = await readSourceShard(r2, sourceKey, effStartMs, effEndMs)
+  for (const srcKey of sourceKeys) {
+    const rows = await readSourceShard(r2, srcKey, effStartMs, effEndMs)
     if (rows === null) continue
     inputsPresent++
     for (const row of rows) allRows.push(row)
   }
 
   if (allRows.length === 0) {
-    return { status: 'no_inputs', key, inputsPresent, inputsExpected: sourcePeriods.length }
+    return { status: 'no_inputs', key, inputsPresent, inputsExpected: sourceKeys.length }
   }
 
   const targetBinMs = targetBinToMs(targetTier.bin)
@@ -239,8 +236,47 @@ export async function writeShard(opts: WriteOpts): Promise<WriteResult> {
     rows: coarsened.length,
     footerBytes,
     inputsPresent,
-    inputsExpected: sourcePeriods.length,
+    inputsExpected: sourceKeys.length,
   }
+}
+
+/**
+ * Enumerate source shard keys covering `[effStart, effEnd)` for
+ * `sourceTier`.
+ *
+ * Single-rung source (e.g. raw with `[1mo]`): use `shardPeriodsCovering`
+ * on the sole rung. This includes the current partial-period tile
+ * (Lambda writes to it continuously); `listExpectedShards`
+ * gap-discovery would skip that tile because single-rung ladders have
+ * no smaller-rung to tile the trailing-partial window.
+ *
+ * Multi-rung source: use `listExpectedShards` over `[genesis, now]` —
+ * this gives the min-cover across all rungs (max-rung tiles for closed
+ * history, smaller rungs for the trailing partial), which is what
+ * cascade actually writes. Filter to those overlapping the target's
+ * effective range.
+ */
+function enumerateSourceKeys(
+  sourceTier: Tier,
+  device: Device,
+  effStart: Date,
+  effEnd: Date,
+  filter: Record<string, string | number>,
+  r2: R2Bucket,
+): string[] {
+  if (sourceTier.shards.length === 1) {
+    const rung = sourceTier.shards[0]!
+    const periods = shardPeriodsCovering(effStart, effEnd, rung)
+    return periods.map(p => shardKey(device.id, sourceTier.name, p.label))
+  }
+  const sourcePyramid = makePyramid(r2)
+  const now = new Date()
+  const from = device.genesisDate < effStart ? device.genesisDate : effStart
+  const to = now > effEnd ? now : effEnd
+  return listExpectedShards(sourcePyramid, { from, to }, filter)
+    .filter(e => e.tier === sourceTier.name)
+    .filter(e => e.effectiveEnd > effStart && e.effectiveStart < effEnd)
+    .map(e => e.key)
 }
 
 /** Convert a pyrmts bin duration to a fixed ms count. Only supports the

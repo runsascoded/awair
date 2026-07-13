@@ -115,6 +115,7 @@ async function convergeOne(
       r2: env.PYRAMID,
       device,
       targetTier: tier,
+      targetShardDur: m.shardDur,
       targetPeriodStart: m.periodStart,
       targetPeriodEnd: m.periodEnd,
       effectiveStart: m.effectiveStart,

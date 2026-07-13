@@ -6,19 +6,7 @@ import { parsePyramidYaml, pyramidFromConfig, parquetBackend, type PyramidConfig
 import { r2Storage } from 'pyrmts-cfw'
 import pyramidYamlText from '../../../src/awair/pyramid.yml'
 
-// Newer pyrmts (post `2a3d234`, unified shard-duration ladder) parses
-// `shards: [<dur>, ...]` plural. The shared `src/awair/pyramid.yml` is
-// still on the pre-ladder singular `shard: <dur>` shape because the
-// Python builder + `cfw/serve` (older pyrmts pin) still expect it.
-// Rewrite the YAML text on the fly here so we can move to the newer
-// parser without breaking the other consumers.
-//
-// Awair's key template doesn't include `{shard}`, so this rewrite is
-// scoped strictly to the tier block. If a future pyramid.yml adds
-// `{shard}` to the key template, either update this preprocessing or
-// migrate everyone to the plural form.
-const normalizedYaml = pyramidYamlText.replace(/(\bshard:\s+)(\S+)/g, 'shards: [$2]')
-export const PYRAMID_CONFIG: PyramidConfig = parsePyramidYaml(normalizedYaml)
+export const PYRAMID_CONFIG: PyramidConfig = parsePyramidYaml(pyramidYamlText)
 
 // pyrmts pyramid "name" prefix for D1 rows. Per-device names look like
 // `awair-{device_id}` — separate namespaces per tenant because
@@ -36,14 +24,55 @@ export function pyramidNameFor(deviceId: number, prefix?: string): string {
 // The raw tier — Lambda's job, cascade skips it.
 export const RAW_TIER = 'raw'
 
-// Order pyramid.yml declares tiers. `sourceTierFor(t)` returns the tier
-// immediately before `t` in this list (`null` for `raw`).
+// Order pyramid.yml declares tiers.
 export const TIER_ORDER: string[] = PYRAMID_CONFIG.tiers.map(t => t.name)
 
+/** Fixed-width ms for a `Nmin`/`Nh`/`Nd` bin. Throws for `Nmo`/`Ny`
+ *  (calendar-variable) — cascade sources are always fixed-width, and
+ *  we need integer ms for the % divisibility check. */
+function binMs(binSpec: string): number {
+  const m = /^(\d+)(min|h|d)$/.exec(binSpec)
+  if (m === null) throw new Error(`binMs: non-fixed-width bin '${binSpec}'`)
+  const count = Number.parseInt(m[1]!, 10)
+  const unitMs = { min: 60_000, h: 3_600_000, d: 86_400_000 }[m[2] as 'min' | 'h' | 'd']
+  return count * unitMs
+}
+
+const TIER_BIN_MS: Record<string, number> = Object.fromEntries(
+  PYRAMID_CONFIG.tiers.map(t => [t.name, binMs(t.bin)]),
+)
+
+/** For each target tier, the tier T' its cascade sources from — the
+ *  largest T' with `bin(T') < bin(target)` AND `bin(target) % bin(T') == 0`.
+ *  Bin-divisibility guarantees the target's floor-then-groupby rebin is
+ *  exact — a source whose bin doesn't divide the target's would silently
+ *  smear source buckets across neighboring target bins. Same rule
+ *  ctbk's `SOURCE_TIER_FOR` uses. Returns null for the finest tier (raw
+ *  — sourced from Lambda WAL, not another tier). */
+const SOURCE_TIER_FOR: Record<string, string | null> = (() => {
+  const out: Record<string, string | null> = {}
+  for (let i = 0; i < TIER_ORDER.length; i++) {
+    const target = TIER_ORDER[i]!
+    if (i === 0) { out[target] = null; continue }
+    const targetMs = TIER_BIN_MS[target]!
+    let src: string | null = null
+    let srcMs = 0
+    for (let j = 0; j < i; j++) {
+      const cand = TIER_ORDER[j]!
+      const candMs = TIER_BIN_MS[cand]!
+      if (candMs < targetMs && targetMs % candMs === 0 && candMs > srcMs) {
+        src = cand; srcMs = candMs
+      }
+    }
+    if (src === null) throw new Error(`no bin-divisible source tier for ${target}`)
+    out[target] = src
+  }
+  return out
+})()
+
 export function sourceTierFor(tier: string): string | null {
-  const i = TIER_ORDER.indexOf(tier)
-  if (i <= 0) return null
-  return TIER_ORDER[i - 1] ?? null
+  if (!(tier in SOURCE_TIER_FOR)) throw new Error(`unknown tier: ${tier}`)
+  return SOURCE_TIER_FOR[tier]!
 }
 
 // Build a `Pyramid` for a specific R2 binding. Cascade re-builds per

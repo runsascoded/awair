@@ -23,7 +23,7 @@
  */
 
 import { parquetBackend, parsePyramidYaml, pyramidFromConfig, type Pyramid, type Storage } from 'pyrmts'
-import { r2Storage, serveQuery } from 'pyrmts-cfw'
+import { D1ShardIndex, r2Storage, serveQuery } from 'pyrmts-cfw'
 import pyramidYamlText from '../../../src/awair/pyramid.yml'
 
 interface Env {
@@ -40,12 +40,7 @@ interface DeviceRow {
 }
 
 // Parse the YAML once at module load — the config is immutable per deploy.
-// Newer pyrmts (post `2a3d234`) requires plural `shards: [<dur>]`; the
-// shared `src/awair/pyramid.yml` uses singular `shard: <dur>` (the Python
-// builder still expects that shape). Rewrite on the fly to match cascade's
-// same-shape workaround.
-const normalizedYaml = pyramidYamlText.replace(/(\bshard:\s+)(\S+)/g, 'shards: [$2]')
-const pyramidConfig = parsePyramidYaml(normalizedYaml)
+const pyramidConfig = parsePyramidYaml(pyramidYamlText)
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -235,26 +230,26 @@ async function serveQueryWithCache(
   const traces: FetchTrace[] = []
   const storage = wrappedStorage(r2Storage(env.PYRAMID), env, traces, opts.cacheEnabled)
   const pyramid: Pyramid = pyramidFromConfig(pyramidConfig, parquetBackend(storage))
-  // Watermark-driven planning (default `planQuery` — not the
-  // inventory-driven variant). Watermarks come from R2 HEAD of the
-  // current-period shard per tier, so a coarser tier whose file's
-  // `uploaded` trails raw's watermark gets reaggregated from a finer
-  // tier at the query's tail. That's the property we care about most
-  // for typical FE queries.
+  // Inventory-driven planning via `shardIndex`. Cascade tiles the current
+  // partial period with progressively smaller rungs of a multi-rung
+  // ladder, and D1 records exactly what was written — the planner walks
+  // that inventory rather than guessing shard existence from the ladder
+  // shape. Requires `pyramidName` (per-device, `awair-{device_id}`)
+  // derived from the query filter.
   //
-  // Trade-off: this planner asks for shards that pyramid.yml *implies*
-  // exist (single-rung 1y max-rung tiles for the current year), which
-  // gap-discovery-based cascade never materializes until year-end. Those
-  // queries get an empty response — `tolerateMissingShards: true`
-  // returns `[]` instead of erroring. The FE avoids this by picking
-  // `bin_budget` such that d1/m30 is targeted for multi-month views.
-  // Real fix: partial-shards / multi-rung ladders (`shards: [1mo, 1y]`).
+  // Watermarks are still passed for the raw tier only — pyrmts uses
+  // `pyramid.tiers[0]`'s watermark to compute `authoritativeEnd`
+  // (fresh-through-instant). All other tiers plan from inventory.
+  const url = new URL(request.url)
+  const deviceId = url.searchParams.get('device_id')
+  const pyramidName = deviceId !== null ? `awair-${deviceId}` : undefined
   const inner = await serveQuery({
     pyramid,
     request,
     watermarks: req => resolveWatermarks(req, env),
     tolerateMissingShards: true,
     cors: true,
+    ...(pyramidName !== undefined ? { shardIndex: new D1ShardIndex(env.DB), pyramidName } : {}),
   })
 
   if (!opts.debug) {
@@ -342,6 +337,14 @@ async function serveQueryWithCache(
  * current-period shard in R2 and using its `uploaded` timestamp. Missing
  * shards yield no entry, which the planner treats as "complete through `to`".
  */
+/** Return `{raw: <uploaded time of current-month raw shard>}` — the
+ *  raw tier's freshness. That's the only tier `planQueryFromInventory`
+ *  reads a watermark for (used to compute `authoritativeEnd`); all
+ *  other tiers plan against `shardIndex` (D1 inventory), so their
+ *  freshness comes from whether cascade has written the current-tail
+ *  small-rung shard, not from a watermark.
+ *
+ *  Lambda writes raw every minute so this is ~always ≈ now. */
 async function resolveWatermarks(
   request: Request,
   env: Env,
@@ -349,34 +352,21 @@ async function resolveWatermarks(
   const url = new URL(request.url)
   const deviceId = url.searchParams.get('device_id')
   if (deviceId === null) return {}
-
+  const rawTier = pyramidConfig.tiers[0]
+  if (rawTier === undefined || rawTier.name !== 'raw') return {}
   const now = new Date()
   const ym = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
-  const y = String(now.getUTCFullYear())
-
-  const heads = await Promise.all(
-    pyramidConfig.tiers.map(async tier => {
-      const shardDur = tier.shards[tier.shards.length - 1]
-      const period = shardDur === '1mo' ? ym : shardDur === '1y' ? y : null
-      if (period === null) return [tier.name, null] as const
-      const key = pyramidConfig.keyTemplate
-        .replaceAll('{device_id}', deviceId)
-        .replaceAll('{tier}', tier.name)
-        .replaceAll('{period}', period)
-      try {
-        const obj = await env.PYRAMID.head(key)
-        return [tier.name, obj?.uploaded ?? null] as const
-      } catch {
-        return [tier.name, null] as const
-      }
-    }),
-  )
-
-  const out: Record<string, Date> = {}
-  for (const [name, ts] of heads) {
-    if (ts !== null) out[name] = ts
+  const key = pyramidConfig.keyTemplate
+    .replaceAll('{device_id}', deviceId)
+    .replaceAll('{tier}', 'raw')
+    .replaceAll('{period}', ym)
+  try {
+    const obj = await env.PYRAMID.head(key)
+    if (obj === null) return {}
+    return { raw: obj.uploaded }
+  } catch {
+    return {}
   }
-  return out
 }
 
 interface WatermarkRow {
