@@ -70,7 +70,7 @@ async function main(): Promise<void> {
   const pyramid = pyramidFromConfig(config, fsStorage(SHARD_BASE))
 
   console.log('Pyramid:', {
-    tiers: pyramid.tiers.map(t => `${t.name} (bin=${t.bin}, shard=${t.shard})`),
+    tiers: pyramid.tiers.map(t => `${t.name} (bin=${t.bin}, shard=${t.shards[t.shards.length - 1]})`),
     dims: pyramid.dims.map(d => d.name),
     metrics: pyramid.metrics.map(m => `${m.name} (${m.monoid})`),
   })

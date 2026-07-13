@@ -22,7 +22,7 @@
  * instead of erroring the whole query.
  */
 
-import { parsePyramidYaml, pyramidFromConfig, type Pyramid, type Storage } from 'pyrmts'
+import { parquetBackend, parsePyramidYaml, pyramidFromConfig, type Pyramid, type Storage } from 'pyrmts'
 import { r2Storage, serveQuery } from 'pyrmts-cfw'
 import pyramidYamlText from '../../../src/awair/pyramid.yml'
 
@@ -40,7 +40,12 @@ interface DeviceRow {
 }
 
 // Parse the YAML once at module load — the config is immutable per deploy.
-const pyramidConfig = parsePyramidYaml(pyramidYamlText)
+// Newer pyrmts (post `2a3d234`) requires plural `shards: [<dur>]`; the
+// shared `src/awair/pyramid.yml` uses singular `shard: <dur>` (the Python
+// builder still expects that shape). Rewrite on the fly to match cascade's
+// same-shape workaround.
+const normalizedYaml = pyramidYamlText.replace(/(\bshard:\s+)(\S+)/g, 'shards: [$2]')
+const pyramidConfig = parsePyramidYaml(normalizedYaml)
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -229,7 +234,21 @@ async function serveQueryWithCache(
 ): Promise<Response> {
   const traces: FetchTrace[] = []
   const storage = wrappedStorage(r2Storage(env.PYRAMID), env, traces, opts.cacheEnabled)
-  const pyramid: Pyramid = pyramidFromConfig(pyramidConfig, storage)
+  const pyramid: Pyramid = pyramidFromConfig(pyramidConfig, parquetBackend(storage))
+  // Watermark-driven planning (default `planQuery` — not the
+  // inventory-driven variant). Watermarks come from R2 HEAD of the
+  // current-period shard per tier, so a coarser tier whose file's
+  // `uploaded` trails raw's watermark gets reaggregated from a finer
+  // tier at the query's tail. That's the property we care about most
+  // for typical FE queries.
+  //
+  // Trade-off: this planner asks for shards that pyramid.yml *implies*
+  // exist (single-rung 1y max-rung tiles for the current year), which
+  // gap-discovery-based cascade never materializes until year-end. Those
+  // queries get an empty response — `tolerateMissingShards: true`
+  // returns `[]` instead of erroring. The FE avoids this by picking
+  // `bin_budget` such that d1/m30 is targeted for multi-month views.
+  // Real fix: partial-shards / multi-rung ladders (`shards: [1mo, 1y]`).
   const inner = await serveQuery({
     pyramid,
     request,
@@ -337,7 +356,8 @@ async function resolveWatermarks(
 
   const heads = await Promise.all(
     pyramidConfig.tiers.map(async tier => {
-      const period = tier.shard === '1mo' ? ym : tier.shard === '1y' ? y : null
+      const shardDur = tier.shards[tier.shards.length - 1]
+      const period = shardDur === '1mo' ? ym : shardDur === '1y' ? y : null
       if (period === null) return [tier.name, null] as const
       const key = pyramidConfig.keyTemplate
         .replaceAll('{device_id}', deviceId)
@@ -540,7 +560,8 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
   const pyramids: PyramidHealth[] = devices.map(d => {
     const pyramidName = `awair-${d.deviceId}`
     const tiers: TierHealth[] = pyramidConfig.tiers.map(t => {
-      const key = `${pyramidName}|${t.name}|${t.shard}`
+      const tShard = t.shards[t.shards.length - 1]!
+      const key = `${pyramidName}|${t.name}|${tShard}`
       const wm = wmIdx.get(key) ?? null
       const shards = shardsByKey.get(key) ?? []
       // Derive aggregates in JS instead of a second GROUP BY.
@@ -589,7 +610,7 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
       }
       return {
         tier: t.name,
-        shardDur: t.shard,
+        shardDur: tShard,
         shardCount: shards.length,
         latestPeriodEnd: latestEnd ?? wm?.latest_period_end ?? null,
         earliestPeriodStart: earliest,
@@ -610,7 +631,7 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
     pyramids,
     config: {
       keyTemplate: pyramidConfig.keyTemplate,
-      tiers: pyramidConfig.tiers.map(t => ({ name: t.name, bin: t.bin, shard: t.shard })),
+      tiers: pyramidConfig.tiers.map(t => ({ name: t.name, bin: t.bin, shard: t.shards[t.shards.length - 1]! })),
     },
   }
 }

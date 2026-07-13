@@ -9,11 +9,11 @@ importers:
   .:
     dependencies:
       pyrmts:
-        specifier: https://github.com/runsascoded/pyrmts#61f091b67c0162ff7b256ead7bfb48a5944cc3f3&path:/js/packages/pyrmts
-        version: https://codeload.github.com/runsascoded/pyrmts/tar.gz/61f091b67c0162ff7b256ead7bfb48a5944cc3f3#path:/js/packages/pyrmts(react@19.2.6)
+        specifier: https://github.com/runsascoded/pyrmts#ffc72db&path:/js/packages/pyrmts
+        version: https://codeload.github.com/runsascoded/pyrmts/tar.gz/ffc72db#path:/js/packages/pyrmts(react@19.2.6)
       pyrmts-cfw:
-        specifier: https://github.com/runsascoded/pyrmts#61f091b67c0162ff7b256ead7bfb48a5944cc3f3&path:/js/packages/pyrmts-cfw
-        version: https://codeload.github.com/runsascoded/pyrmts/tar.gz/61f091b67c0162ff7b256ead7bfb48a5944cc3f3#path:/js/packages/pyrmts-cfw(react@19.2.6)
+        specifier: https://github.com/runsascoded/pyrmts#ffc72db&path:/js/packages/pyrmts-cfw
+        version: https://codeload.github.com/runsascoded/pyrmts/tar.gz/ffc72db#path:/js/packages/pyrmts-cfw(react@19.2.6)
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20240725.0
@@ -660,12 +660,21 @@ packages:
   printable-characters@1.0.42:
     resolution: {integrity: sha512-dKp+C4iXWK4vVYZmYSd0KBH5F/h1HoZRsbJ82AVKRO3PEo8L4lBS/vLwhVtpwwuYcoIsVY+1JYKR268yn480uQ==}
 
-  pyrmts-cfw@https://codeload.github.com/runsascoded/pyrmts/tar.gz/61f091b67c0162ff7b256ead7bfb48a5944cc3f3#path:/js/packages/pyrmts-cfw:
-    resolution: {path: /js/packages/pyrmts-cfw, tarball: https://codeload.github.com/runsascoded/pyrmts/tar.gz/61f091b67c0162ff7b256ead7bfb48a5944cc3f3}
+  pyrmts-cfw@https://codeload.github.com/runsascoded/pyrmts/tar.gz/ffc72db#path:/js/packages/pyrmts-cfw:
+    resolution: {path: /js/packages/pyrmts-cfw, tarball: https://codeload.github.com/runsascoded/pyrmts/tar.gz/ffc72db}
     version: 0.0.0
 
-  pyrmts@https://codeload.github.com/runsascoded/pyrmts/tar.gz/61f091b67c0162ff7b256ead7bfb48a5944cc3f3#path:/js/packages/pyrmts:
-    resolution: {path: /js/packages/pyrmts, tarball: https://codeload.github.com/runsascoded/pyrmts/tar.gz/61f091b67c0162ff7b256ead7bfb48a5944cc3f3}
+  pyrmts@https://codeload.github.com/runsascoded/pyrmts/tar.gz/ffc72db#path:/js/packages/pyrmts:
+    resolution: {path: /js/packages/pyrmts, tarball: https://codeload.github.com/runsascoded/pyrmts/tar.gz/ffc72db}
+    version: 0.0.0
+    peerDependencies:
+      react: '>=18'
+    peerDependenciesMeta:
+      react:
+        optional: true
+
+  pyrmts@https://codeload.github.com/runsascoded/pyrmts/tar.gz/ffc72db1c72dca93db719b1fe6e250c31e5644e9#path:/js/packages/pyrmts:
+    resolution: {path: /js/packages/pyrmts, tarball: https://codeload.github.com/runsascoded/pyrmts/tar.gz/ffc72db1c72dca93db719b1fe6e250c31e5644e9}
     version: 0.0.0
     peerDependencies:
       react: '>=18'
@@ -1219,13 +1228,20 @@ snapshots:
 
   printable-characters@1.0.42: {}
 
-  pyrmts-cfw@https://codeload.github.com/runsascoded/pyrmts/tar.gz/61f091b67c0162ff7b256ead7bfb48a5944cc3f3#path:/js/packages/pyrmts-cfw(react@19.2.6):
+  pyrmts-cfw@https://codeload.github.com/runsascoded/pyrmts/tar.gz/ffc72db#path:/js/packages/pyrmts-cfw(react@19.2.6):
     dependencies:
-      pyrmts: https://codeload.github.com/runsascoded/pyrmts/tar.gz/61f091b67c0162ff7b256ead7bfb48a5944cc3f3#path:/js/packages/pyrmts(react@19.2.6)
+      pyrmts: https://codeload.github.com/runsascoded/pyrmts/tar.gz/ffc72db1c72dca93db719b1fe6e250c31e5644e9#path:/js/packages/pyrmts(react@19.2.6)
     transitivePeerDependencies:
       - react
 
-  pyrmts@https://codeload.github.com/runsascoded/pyrmts/tar.gz/61f091b67c0162ff7b256ead7bfb48a5944cc3f3#path:/js/packages/pyrmts(react@19.2.6):
+  pyrmts@https://codeload.github.com/runsascoded/pyrmts/tar.gz/ffc72db#path:/js/packages/pyrmts(react@19.2.6):
+    dependencies:
+      hyparquet: 1.26.0
+      yaml: 2.9.0
+    optionalDependencies:
+      react: 19.2.6
+
+  pyrmts@https://codeload.github.com/runsascoded/pyrmts/tar.gz/ffc72db1c72dca93db719b1fe6e250c31e5644e9#path:/js/packages/pyrmts(react@19.2.6):
     dependencies:
       hyparquet: 1.26.0
       yaml: 2.9.0

@@ -2,9 +2,12 @@
 # Read by both the Python builder (src/awair/pyramid/) and the CFW serving
 # worker (cfw/serve/). See pyrmts/SPEC.md §YAML schema for the grammar.
 #
-# Tier density: SUF ≈ 5-8× between adjacent tiers (ctbk-style). Each tier's
-# rebuild cadence should match its bin granularity — raw within 60s of S3,
-# m5 every ~5min, …, mo1 ≈ monthly.
+# Tier density: SUF ~3-4× between adjacent tiers (down from 5-8× in the
+# original ladder — see the health page + `/q?debug=1` traces prior to
+# commit 966dd02 for the empirical case). Constrained to 1mo + 1y shards
+# because the Python builder's `shards_overlapping` only enumerates those
+# two + 1d today. Drops d7/mo1 — multi-year views at bin_budget=1024 land
+# on d1 with more bins; add them back if we ever need coarser aggregates.
 
 storage:
   type: r2
@@ -25,9 +28,9 @@ metrics:
 
 tiers:
   - { name: raw, bin: 1min,  shard: 1mo }   # base — Lambda piggyback writes per-minute
-  - { name: m5,  bin: 5min,  shard: 1mo }   # 5×
-  - { name: m30, bin: 30min, shard: 1mo }   # 6×
-  - { name: h3,  bin: 3h,    shard: 1y  }   # 6×
-  - { name: d1,  bin: 1d,    shard: 1y  }   # 8×
-  - { name: d7,  bin: 7d,    shard: 1y  }   # 7×
-  - { name: mo1, bin: 1mo,   shard: 1y  }   # ~4×
+  - { name: m3,  bin: 3min,  shard: 1mo }   # 3×
+  - { name: m10, bin: 10min, shard: 1mo }   # 3.3×
+  - { name: m30, bin: 30min, shard: 1mo }   # 3×
+  - { name: h2,  bin: 2h,    shard: 1y  }   # 4×
+  - { name: h6,  bin: 6h,    shard: 1y  }   # 3×
+  - { name: d1,  bin: 1d,    shard: 1y  }   # 4×
