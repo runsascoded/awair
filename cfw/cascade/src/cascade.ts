@@ -13,8 +13,8 @@ import {
 } from 'pyrmts'
 import { D1ShardIndex } from 'pyrmts-cfw'
 import { readDevices, type Device } from './devices'
-import { DEFAULT_PYRAMID_NAME_PREFIX, makePyramid, PYRAMID_CONFIG, pyramidNameFor, RAW_TIER, TIER_ORDER } from './pyramid'
-import { writeShard, type WriteResult } from './write'
+import { DEFAULT_PYRAMID_NAME_PREFIX, makePyramid, PYRAMID_CONFIG, pyramidNameFor, RAW_TIER, sourceTierFor, TIER_ORDER } from './pyramid'
+import { enumerateSourceKeys, writeShard, type WriteResult } from './write'
 
 export interface ConvergeAllOpts {
   now?: Date
@@ -36,6 +36,7 @@ export interface PerDeviceReport {
   results?: WriteResult[]
   stats?: Record<string, number>
   totalMissing?: number
+  totalStale?: number
   stoppedReason?: 'time' | 'ops'
 }
 
@@ -62,6 +63,82 @@ function sortMissing(a: ExpectedShard, b: ExpectedShard): number {
   if (ai !== bi) return ai - bi
   if (a.shardDur !== b.shardDur) return a.shardDur < b.shardDur ? -1 : 1
   return a.periodStart.getTime() - b.periodStart.getTime()
+}
+
+/**
+ * Poll-based stale detection (interim substitute for pyrmts's invalidation
+ * journal, which is Python-only today — see
+ * `~/c/pyrmts/specs/shard-invalidation.md`).
+ *
+ * A recorded shard `R` is stale if any of its source-tier shards has an
+ * R2 `uploaded` time newer than `R.writtenAt`. Sources are enumerated
+ * exactly as `writeShard` would enumerate them (same `enumerateSourceKeys`
+ * logic), so the check matches what the rewrite would read.
+ *
+ * `headCache` memoizes `env.PYRAMID.head()` per-tick — the same source
+ * key is typically the source for multiple recorded shards (e.g. the
+ * current-month raw shard is a source for m3/m10 shards at all rungs
+ * covering it). Cache key is the source key; value is the R2Object or
+ * null (not-found).
+ *
+ * Returns `ExpectedShard[]` shape so the caller can merge with
+ * `listMissingShards` output and drive the same write path.
+ */
+async function listStaleShards(
+  device: Device,
+  shardIndex: D1ShardIndex,
+  pyramidName: string,
+  now: Date,
+  r2: R2Bucket,
+  headCache: Map<string, { uploadedMs: number } | null>,
+): Promise<ExpectedShard[]> {
+  const recorded = await shardIndex.listShards(pyramidName)
+  const stale: ExpectedShard[] = []
+  const filter = { device_id: device.id }
+
+  for (const rec of recorded) {
+    if (rec.tier === RAW_TIER) continue
+    if (rec.writtenAt === undefined) continue
+    const writtenMs = rec.writtenAt.getTime()
+
+    const srcName = sourceTierFor(rec.tier)
+    if (srcName === null) continue
+    const srcTier = PYRAMID_CONFIG.tiers.find(t => t.name === srcName)
+    if (srcTier === undefined) continue
+
+    // Enumerate the source keys covering the recorded shard's *raw*
+    // period (no `now`-clip — historical shards should read all their
+    // source coverage even after their period closed).
+    const effStart = rec.periodStart < device.genesisDate ? device.genesisDate : rec.periodStart
+    const effEnd = rec.periodEnd
+    const srcKeys = enumerateSourceKeys(srcTier, device, effStart, effEnd, filter, r2)
+
+    let isStale = false
+    for (const k of srcKeys) {
+      let entry = headCache.get(k)
+      if (entry === undefined) {
+        const h = await r2.head(k)
+        entry = h === null ? null : { uploadedMs: h.uploaded.getTime() }
+        headCache.set(k, entry)
+      }
+      if (entry !== null && entry.uploadedMs > writtenMs) {
+        isStale = true
+        break
+      }
+    }
+    if (!isStale) continue
+
+    stale.push({
+      tier: rec.tier,
+      shardDur: rec.shardDur,
+      periodStart: rec.periodStart,
+      periodEnd: rec.periodEnd,
+      effectiveStart: effStart,
+      effectiveEnd: effEnd > now ? now : effEnd,
+      key: rec.key,
+    })
+  }
+  return stale
 }
 
 /**
@@ -94,15 +171,30 @@ async function convergeOne(
 
   // Cascade never writes raw — filter it out entirely.
   missing = missing.filter(m => m.tier !== RAW_TIER)
-  if (opts.tierFilter !== null) missing = missing.filter(m => opts.tierFilter!.has(m.tier))
-  missing.sort(sortMissing)
+
+  // Also fold in *stale* shards: ones already recorded in D1 whose R2
+  // source has a newer `uploaded` than the shard's `written_at`. Poll
+  // substitute for pyrmts's invalidation journal until the JS port
+  // lands. Dedup by key (a shard is at most one of missing/stale, but
+  // sync a set to be safe against future changes).
+  const headCache = new Map<string, { uploadedMs: number } | null>()
+  let stale = await listStaleShards(device, shardIndex, pyramidName, now, env.PYRAMID, headCache)
+  if (opts.tierFilter !== null) {
+    missing = missing.filter(m => opts.tierFilter!.has(m.tier))
+    stale = stale.filter(s => opts.tierFilter!.has(s.tier))
+  }
+  const seenKeys = new Set(missing.map(m => m.key))
+  const uniqueStale = stale.filter(s => !seenKeys.has(s.key))
+  const work: ExpectedShard[] = [...missing, ...uniqueStale]
+  work.sort(sortMissing)
 
   const totalMissing = missing.length
+  const totalStale = uniqueStale.length
   const results: WriteResult[] = []
   const stats: Record<string, number> = {}
   let stopped: 'time' | undefined
 
-  for (const m of missing) {
+  for (const m of work) {
     if (Date.now() - started >= opts.remainingBudgetMs) { stopped = 'time'; break }
     const tier = PYRAMID_CONFIG.tiers.find(t => t.name === m.tier) as Tier
     if (opts.dryRun) {
@@ -161,7 +253,7 @@ async function convergeOne(
     }
   }
 
-  return { results, stats, totalMissing, stoppedReason: stopped }
+  return { results, stats, totalMissing, totalStale, stoppedReason: stopped }
 }
 
 /**

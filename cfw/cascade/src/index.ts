@@ -65,9 +65,27 @@ export default {
       )
         .then(r => {
           // Log summary; per-device details are noise on quiet ticks.
-          const total = r.perDevice.reduce((s, d) => s + (d.totalMissing ?? 0), 0)
-          if (total > 0) console.log(JSON.stringify(r))
-          else console.log(`convergeAll: quiet tick (${r.elapsedMs}ms, ${r.perDevice.length} devices)`)
+          // `results` carries per-shard `footerBytes` blobs (up to 64 KiB
+          // each) that blow past the 256 KiB tail log cap — strip them
+          // for the summary log; `stats` + `results.status` already give
+          // us the shape.
+          const totalMissing = r.perDevice.reduce((s, d) => s + (d.totalMissing ?? 0), 0)
+          const totalStale = r.perDevice.reduce((s, d) => s + (d.totalStale ?? 0), 0)
+          const errored = r.perDevice.filter(d => d.status === 'error')
+          if (totalMissing + totalStale > 0 || errored.length > 0) {
+            const trimmed = {
+              ...r,
+              perDevice: r.perDevice.map(d => ({
+                ...d,
+                results: d.results?.map(x => ({
+                  status: x.status, key: x.key, rows: x.rows, bytes: x.bytes,
+                  inputsPresent: x.inputsPresent, inputsExpected: x.inputsExpected,
+                  error: x.error,
+                })),
+              })),
+            }
+            console.log(JSON.stringify(trimmed))
+          } else console.log(`convergeAll: quiet tick (${r.elapsedMs}ms, ${r.perDevice.length} devices)`)
         })
         .catch(e => console.error('convergeAll failed:', (e as Error).message, (e as Error).stack)),
     )
