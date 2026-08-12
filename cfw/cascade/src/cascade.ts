@@ -279,7 +279,16 @@ export async function convergeAll(
     ? allDevices.filter(d => deviceIdsFilter.has(d.id))
     : allDevices
 
-  for (const device of devices) {
+  // Rotate device order each minute so no single device starves the
+  // others out of the 25s tick budget. Without this, the device with
+  // the most stale/missing shards (e.g. the oldest genesis) uses the
+  // full budget on every tick and the rest stay at 0. Offset by
+  // `nowMinutes % N` — since ticks fire ~1× per minute, each device
+  // gets first-priority once per N minutes.
+  const rotationOffset = Math.floor(now.getTime() / 60_000) % Math.max(devices.length, 1)
+  const rotatedDevices = [...devices.slice(rotationOffset), ...devices.slice(0, rotationOffset)]
+
+  for (const device of rotatedDevices) {
     const remainingBudgetMs = totalBudgetMs - (Date.now() - started)
     if (remainingBudgetMs <= 500) {
       perDevice.push({ deviceId: device.id, name: device.name, status: 'skipped-budget' })
