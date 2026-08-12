@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from sys import stderr
 from typing import Optional
@@ -204,11 +204,27 @@ def backfill(
 
     for dev_name, dev_id in devices:
         months = _list_s3_months(dev_id)
-        years = sorted({m.split('-')[0] for m in months})
-        err(f'\n[{dev_id} {dev_name}] {len(months)} month(s) of raw, {len(years)} year(s)')
+        if not months:
+            err(f'\n[{dev_id} {dev_name}] no S3 raw months found — skipping')
+            continue
+        # Enumerate the [start, end) range spanned by raw source data.
+        # Each tier's max_shard determines its own period-label set,
+        # aligned to that shard's epoch grid.
+        first_month, last_month = months[0], months[-1]
+        span_start = datetime.strptime(first_month, '%Y-%m').replace(tzinfo=timezone.utc)
+        # Bump to end-of-last-month so `shards_overlapping` includes it.
+        y, m = map(int, last_month.split('-'))
+        span_end = datetime(y + (1 if m == 12 else 0), 1 if m == 12 else m + 1, 1, tzinfo=timezone.utc)
+        err(f'\n[{dev_id} {dev_name}] {len(months)} month(s) of raw ({first_month} → {last_month})')
 
         for tier in tiers:
-            periods = months if tier.max_shard == '1mo' else years
+            if tier.name == 'raw':
+                # Raw's shard label matches S3 monthly filenames directly;
+                # avoid re-deriving via shards_overlapping so `_build_raw`
+                # can find the exact source file.
+                periods = months
+            else:
+                periods = shards_overlapping(span_start, span_end, tier.max_shard)
             for period in periods:
                 out_key = format_key(config.key_template, device_id=dev_id, tier=tier.name, shard=tier.max_shard, period=period)
                 out_path = _join_base(out_base, out_key)
