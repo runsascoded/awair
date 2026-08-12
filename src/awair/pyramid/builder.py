@@ -186,8 +186,8 @@ def parse_period(period: str, shard: str) -> tuple[datetime, datetime]:
     return start, end
 
 
-def format_key(template: str, *, device_id: int, tier: str, period: str) -> str:
-    return template.format(device_id=device_id, tier=tier, period=period)
+def format_key(template: str, *, device_id: int, tier: str, shard: str, period: str) -> str:
+    return template.format(device_id=device_id, tier=tier, shard=shard, period=period)
 
 
 def filter_period(df: pd.DataFrame, ts_col: str, start: datetime, end: datetime) -> pd.DataFrame:

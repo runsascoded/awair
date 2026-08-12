@@ -81,7 +81,7 @@ def write_pyrmts_raw_shard(df: pd.DataFrame, device_id: int, now: datetime) -> N
     period = now.strftime('%Y-%m')
 
     shard = aggregate_raw(df, device_id=device_id, tier=raw_tier, metrics=config.metrics)
-    key = format_key(config.key_template, device_id=device_id, tier='raw', period=period)
+    key = format_key(config.key_template, device_id=device_id, tier='raw', shard=raw_tier.max_shard, period=period)
     bucket = config.storage.get('bucket')
     if not bucket:
         raise ValueError("pyramid storage config missing 'bucket'")

@@ -20,7 +20,12 @@ storage:
   type: r2
   binding: PYRAMID
   bucket: awair
-  key: 'pyramid/awair-{device_id}/{tier}/{period}.parquet'
+  # `{shard}` is REQUIRED for any multi-rung tier — without it, two rungs
+  # emitting the same start-day period label (e.g. 1d & 4d both starting
+  # 2026-08-07) collide on one R2 key. See `specs/done/key-shard-fix.md`
+  # (2026-08-12) and the ctbk `avail-v6.yaml` / `rides-v5-*.yaml`
+  # convention which uses the same `.../{tier}/{shard}/{period}` shape.
+  key: 'pyramid/awair-{device_id}/{tier}/{shard}/{period}.parquet'
 
 dims:
   - { name: device_id, type: int }

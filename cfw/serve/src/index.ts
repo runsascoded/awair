@@ -359,6 +359,7 @@ async function resolveWatermarks(
   const key = pyramidConfig.keyTemplate
     .replaceAll('{device_id}', deviceId)
     .replaceAll('{tier}', 'raw')
+    .replaceAll('{shard}', rawTier.shards[rawTier.shards.length - 1]!)
     .replaceAll('{period}', ym)
   try {
     const obj = await env.PYRAMID.head(key)
@@ -517,6 +518,13 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
   }
 
   const ym = `${new Date(now).getUTCFullYear()}-${String(new Date(now).getUTCMonth() + 1).padStart(2, '0')}`
+  // The raw tier's {shard} substitution — always its (sole) rung today,
+  // but future multi-rung raw would take the *finest* rung here (the tile
+  // Lambda actually writes to).
+  const rawTier = pyramidConfig.tiers[0]
+  const rawShard = rawTier && rawTier.name === 'raw'
+    ? rawTier.shards[rawTier.shards.length - 1]!
+    : '1mo'
 
   // Raw watermark: HEAD each device's current-month raw shard in parallel.
   // Lambda writes directly to R2 and doesn't update D1, so this is the only
@@ -526,6 +534,7 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
       const key = pyramidConfig.keyTemplate
         .replaceAll('{device_id}', String(d.deviceId))
         .replaceAll('{tier}', 'raw')
+        .replaceAll('{shard}', rawShard)
         .replaceAll('{period}', ym)
       try {
         const obj = await env.PYRAMID.head(key)

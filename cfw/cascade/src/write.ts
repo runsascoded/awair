@@ -48,11 +48,14 @@ export interface WriteResult {
  *  single D1 read serves whatever hyparquet asks for on the initial slice. */
 const FOOTER_CACHE_SIZE = 64 * 1024
 
-/** Format an R2 key from the pyramid.yml `keyTemplate`. */
-function shardKey(deviceId: number, tier: string, periodLabel: string): string {
+/** Format an R2 key from the pyramid.yml `keyTemplate`. `{shard}` is
+ *  required by the current template to disambiguate rungs that would
+ *  otherwise share a period label — see `pyramid.yml`. */
+function shardKey(deviceId: number, tier: string, shard: Shard, periodLabel: string): string {
   return PYRAMID_CONFIG.keyTemplate
     .replaceAll('{device_id}', String(deviceId))
     .replaceAll('{tier}', tier)
+    .replaceAll('{shard}', shard)
     .replaceAll('{period}', periodLabel)
 }
 
@@ -180,7 +183,7 @@ export interface WriteOpts {
  */
 export async function writeShard(opts: WriteOpts): Promise<WriteResult> {
   const { r2, device, targetTier, targetShardDur, targetPeriodStart, effectiveStart, effectiveEnd } = opts
-  const key = shardKey(device.id, targetTier.name, formatPeriod(targetPeriodStart, parseDuration(targetShardDur)))
+  const key = shardKey(device.id, targetTier.name, targetShardDur, formatPeriod(targetPeriodStart, parseDuration(targetShardDur)))
 
   if (targetTier.name === 'raw') {
     return { status: 'raw_skip', key }
@@ -267,7 +270,7 @@ function enumerateSourceKeys(
   if (sourceTier.shards.length === 1) {
     const rung = sourceTier.shards[0]!
     const periods = shardPeriodsCovering(effStart, effEnd, rung)
-    return periods.map(p => shardKey(device.id, sourceTier.name, p.label))
+    return periods.map(p => shardKey(device.id, sourceTier.name, rung, p.label))
   }
   const sourcePyramid = makePyramid(r2)
   const now = new Date()
@@ -291,4 +294,4 @@ function targetBinToMs(bin: string): number {
 }
 
 // Referenced by cascade.ts.
-export { shardKey, floorToSpan }
+export { shardKey, floorToSpan, enumerateSourceKeys }

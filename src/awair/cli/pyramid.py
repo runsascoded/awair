@@ -76,7 +76,7 @@ def build(
     target = config.tier(tier_name)
 
     start, end = parse_period(period, target.max_shard)
-    out_key = format_key(config.key_template, device_id=dev_id_int, tier=tier_name, period=period)
+    out_key = format_key(config.key_template, device_id=dev_id_int, tier=tier_name, shard=target.max_shard, period=period)
     out_path = _join_base(out_base, out_key)
 
     err(f'[{dev_id_int}] {tier_name} {period}: target shard {start.isoformat()} → {end.isoformat()}')
@@ -138,7 +138,7 @@ def _build_coarsened(
 
     frames: list[pd.DataFrame] = []
     for sp in src_periods:
-        src_key = format_key(config.key_template, device_id=device_id, tier=source.name, period=sp)
+        src_key = format_key(config.key_template, device_id=device_id, tier=source.name, shard=source.max_shard, period=sp)
         src_path = _join_base(out_base, src_key)
         if head(src_path) is None:
             err(f'    SKIP {src_path}: not found')
@@ -210,7 +210,7 @@ def backfill(
         for tier in tiers:
             periods = months if tier.max_shard == '1mo' else years
             for period in periods:
-                out_key = format_key(config.key_template, device_id=dev_id, tier=tier.name, period=period)
+                out_key = format_key(config.key_template, device_id=dev_id, tier=tier.name, shard=tier.max_shard, period=period)
                 out_path = _join_base(out_base, out_key)
 
                 if not force and head(out_path) is not None:
@@ -291,19 +291,22 @@ def seed_index(
             if parsed is None:
                 err(f'  SKIP unrecognized key: {key}')
                 continue
-            device_id, tier_name, period = parsed
+            device_id, tier_name, shard, period = parsed
             tier = tier_by_name.get(tier_name)
             if tier is None:
                 err(f'  SKIP unknown tier {tier_name!r} in key: {key}')
                 continue
+            if shard not in tier.shards:
+                err(f'  SKIP shard {shard!r} not in tier {tier_name!r} rungs {list(tier.shards)}: {key}')
+                continue
             try:
-                p_start, p_end = parse_period(period, tier.max_shard)
+                p_start, p_end = parse_period(period, shard)
             except ValueError as e:
                 err(f'  SKIP unparseable period in {key}: {e}')
                 continue
             written_at = obj['LastModified']
             pyramid_name = f'{pyramid_name_prefix}-{device_id}'
-            entries.append((pyramid_name, tier_name, tier.max_shard, p_start, p_end, key, written_at))
+            entries.append((pyramid_name, tier_name, shard, p_start, p_end, key, written_at))
 
     if not entries:
         err(f'No pyramid shards found under r2://{bucket}/{prefix}')
@@ -386,17 +389,17 @@ def stats_backfill(
             if parsed is None:
                 err(f'  SKIP unrecognized key: {key}')
                 continue
-            device_id, tier_name, period = parsed
-            # Determine shard duration by matching the period label shape.
-            # Multi-rung tiers (future) would ambiguate — pin to the tier's
-            # first configured shard here (all current tiers are single-rung).
+            device_id, tier_name, shard, period = parsed
             config = repo_pyramid_config()
             tier = next((t for t in config.tiers if t.name == tier_name), None)
             if tier is None:
                 err(f'  SKIP unknown tier {tier_name!r} in key: {key}')
                 continue
+            if shard not in tier.shards:
+                err(f'  SKIP shard {shard!r} not in tier {tier_name!r} rungs {list(tier.shards)}: {key}')
+                continue
             try:
-                p_start, _p_end = parse_period(period, tier.max_shard)
+                p_start, _p_end = parse_period(period, shard)
             except ValueError as e:
                 err(f'  SKIP unparseable period in {key}: {e}')
                 continue
@@ -412,7 +415,7 @@ def stats_backfill(
             # matches what cfw/serve serves the pyrmts fetcher.
             footer = body[-footer_size:] if len(body) >= footer_size else body
             updates.append((
-                pyramid_name, tier_name, tier.max_shard,
+                pyramid_name, tier_name, shard,
                 int(p_start.timestamp() * 1000),
                 len(body), n_rows, n_rgs, rg_rows, footer,
             ))
@@ -506,18 +509,23 @@ def _compute_genesis_ms(device_id: int) -> int:
     return int(datetime(int(y_str), int(m_str), 1, tzinfo=_tz.utc).timestamp() * 1000)
 
 
-def _parse_pyramid_key(key: str, *, prefix: str) -> Optional[tuple[int, str, str]]:
-    """Parse `{prefix}awair-{id}/{tier}/{period}.parquet` → (id, tier, period).
+def _parse_pyramid_key(key: str, *, prefix: str) -> Optional[tuple[int, str, str, str]]:
+    """Parse `{prefix}awair-{id}/{tier}/{shard}/{period}.parquet`
+    → (device_id, tier, shard, period).
 
-    Returns None if the key doesn't match the expected shape.
+    Returns None if the key doesn't match the expected shape. The
+    pre-2026-08-12 layout was `{prefix}awair-{id}/{tier}/{period}.parquet`
+    (no `{shard}` segment) — those keys are rejected here; a one-shot
+    migration script moves them under `{tier}/{max_shard}/…` before
+    seed-index runs. See `specs/done/key-shard-fix.md`.
     """
     if not key.startswith(prefix):
         return None
     rest = key[len(prefix):]
     parts = rest.split('/')
-    if len(parts) != 3:
+    if len(parts) != 4:
         return None
-    device_dir, tier, period_pq = parts
+    device_dir, tier, shard, period_pq = parts
     if not device_dir.startswith('awair-'):
         return None
     try:
@@ -527,7 +535,7 @@ def _parse_pyramid_key(key: str, *, prefix: str) -> Optional[tuple[int, str, str
     if not period_pq.endswith('.parquet'):
         return None
     period = period_pq[:-len('.parquet')]
-    return device_id, tier, period
+    return device_id, tier, shard, period
 
 
 def _seed_sql_header(pyramid_name_prefix: str) -> str:
