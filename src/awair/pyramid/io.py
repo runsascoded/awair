@@ -1,8 +1,10 @@
 """Parquet I/O for the pyramid builder. Handles local fs, `s3://`, and `r2://` URLs.
 
-For `r2://`, reads `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and
-`R2_ENDPOINT_URL` from the environment to construct an S3-compatible boto3
-client. Falls back to a clear error if any of those are unset.
+For `r2://`, delegates to `pyrmts.storage.S3Storage` (which reads
+`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT_URL` from the
+environment, or the AWS defaults for `s3://`). `_r2_client()` is still
+exported for callers that need the raw boto3 client (`list_objects_v2`
+pagination, etc. — pyrmts's Storage abstraction doesn't wrap that).
 """
 
 from __future__ import annotations
@@ -29,10 +31,10 @@ R2_REQUIRED_VARS = ('R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_ENDPOINT_URL
 def read_parquet(url: str) -> pd.DataFrame:
     if url.startswith('r2://'):
         bucket, key = _split_r2(url)
-        buf = BytesIO()
-        _r2_client().download_fileobj(bucket, key, buf)
-        buf.seek(0)
-        return pd.read_parquet(buf)
+        data = _r2_storage(bucket).get(key)
+        if data is None:
+            raise FileNotFoundError(f'r2://{bucket}/{key}')
+        return pd.read_parquet(BytesIO(data))
     return pd.read_parquet(url)
 
 
@@ -52,8 +54,7 @@ def write_parquet(df: pd.DataFrame, url: str, row_group_size: int | None = None)
         bucket, key = _split_r2(url)
         buf = BytesIO()
         pq.write_table(table, buf, **kw)
-        buf.seek(0)
-        _r2_client().upload_fileobj(buf, bucket, key)
+        _r2_storage(bucket).put(key, buf.getvalue())
         return
     pq.write_table(table, url, **kw)
 
@@ -61,15 +62,8 @@ def write_parquet(df: pd.DataFrame, url: str, row_group_size: int | None = None)
 def head(url: str) -> dict | None:
     """Return basic object metadata, or `None` if it doesn't exist."""
     if url.startswith('r2://'):
-        import botocore
         bucket, key = _split_r2(url)
-        try:
-            r = _r2_client().head_object(Bucket=bucket, Key=key)
-            return {'size': r['ContentLength'], 'etag': r['ETag'].strip('"')}
-        except botocore.exceptions.ClientError as e:
-            if e.response.get('Error', {}).get('Code') in ('404', 'NoSuchKey', 'NotFound'):
-                return None
-            raise
+        return _r2_storage(bucket).head(key)
     from pathlib import Path
     p = Path(url)
     if not p.exists():
@@ -88,8 +82,28 @@ def _split_r2(url: str) -> tuple[str, str]:
     return parsed.netloc, parsed.path.lstrip('/')
 
 
+@lru_cache(maxsize=8)
+def _r2_storage(bucket: str):
+    """Return a `pyrmts.storage.S3Storage` bound to `bucket`. Cached to
+    reuse the underlying boto3 client across calls (creating one is
+    ~50ms). Assumes R2 credentials in the `R2_*` env vars — that
+    convention is what `S3Storage` picks up by default when
+    `R2_ENDPOINT_URL` is set."""
+    from pyrmts.storage import S3Storage
+    missing = [v for v in R2_REQUIRED_VARS if not os.environ.get(v)]
+    if missing:
+        raise RuntimeError(
+            f'R2 env vars not set: {", ".join(missing)}. '
+            f'(direnv should load these from .envrc — try `eval "$(direnv export bash)"`.)'
+        )
+    return S3Storage(bucket=bucket)
+
+
 @lru_cache(maxsize=1)
 def _r2_client() -> S3Client:
+    """Direct boto3 client — kept for callers that need `list_objects_v2`
+    pagination, `copy_object`, or other APIs pyrmts's `Storage` interface
+    doesn't expose. Prefer `_r2_storage()` for reads/writes."""
     import boto3
     missing = [v for v in R2_REQUIRED_VARS if not os.environ.get(v)]
     if missing:
