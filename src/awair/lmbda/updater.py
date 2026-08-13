@@ -67,13 +67,17 @@ def device_id_from_data_path(base_path: str) -> int:
 
 
 def write_pyrmts_raw_shard(df: pd.DataFrame, device_id: int, now: datetime) -> None:
-    """Write the pyrmts `raw` tier shard for the current month from the just-merged df.
+    """Write the pyrmts `raw` tier shard for the current month from the just-merged df,
+    then append a shard-invalidation journal entry covering the touched interval so
+    cascade re-derives downstream tiers on its next tick
+    (`~/c/pyrmts/wt/…/js/packages/pyrmts/src/invalidation.ts`).
 
     Called after the S3 atomic_edit completes. Best-effort: if R2 isn't reachable
     (creds missing, network blip, …), log and continue — the S3 write already
     succeeded and is the source of truth.
     """
     from awair.pyramid.builder import aggregate_raw, format_key, repo_pyramid_config, row_group_size_for_bin
+    from awair.pyramid.invalidate import invalidate_interval
     from awair.pyramid.io import write_parquet
 
     config = repo_pyramid_config()
@@ -88,6 +92,19 @@ def write_pyrmts_raw_shard(df: pd.DataFrame, device_id: int, now: datetime) -> N
     url = f'r2://{bucket}/{key}'
     write_parquet(shard, url, row_group_size=row_group_size_for_bin(raw_tier.bin))
     print(f'Wrote pyrmts raw shard: {url} ({len(shard)} rows)')
+
+    # Bound the invalidation to just the rows we actually wrote — using the shard's ts
+    # range instead of a fixed window keeps `requested_at`-vs-`written_at` staleness
+    # tight (cascade only rebuilds shards overlapping THIS range).
+    if len(shard) > 0:
+        min_ts = pd.to_datetime(shard['ts'].min(), unit='ms', utc=True).to_pydatetime()
+        # +1min so a single-row shard has a non-empty interval.
+        max_ts = pd.to_datetime(shard['ts'].max(), unit='ms', utc=True).to_pydatetime() + timedelta(minutes=1)
+        try:
+            n = invalidate_interval(config, min_ts, max_ts, now=now)
+            print(f'Invalidated [{min_ts.isoformat()}, {max_ts.isoformat()}) — {n} journal entries')
+        except Exception as e:
+            print(f'WARN: invalidate_interval failed: {e}')
 
 
 def update_s3_data():
