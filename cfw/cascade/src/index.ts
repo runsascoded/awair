@@ -70,9 +70,8 @@ export default {
           // for the summary log; `stats` + `results.status` already give
           // us the shape.
           const totalMissing = r.perDevice.reduce((s, d) => s + (d.totalMissing ?? 0), 0)
-          const totalStale = r.perDevice.reduce((s, d) => s + (d.totalStale ?? 0), 0)
           const errored = r.perDevice.filter(d => d.status === 'error')
-          if (totalMissing + totalStale > 0 || errored.length > 0) {
+          if (totalMissing > 0 || errored.length > 0) {
             const trimmed = {
               ...r,
               perDevice: r.perDevice.map(d => ({

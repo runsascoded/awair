@@ -7,14 +7,17 @@
 // raw tier is Lambda's job and cascade skips it.
 
 import {
+  listExpectedShards,
   listMissingShards,
+  loadInvalidations,
+  pruneSpent,
   type ExpectedShard,
   type Tier,
 } from 'pyrmts'
-import { D1ShardIndex } from 'pyrmts-cfw'
+import { D1ShardIndex, r2Storage } from 'pyrmts-cfw'
 import { readDevices, type Device } from './devices'
-import { DEFAULT_PYRAMID_NAME_PREFIX, makePyramid, PYRAMID_CONFIG, pyramidNameFor, RAW_TIER, sourceTierFor, TIER_ORDER } from './pyramid'
-import { enumerateSourceKeys, writeShard, type WriteResult } from './write'
+import { DEFAULT_PYRAMID_NAME_PREFIX, makePyramid, PYRAMID_CONFIG, pyramidNameFor, RAW_TIER, TIER_ORDER } from './pyramid'
+import { writeShard, type WriteResult } from './write'
 
 export interface ConvergeAllOpts {
   now?: Date
@@ -36,7 +39,6 @@ export interface PerDeviceReport {
   results?: WriteResult[]
   stats?: Record<string, number>
   totalMissing?: number
-  totalStale?: number
   stoppedReason?: 'time' | 'ops'
 }
 
@@ -65,81 +67,16 @@ function sortMissing(a: ExpectedShard, b: ExpectedShard): number {
   return a.periodStart.getTime() - b.periodStart.getTime()
 }
 
-/**
- * Poll-based stale detection (interim substitute for pyrmts's invalidation
- * journal, which is Python-only today — see
- * `~/c/pyrmts/specs/shard-invalidation.md`).
- *
- * A recorded shard `R` is stale if any of its source-tier shards has an
- * R2 `uploaded` time newer than `R.writtenAt`. Sources are enumerated
- * exactly as `writeShard` would enumerate them (same `enumerateSourceKeys`
- * logic), so the check matches what the rewrite would read.
- *
- * `headCache` memoizes `env.PYRAMID.head()` per-tick — the same source
- * key is typically the source for multiple recorded shards (e.g. the
- * current-month raw shard is a source for m3/m10 shards at all rungs
- * covering it). Cache key is the source key; value is the R2Object or
- * null (not-found).
- *
- * Returns `ExpectedShard[]` shape so the caller can merge with
- * `listMissingShards` output and drive the same write path.
- */
-async function listStaleShards(
-  device: Device,
-  shardIndex: D1ShardIndex,
-  pyramidName: string,
-  now: Date,
-  r2: R2Bucket,
-  headCache: Map<string, { uploadedMs: number } | null>,
-): Promise<ExpectedShard[]> {
-  const recorded = await shardIndex.listShards(pyramidName)
-  const stale: ExpectedShard[] = []
-  const filter = { device_id: device.id }
-
-  for (const rec of recorded) {
-    if (rec.tier === RAW_TIER) continue
-    if (rec.writtenAt === undefined) continue
-    const writtenMs = rec.writtenAt.getTime()
-
-    const srcName = sourceTierFor(rec.tier)
-    if (srcName === null) continue
-    const srcTier = PYRAMID_CONFIG.tiers.find(t => t.name === srcName)
-    if (srcTier === undefined) continue
-
-    // Enumerate the source keys covering the recorded shard's *raw*
-    // period (no `now`-clip — historical shards should read all their
-    // source coverage even after their period closed).
-    const effStart = rec.periodStart < device.genesisDate ? device.genesisDate : rec.periodStart
-    const effEnd = rec.periodEnd
-    const srcKeys = enumerateSourceKeys(srcTier, device, effStart, effEnd, filter, r2)
-
-    let isStale = false
-    for (const k of srcKeys) {
-      let entry = headCache.get(k)
-      if (entry === undefined) {
-        const h = await r2.head(k)
-        entry = h === null ? null : { uploadedMs: h.uploaded.getTime() }
-        headCache.set(k, entry)
-      }
-      if (entry !== null && entry.uploadedMs > writtenMs) {
-        isStale = true
-        break
-      }
-    }
-    if (!isStale) continue
-
-    stale.push({
-      tier: rec.tier,
-      shardDur: rec.shardDur,
-      periodStart: rec.periodStart,
-      periodEnd: rec.periodEnd,
-      effectiveStart: effStart,
-      effectiveEnd: effEnd > now ? now : effEnd,
-      key: rec.key,
-    })
-  }
-  return stale
-}
+// Stale detection is now `listMissingShards({invalidations})` from
+// pyrmts (`~/c/pyrmts/specs/shard-invalidation.md`). Lambda appends
+// journal entries after each raw write (`awair.lmbda.updater
+// .write_pyrmts_raw_shard` → `pyrmts_engine.invalidation.invalidate`);
+// this file's convergeOne loads the journal per tick and passes it
+// through so `staleKeysFor` marks any recorded shard overlapping a
+// still-open invalidation with `writtenAt < requestedAt` for rebuild.
+// (Previous interim implementation polled R2 HEAD for source mtimes;
+// journal is cheaper — one JSON blob per pyramid vs one HEAD per
+// source key.)
 
 /**
  * Converge one device. Returns the per-device shape used by
@@ -167,29 +104,22 @@ async function convergeOne(
   const range = { from: device.genesisDate, to: now }
   const filter = { device_id: device.id }
 
-  let missing = await listMissingShards(pyramid, pyramidName, shardIndex, range, filter)
+  // Journal-based invalidation via pyrmts. See file docstring under
+  // "Stale detection". Load once per (device × tick) — reasonable
+  // since the journal is a single JSON blob per pyramid.
+  const storage = r2Storage(env.PYRAMID)
+  const [invalidations] = await loadInvalidations(pyramid, storage)
+
+  let work = await listMissingShards(
+    pyramid, pyramidName, shardIndex, range, filter, { invalidations },
+  )
 
   // Cascade never writes raw — filter it out entirely.
-  missing = missing.filter(m => m.tier !== RAW_TIER)
-
-  // Also fold in *stale* shards: ones already recorded in D1 whose R2
-  // source has a newer `uploaded` than the shard's `written_at`. Poll
-  // substitute for pyrmts's invalidation journal until the JS port
-  // lands. Dedup by key (a shard is at most one of missing/stale, but
-  // sync a set to be safe against future changes).
-  const headCache = new Map<string, { uploadedMs: number } | null>()
-  let stale = await listStaleShards(device, shardIndex, pyramidName, now, env.PYRAMID, headCache)
-  if (opts.tierFilter !== null) {
-    missing = missing.filter(m => opts.tierFilter!.has(m.tier))
-    stale = stale.filter(s => opts.tierFilter!.has(s.tier))
-  }
-  const seenKeys = new Set(missing.map(m => m.key))
-  const uniqueStale = stale.filter(s => !seenKeys.has(s.key))
-  const work: ExpectedShard[] = [...missing, ...uniqueStale]
+  work = work.filter(m => m.tier !== RAW_TIER)
+  if (opts.tierFilter !== null) work = work.filter(m => opts.tierFilter!.has(m.tier))
   work.sort(sortMissing)
 
-  const totalMissing = missing.length
-  const totalStale = uniqueStale.length
+  const totalMissing = work.length
   const results: WriteResult[] = []
   const stats: Record<string, number> = {}
   let stopped: 'time' | undefined
@@ -253,7 +183,42 @@ async function convergeOne(
     }
   }
 
-  return { results, stats, totalMissing, totalStale, stoppedReason: stopped }
+  return { results, stats, totalMissing, stoppedReason: stopped }
+}
+
+/**
+ * Prune spent invalidation-journal entries. Awair's journal is
+ * per-pyramid-prefix (`pyrmts/awair-_invalidations.json`), shared
+ * across all 4 device pyramids — so we can only prune an entry when
+ * NO device has an overlapping stale shard for it. Build combined
+ * `expected` + `mtimes` (keyed by shard R2 key, which is unique per
+ * device since `{device_id}` is in the template).
+ */
+async function pruneJournal(
+  env: { PYRAMID: R2Bucket; DB: D1Database },
+  devices: Device[],
+  now: Date,
+  pyramidNamePrefix: string,
+): Promise<void> {
+  const pyramid = makePyramid(env.PYRAMID)
+  const shardIndex = new D1ShardIndex(env.DB)
+  const storage = r2Storage(env.PYRAMID)
+  const combinedExpected: ExpectedShard[] = []
+  const combinedMtimes = new Map<string, Date | null>()
+  for (const device of devices) {
+    const range = { from: device.genesisDate, to: now }
+    const filter = { device_id: device.id }
+    const expected = listExpectedShards(pyramid, range, filter)
+    combinedExpected.push(...expected)
+    const recorded = await shardIndex.listShards(pyramidNameFor(device.id, pyramidNamePrefix))
+    const recordedByKey = new Map<string, Date | null>()
+    for (const r of recorded) recordedByKey.set(r.key, r.writtenAt ?? null)
+    for (const e of expected) {
+      if (recordedByKey.has(e.key)) combinedMtimes.set(e.key, recordedByKey.get(e.key)!)
+    }
+  }
+  const [pruned, remaining] = await pruneSpent(pyramid, storage, combinedExpected, { mtimes: combinedMtimes })
+  if (pruned > 0) console.log(`pruneSpent: dropped ${pruned}, kept ${remaining}`)
 }
 
 /**
@@ -306,6 +271,22 @@ export async function convergeAll(
         status: 'error',
         error: (e as Error).message ?? String(e),
       })
+    }
+  }
+
+  // Prune spent invalidation entries — journal is shared across all
+  // devices for this pyramid prefix (`pyrmts.journalKey`), so build
+  // combined `expected` + `mtimes` across all devices before calling
+  // `pruneSpent` (an entry is spent only when NO device still has a
+  // stale shard overlapping it). Skip on dry-run + budget-exhausted to
+  // avoid extra R2 CAS work on quiet ticks; the journal is small
+  // enough that we don't lose much by pruning only when there was
+  // real work.
+  if (!dryRun && Date.now() - started < totalBudgetMs) {
+    try {
+      await pruneJournal(env, devices, now, pyramidNamePrefix)
+    } catch (e) {
+      console.error('pruneSpent failed:', (e as Error).message)
     }
   }
 

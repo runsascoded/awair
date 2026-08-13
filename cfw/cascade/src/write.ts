@@ -294,4 +294,4 @@ function targetBinToMs(bin: string): number {
 }
 
 // Referenced by cascade.ts.
-export { shardKey, floorToSpan, enumerateSourceKeys }
+export { shardKey, floorToSpan }
