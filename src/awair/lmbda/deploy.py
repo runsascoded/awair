@@ -138,6 +138,17 @@ def create_lambda_package(package_type: str = 'source', version: str = None) -> 
                 "--python", sys.executable,
                 cwd=Path(__file__).parent)
 
+            # Install pyrmts without transitive deps — its pyarrow/etc.
+            # already live in the Lambda Pandas layer. Bundling them
+            # again blows past Lambda's 250 MB unzipped cap.
+            # NB: `2b8880a` is a dist-branch commit (JS builds only); the
+            # Python source lives on main. Track main here.
+            pyrmts_pin = 'pyrmts @ git+https://github.com/runsascoded/pyrmts.git@9aa7c45#subdirectory=python/pyrmts'
+            run("uv", "pip", "install", pyrmts_pin,
+                "--no-deps",
+                "--target", str(package_dir),
+                "--python", sys.executable)
+
             print('Copying source files...')
             # Copy awair module (excluding lmbda directory)
             # This file is at: src/awair/lmbda/deploy.py

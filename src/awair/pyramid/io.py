@@ -86,9 +86,14 @@ def _split_r2(url: str) -> tuple[str, str]:
 def _r2_storage(bucket: str):
     """Return a `pyrmts.storage.S3Storage` bound to `bucket`. Cached to
     reuse the underlying boto3 client across calls (creating one is
-    ~50ms). Assumes R2 credentials in the `R2_*` env vars — that
-    convention is what `S3Storage` picks up by default when
-    `R2_ENDPOINT_URL` is set."""
+    ~50ms).
+
+    Passes R2 creds explicitly (rather than relying on
+    `S3Storage`'s env-fallback) because in Lambda `AWS_ACCESS_KEY_ID`
+    is set to the exec role's 20-char AWS key, and `S3Storage`'s chain
+    prefers `AWS_*` over `R2_*` — R2 rejects the AWS key with
+    `InvalidArgument: Credential access key has length 20, should be
+    32`."""
     from pyrmts.storage import S3Storage
     missing = [v for v in R2_REQUIRED_VARS if not os.environ.get(v)]
     if missing:
@@ -96,7 +101,13 @@ def _r2_storage(bucket: str):
             f'R2 env vars not set: {", ".join(missing)}. '
             f'(direnv should load these from .envrc — try `eval "$(direnv export bash)"`.)'
         )
-    return S3Storage(bucket=bucket)
+    return S3Storage(
+        bucket=bucket,
+        endpoint_url=os.environ['R2_ENDPOINT_URL'],
+        aws_access_key_id=os.environ['R2_ACCESS_KEY_ID'],
+        aws_secret_access_key=os.environ['R2_SECRET_ACCESS_KEY'],
+        region_name='auto',
+    )
 
 
 @lru_cache(maxsize=1)

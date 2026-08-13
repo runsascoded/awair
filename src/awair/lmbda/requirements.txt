@@ -2,5 +2,6 @@ requests>=2.28.0
 utz>=0.20.0
 click>=8.0.0
 pyyaml>=6.0
-# pinned same `dist` SHA as `cfw/{cascade,serve}` and top-level pyproject
-pyrmts @ git+https://github.com/runsascoded/pyrmts.git@ed50cdb#subdirectory=python/pyrmts
+# pyrmts is installed separately in `deploy.py` via `pip install --no-deps`
+# — its transitive pyarrow dep would duplicate the Lambda Pandas layer's
+# pyarrow (~40 MB) and blow past Lambda's 250 MB unzipped cap.

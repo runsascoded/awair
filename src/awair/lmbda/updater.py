@@ -66,11 +66,16 @@ def device_id_from_data_path(base_path: str) -> int:
     return int(m.group(1))
 
 
-def write_pyrmts_raw_shard(df: pd.DataFrame, device_id: int, now: datetime) -> None:
+def write_pyrmts_raw_shard(
+    df: pd.DataFrame,
+    device_id: int,
+    now: datetime,
+    inserted_range: tuple[datetime, datetime],
+) -> None:
     """Write the pyrmts `raw` tier shard for the current month from the just-merged df,
-    then append a shard-invalidation journal entry covering the touched interval so
-    cascade re-derives downstream tiers on its next tick
-    (`~/c/pyrmts/wt/…/js/packages/pyrmts/src/invalidation.ts`).
+    then append a shard-invalidation journal entry covering `inserted_range` so
+    cascade re-derives only the downstream tiers that overlap the newly-fetched
+    minutes (`~/c/pyrmts/wt/…/js/packages/pyrmts/src/invalidation.ts`).
 
     Called after the S3 atomic_edit completes. Best-effort: if R2 isn't reachable
     (creds missing, network blip, …), log and continue — the S3 write already
@@ -93,18 +98,16 @@ def write_pyrmts_raw_shard(df: pd.DataFrame, device_id: int, now: datetime) -> N
     write_parquet(shard, url, row_group_size=row_group_size_for_bin(raw_tier.bin))
     print(f'Wrote pyrmts raw shard: {url} ({len(shard)} rows)')
 
-    # Bound the invalidation to just the rows we actually wrote — using the shard's ts
-    # range instead of a fixed window keeps `requested_at`-vs-`written_at` staleness
-    # tight (cascade only rebuilds shards overlapping THIS range).
-    if len(shard) > 0:
-        min_ts = pd.to_datetime(shard['ts'].min(), unit='ms', utc=True).to_pydatetime()
-        # +1min so a single-row shard has a non-empty interval.
-        max_ts = pd.to_datetime(shard['ts'].max(), unit='ms', utc=True).to_pydatetime() + timedelta(minutes=1)
-        try:
-            n = invalidate_interval(config, min_ts, max_ts, now=now)
-            print(f'Invalidated [{min_ts.isoformat()}, {max_ts.isoformat()}) — {n} journal entries')
-        except Exception as e:
-            print(f'WARN: invalidate_interval failed: {e}')
+    # Narrow the invalidation to the actual fetch window rather than
+    # the shard's whole-month ts range — cascade only rebuilds downstream
+    # shards whose period overlaps `inserted_range`, so O(N-rungs)
+    # rewrites per Lambda tick instead of "every August shard every tick".
+    start, end = inserted_range
+    try:
+        n = invalidate_interval(config, start, end, now=now)
+        print(f'Invalidated [{start.isoformat()}, {end.isoformat()}) — {n} journal entries')
+    except Exception as e:
+        print(f'WARN: invalidate_interval failed: {e}')
 
 
 def update_s3_data():
@@ -215,7 +218,10 @@ def update_s3_data():
         if inserted > 0:
             if os.environ.get('R2_ENDPOINT_URL'):
                 try:
-                    write_pyrmts_raw_shard(merged_df, device_id, now)
+                    write_pyrmts_raw_shard(
+                        merged_df, device_id, now,
+                        inserted_range=(from_dt, to_dt),
+                    )
                 except Exception as e:
                     print(f'WARN: pyrmts R2 write failed: {e}')
                     import traceback
