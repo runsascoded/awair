@@ -141,9 +141,9 @@ def create_lambda_package(package_type: str = 'source', version: str = None) -> 
             # Install pyrmts without transitive deps — its pyarrow/etc.
             # already live in the Lambda Pandas layer. Bundling them
             # again blows past Lambda's 250 MB unzipped cap.
-            # NB: `2b8880a` is a dist-branch commit (JS builds only); the
-            # Python source lives on main. Track main here.
-            pyrmts_pin = 'pyrmts @ git+https://github.com/runsascoded/pyrmts.git@9aa7c45#subdirectory=python/pyrmts'
+            # NB: dist-branch SHAs are JS-only; Python source is on main.
+            # Track main. Keep in sync with pyproject.toml + cfw/*/package.json.
+            pyrmts_pin = 'pyrmts @ git+https://github.com/runsascoded/pyrmts.git@f8bfe0c#subdirectory=python/pyrmts'
             run("uv", "pip", "install", pyrmts_pin,
                 "--no-deps",
                 "--target", str(package_dir),

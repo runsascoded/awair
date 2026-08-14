@@ -36,7 +36,7 @@ dependencies = [
     "pyarrow>=10.0.0",
     "pyyaml>=6.0",
     # pinned to same `dist` SHA as cfw/{cascade,serve} — see their package.json
-    "pyrmts @ git+https://github.com/runsascoded/pyrmts.git@ed50cdb#subdirectory=python/pyrmts",
+    "pyrmts @ git+https://github.com/runsascoded/pyrmts.git@f8bfe0c#subdirectory=python/pyrmts",
 ]
 
 [project.urls]
