@@ -15,8 +15,8 @@
   "dependencies": {
     "hyparquet": "^1.25.6",
     "hyparquet-writer": "^0.13.0",
-    "pyrmts": "https://github.com/runsascoded/pyrmts#bf6aa2e&path:/js/packages/pyrmts",
-    "pyrmts-cfw": "https://github.com/runsascoded/pyrmts#bf6aa2e&path:/js/packages/pyrmts-cfw"
+    "pyrmts": "https://github.com/runsascoded/pyrmts#54cbdc9&path:/js/packages/pyrmts",
+    "pyrmts-cfw": "https://github.com/runsascoded/pyrmts#54cbdc9&path:/js/packages/pyrmts-cfw"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240725.0",

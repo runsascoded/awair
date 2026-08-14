@@ -15,6 +15,8 @@ import {
   listExpectedShards,
   parseDuration,
   shardPeriodsCovering,
+  tileFromExisting,
+  type ExpectedShard,
   type Shard,
   type Tier,
 } from 'pyrmts'
@@ -31,7 +33,7 @@ interface AwairRow {
 }
 
 export interface WriteResult {
-  status: 'wrote' | 'no_inputs' | 'raw_skip' | 'error'
+  status: 'wrote' | 'no_inputs' | 'raw_skip' | 'incomplete' | 'error'
   key: string
   bytes?: number
   rows?: number
@@ -182,11 +184,22 @@ export interface WriteOpts {
  * inputs than its notional period would suggest).
  */
 export async function writeShard(opts: WriteOpts): Promise<WriteResult> {
-  const { r2, device, targetTier, targetShardDur, targetPeriodStart, effectiveStart, effectiveEnd } = opts
+  const { r2, device, targetTier, targetShardDur, targetPeriodStart, targetPeriodEnd, effectiveStart, effectiveEnd } = opts
   const key = shardKey(device.id, targetTier.name, targetShardDur, formatPeriod(targetPeriodStart, parseDuration(targetShardDur)))
 
   if (targetTier.name === 'raw') {
-    return { status: 'raw_skip', key }
+    const finestRung = targetTier.shards[0]!
+    if (targetShardDur === finestRung) {
+      // Lambda owns the tip — no cascade write.
+      return { status: 'raw_skip', key }
+    }
+    // Same-tier consolidation: raw/{coarser rung}/period ← concat raw/{finer rung}/*.
+    // Cross-tier cascade can't build raw (no source tier); tileFromExisting
+    // walks the calendar-aware slot grid, picks existing sub-rung tiles.
+    return await consolidateRawShard({
+      r2, device, targetTier, targetShardDur,
+      targetPeriodStart, targetPeriodEnd, key,
+    })
   }
 
   const sourceTierName = sourceTierFor(targetTier.name)
@@ -240,6 +253,103 @@ export async function writeShard(opts: WriteOpts): Promise<WriteResult> {
     footerBytes,
     inputsPresent,
     inputsExpected: sourceKeys.length,
+  }
+}
+
+/**
+ * Same-tier consolidation for the raw tier: build the coarser-rung shard
+ * (e.g. `raw/1mo/YYYY-MM.parquet`) from existing finer-rung tiles
+ * (e.g. 28–31 `raw/1d/YYYY-MM-DD.parquet` shards) via `tileFromExisting`.
+ *
+ * The finer-rung tiles are the Lambda-owned tip layout (single-writer,
+ * atomic overwrite); the coarser-rung output is byte-stable once all
+ * sub-tiles are present, so re-runs produce identical bytes.
+ *
+ * Fails soft: if `tileFromExisting` reports holes (any sub-tile missing),
+ * returns `{status: 'incomplete'}` with the missing count. The consumer
+ * (`cascade.ts`) does not record incomplete writes to D1 — next tick
+ * re-tries. This is the correct behavior at month-close: the last few
+ * daily tips may not have landed yet, and we don't want a partial monthly
+ * shard on storage.
+ */
+async function consolidateRawShard(opts: {
+  r2: R2Bucket
+  device: Device
+  targetTier: Tier
+  targetShardDur: Shard
+  targetPeriodStart: Date
+  targetPeriodEnd: Date
+  key: string
+}): Promise<WriteResult> {
+  const { r2, device, targetTier, targetShardDur, targetPeriodStart, targetPeriodEnd, key } = opts
+  const pyramid = makePyramid(r2)
+  const filter = { device_id: device.id }
+
+  // List existing raw shards under this device's prefix. Every rung of
+  // the raw tier lives under `pyramid/awair-{device_id}/raw/`; each
+  // finer-rung tile is one entry.
+  const listPrefix = `pyramid/awair-${device.id}/raw/`
+  const keySet = new Set<string>()
+  let cursor: string | undefined
+  do {
+    const listing = await r2.list({ prefix: listPrefix, cursor, limit: 1000 })
+    for (const obj of listing.objects) keySet.add(obj.key)
+    cursor = listing.truncated ? listing.cursor : undefined
+  } while (cursor)
+
+  const gap: ExpectedShard = {
+    tier: targetTier.name,
+    shardDur: targetShardDur,
+    periodStart: targetPeriodStart,
+    periodEnd: targetPeriodEnd,
+    effectiveStart: targetPeriodStart,
+    effectiveEnd: targetPeriodEnd,
+    key,
+  }
+  const { picks, holes } = tileFromExisting(pyramid, targetTier, gap, keySet, {
+    genesis: device.genesisDate,
+    filter,
+  })
+
+  if (holes.length > 0) {
+    return {
+      status: 'incomplete',
+      key,
+      inputsPresent: picks.length,
+      inputsExpected: picks.length + holes.length,
+    }
+  }
+
+  // Read each pick's rows (no bin filter — sub-tile bin matches target
+  // bin by definition; whole file's rows are in-period). Concat + sort.
+  const allRows: AwairRow[] = []
+  const periodStartMs = targetPeriodStart.getTime()
+  const periodEndMs = targetPeriodEnd.getTime()
+  let inputsPresent = 0
+  for (const pick of picks) {
+    const rows = await readSourceShard(r2, pick.key, periodStartMs, periodEndMs)
+    if (rows === null) {
+      // Raced a delete? Bail — cascade will retry next tick.
+      return { status: 'incomplete', key, inputsPresent, inputsExpected: picks.length }
+    }
+    inputsPresent++
+    for (const row of rows) allRows.push(row)
+  }
+  allRows.sort((a, b) => a.ts - b.ts)
+
+  const bytes = encodeShard(allRows)
+  await r2.put(key, bytes)
+  const footerStart = Math.max(0, bytes.byteLength - FOOTER_CACHE_SIZE)
+  const footerBytes = bytes.slice(footerStart)
+
+  return {
+    status: 'wrote',
+    key,
+    bytes: bytes.byteLength,
+    rows: allRows.length,
+    footerBytes,
+    inputsPresent,
+    inputsExpected: picks.length,
   }
 }
 

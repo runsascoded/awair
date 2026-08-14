@@ -58,7 +58,7 @@ requires-dist = [
     { name = "constructs", marker = "extra == 'lambda'", specifier = ">=10.0.0" },
     { name = "pandas", specifier = ">=1.5.0" },
     { name = "pyarrow", specifier = ">=10.0.0" },
-    { name = "pyrmts", git = "https://github.com/runsascoded/pyrmts.git?subdirectory=python%2Fpyrmts&rev=f8bfe0c" },
+    { name = "pyrmts", git = "https://github.com/runsascoded/pyrmts.git?subdirectory=python%2Fpyrmts&rev=bdafada" },
     { name = "pytest", marker = "extra == 'all'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -679,7 +679,7 @@ wheels = [
 [[package]]
 name = "pyrmts"
 version = "0.0.0"
-source = { git = "https://github.com/runsascoded/pyrmts.git?subdirectory=python%2Fpyrmts&rev=f8bfe0c#f8bfe0c01290b02cda636fd5d759b8cb2c2fb6d4" }
+source = { git = "https://github.com/runsascoded/pyrmts.git?subdirectory=python%2Fpyrmts&rev=bdafada#bdafada733000a731a605c16235297aa8f94e792" }
 dependencies = [
     { name = "pyarrow" },
     { name = "pyyaml" },

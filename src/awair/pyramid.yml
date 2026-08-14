@@ -39,9 +39,13 @@ metrics:
   - { name: voc,   monoid: sum }
 
 tiers:
-  # Lambda-owned. Cascade never writes raw; keeps key template `2026-07`
-  # (1mo) so it matches Lambda's monthly parquet naming.
-  - { name: raw, bin: 1min,  shards: [1mo] }
+  # Multi-rung raw: Lambda writes the finest rung (1d tip) per-minute,
+  # cascade consolidates 28–31 daily shards → 1 monthly shard at
+  # month-close (via same-tier consolidation in cfw/cascade/src/write.ts
+  # + pyrmts.tileFromExisting; see pyrmts specs/{calendar-rung-consolidation,
+  # js-calendar-same-tier-tiling}.md). Bounded Lambda tip R/W (~40KB
+  # constant vs 40KB→1.2MB grow with [1mo]-only).
+  - { name: raw, bin: 1min,  shards: [1d, 1mo] }
   # Cascade fills 1d rungs for the current partial 32d period, then
   # consolidates to 4d, then 32d as boundaries close.
   - { name: m3,  bin: 3min,  shards: [1d, 4d, 32d] }

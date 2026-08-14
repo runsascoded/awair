@@ -72,10 +72,16 @@ def write_pyrmts_raw_shard(
     now: datetime,
     inserted_range: tuple[datetime, datetime],
 ) -> None:
-    """Write the pyrmts `raw` tier shard for the current month from the just-merged df,
-    then append a shard-invalidation journal entry covering `inserted_range` so
+    """Write the pyrmts `raw` tier TIP shard (finest rung — `1d` per current
+    pyramid config) for the current UTC day from the just-merged df, then
+    append a shard-invalidation journal entry covering `inserted_range` so
     cascade re-derives only the downstream tiers that overlap the newly-fetched
-    minutes (`~/c/pyrmts/wt/…/js/packages/pyrmts/src/invalidation.ts`).
+    minutes.
+
+    Streaming-tip pattern (per pyrmts `specs/done/streaming-tip-writer.md`):
+    Lambda owns the finest rung as a growing tip; cascade consolidates finer
+    rungs → coarser rungs (`raw/1mo/YYYY-MM.parquet`) at month-close via
+    `pyrmts.tileFromExisting`.
 
     Called after the S3 atomic_edit completes. Best-effort: if R2 isn't reachable
     (creds missing, network blip, …), log and continue — the S3 write already
@@ -87,10 +93,29 @@ def write_pyrmts_raw_shard(
 
     config = repo_pyramid_config()
     raw_tier = config.tier('raw')
-    period = now.strftime('%Y-%m')
 
-    shard = aggregate_raw(df, device_id=device_id, tier=raw_tier, metrics=config.metrics)
-    key = format_key(config.key_template, device_id=device_id, tier='raw', shard=raw_tier.max_shard, period=period)
+    # Tip rung: the FINEST shard duration (`shards[0]`). Lambda always writes
+    # to the tip; cascade owns any coarser rungs via same-tier consolidation.
+    tip_rung = raw_tier.shards[0]
+    if tip_rung == '1d':
+        period = now.strftime('%Y-%m-%d')
+        day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+        day_start_ms = int(day_start.timestamp() * 1000)
+        day_end_ms = int(day_end.timestamp() * 1000)
+        # Filter merged_df to just today's rows (df's `ts` is INT64 ms UTC).
+        # merged_df spans the whole current-month S3 monolithic file; the
+        # 1d tip only holds today's slice.
+        day_df = df[(df['ts'] >= day_start_ms) & (df['ts'] < day_end_ms)]
+    elif tip_rung == '1mo':
+        # Legacy single-rung path (pre-multi-rung-raw).
+        period = now.strftime('%Y-%m')
+        day_df = df
+    else:
+        raise ValueError(f"unsupported raw tip rung {tip_rung!r} (expected '1d' or '1mo')")
+
+    shard = aggregate_raw(day_df, device_id=device_id, tier=raw_tier, metrics=config.metrics)
+    key = format_key(config.key_template, device_id=device_id, tier='raw', shard=tip_rung, period=period)
     bucket = config.storage.get('bucket')
     if not bucket:
         raise ValueError("pyramid storage config missing 'bucket'")
@@ -98,8 +123,8 @@ def write_pyrmts_raw_shard(
     write_parquet(shard, url, row_group_size=row_group_size_for_bin(raw_tier.bin))
     print(f'Wrote pyrmts raw shard: {url} ({len(shard)} rows)')
 
-    # Narrow the invalidation to the actual fetch window rather than
-    # the shard's whole-month ts range — cascade only rebuilds downstream
+    # Narrow the invalidation to the actual fetch window rather than the
+    # shard's whole-period ts range — cascade only rebuilds downstream
     # shards whose period overlaps `inserted_range`, so O(N-rungs)
     # rewrites per Lambda tick instead of "every August shard every tick".
     start, end = inserted_range

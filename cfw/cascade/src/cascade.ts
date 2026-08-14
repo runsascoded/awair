@@ -114,8 +114,13 @@ async function convergeOne(
     pyramid, pyramidName, shardIndex, range, filter, { invalidations },
   )
 
-  // Cascade never writes raw — filter it out entirely.
-  work = work.filter(m => m.tier !== RAW_TIER)
+  // Cascade writes only the coarser-than-tip rungs of raw (via same-tier
+  // consolidation in `write.ts::consolidateRawShard`); Lambda owns the tip
+  // rung (`raw.shards[0]`). Filter out raw's tip so cascade never races
+  // Lambda's writes.
+  const rawTier = PYRAMID_CONFIG.tiers.find(t => t.name === RAW_TIER)!
+  const rawTipRung = rawTier.shards[0]!
+  work = work.filter(m => !(m.tier === RAW_TIER && m.shardDur === rawTipRung))
   if (opts.tierFilter !== null) work = work.filter(m => opts.tierFilter!.has(m.tier))
   work.sort(sortMissing)
 
