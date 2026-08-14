@@ -96,17 +96,19 @@ def write_pyrmts_raw_shard(
 
     # Tip rung: the FINEST shard duration (`shards[0]`). Lambda always writes
     # to the tip; cascade owns any coarser rungs via same-tier consolidation.
+    # NB: filter on `timestamp` (datetime64 naive UTC — merged_df's storage
+    # schema, see `awair.storage.FIELDS`), NOT `ts`. `aggregate_raw` converts
+    # `timestamp` → `ts` (INT64 ms) as part of its output — this filter must
+    # run BEFORE aggregation.
     tip_rung = raw_tier.shards[0]
     if tip_rung == '1d':
         period = now.strftime('%Y-%m-%d')
-        day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_start = now.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
         day_end = day_start + timedelta(days=1)
-        day_start_ms = int(day_start.timestamp() * 1000)
-        day_end_ms = int(day_end.timestamp() * 1000)
-        # Filter merged_df to just today's rows (df's `ts` is INT64 ms UTC).
-        # merged_df spans the whole current-month S3 monolithic file; the
-        # 1d tip only holds today's slice.
-        day_df = df[(df['ts'] >= day_start_ms) & (df['ts'] < day_end_ms)]
+        ts_naive = pd.to_datetime(df['timestamp'])
+        if ts_naive.dt.tz is not None:
+            ts_naive = ts_naive.dt.tz_localize(None)
+        day_df = df[(ts_naive >= day_start) & (ts_naive < day_end)]
     elif tip_rung == '1mo':
         # Legacy single-rung path (pre-multi-rung-raw).
         period = now.strftime('%Y-%m')
