@@ -22,7 +22,7 @@
  * instead of erroring the whole query.
  */
 
-import { parquetBackend, parsePyramidYaml, pyramidFromConfig, type Pyramid, type Storage } from 'pyrmts'
+import { parquetBackend, parsePyramidYaml, pyramidFromConfig, type ListShardsFilter, type Pyramid, type RecordedShard, type RecordShardInput, type ShardIndex, type Storage } from 'pyrmts'
 import { D1ShardIndex, r2Storage, serveQuery } from 'pyrmts-cfw'
 import pyramidYamlText from '../../../src/awair/pyramid.yml'
 
@@ -212,6 +212,77 @@ function wrappedStorage(
   }
 }
 
+const DAY_MS = 86_400_000
+
+function utcDayLabel(ms: number): string {
+  const d = new Date(ms)
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
+
+/**
+ * `ShardIndex` decorator implementing the streaming-tip invariant for the
+ * raw tier: Lambda writes the finest rung (`raw/1d/<day>`) directly to R2
+ * every minute and never registers it in D1 — only cascade's month-close
+ * consolidation records raw (as `1mo`) — so the D1 inventory alone can't
+ * see the current month's raw coverage. This wrapper:
+ *
+ *  1. Drops raw rows whose period hasn't closed yet. Under the tip regime
+ *     an unclosed raw registration is necessarily stale (nothing updates
+ *     it as the tip grows); notably the pre-migration `raw/1mo/2026-08`
+ *     row froze at the flip and shadowed the live `1d` tips (planner
+ *     prefers coarser rungs — see `pickBestCovering`).
+ *  2. Synthesizes finest-rung `1d` rows for each UTC day in the query
+ *     range (through today) not already covered by a surviving raw row.
+ *     Real coarser rows still win where they exist; synthesized days with
+ *     no R2 object resolve to empty via `tolerateMissingShards`.
+ */
+class RawTipShardIndex implements ShardIndex {
+  constructor(private readonly inner: ShardIndex) {}
+
+  getWatermarks(pyramidName: string): Promise<Map<string, Date>> {
+    return this.inner.getWatermarks(pyramidName)
+  }
+
+  recordShard(input: RecordShardInput): Promise<void> {
+    return this.inner.recordShard(input)
+  }
+
+  async listShards(pyramidName: string, filter?: ListShardsFilter): Promise<RecordedShard[]> {
+    const rows = await this.inner.listShards(pyramidName, filter)
+    const rawTier = pyramidConfig.tiers[0]
+    if (rawTier === undefined || rawTier.name !== 'raw') return rows
+    const nowMs = Date.now()
+    const kept = rows.filter(r => !(r.tier === rawTier.name && r.periodEnd.getTime() > nowMs))
+    const range = filter?.range
+    const m = /^awair-(\d+)$/.exec(pyramidName)
+    if (range === undefined || m === null) return kept
+
+    const finestRung = rawTier.shards[0]!
+    const rawRows = kept.filter(r => r.tier === rawTier.name)
+    // Synthesize [dayStart, dayStart + 1d) rows from the range start
+    // through the earlier of range end / end of the current UTC day.
+    const firstDay = Math.floor(range.from.getTime() / DAY_MS) * DAY_MS
+    const endMs = Math.min(range.to.getTime(), (Math.floor(nowMs / DAY_MS) + 1) * DAY_MS)
+    for (let dayStart = firstDay; dayStart < endMs; dayStart += DAY_MS) {
+      const dayEnd = dayStart + DAY_MS
+      const covered = rawRows.some(r => r.periodStart.getTime() <= dayStart && r.periodEnd.getTime() >= dayEnd)
+      if (covered) continue
+      kept.push({
+        tier: rawTier.name,
+        shardDur: finestRung,
+        periodStart: new Date(dayStart),
+        periodEnd: new Date(dayEnd),
+        key: pyramidConfig.keyTemplate
+          .replaceAll('{device_id}', m[1]!)
+          .replaceAll('{tier}', rawTier.name)
+          .replaceAll('{shard}', String(finestRung))
+          .replaceAll('{period}', utcDayLabel(dayStart)),
+      })
+    }
+    return kept
+  }
+}
+
 /**
  * Serve `/q` with D1 footer cache + optional per-slice tracing.
  *
@@ -249,7 +320,7 @@ async function serveQueryWithCache(
     watermarks: req => resolveWatermarks(req, env),
     tolerateMissingShards: true,
     cors: true,
-    ...(pyramidName !== undefined ? { shardIndex: new D1ShardIndex(env.DB), pyramidName } : {}),
+    ...(pyramidName !== undefined ? { shardIndex: new RawTipShardIndex(new D1ShardIndex(env.DB)), pyramidName } : {}),
   })
 
   if (!opts.debug) {
@@ -337,14 +408,15 @@ async function serveQueryWithCache(
  * current-period shard in R2 and using its `uploaded` timestamp. Missing
  * shards yield no entry, which the planner treats as "complete through `to`".
  */
-/** Return `{raw: <uploaded time of current-month raw shard>}` — the
+/** Return `{raw: <uploaded time of the current-day raw tip shard>}` — the
  *  raw tier's freshness. That's the only tier `planQueryFromInventory`
  *  reads a watermark for (used to compute `authoritativeEnd`); all
  *  other tiers plan against `shardIndex` (D1 inventory), so their
  *  freshness comes from whether cascade has written the current-tail
  *  small-rung shard, not from a watermark.
  *
- *  Lambda writes raw every minute so this is ~always ≈ now. */
+ *  Lambda writes the finest rung (`raw/1d/<today>`) every minute so this
+ *  is ~always ≈ now. */
 async function resolveWatermarks(
   request: Request,
   env: Env,
@@ -354,13 +426,11 @@ async function resolveWatermarks(
   if (deviceId === null) return {}
   const rawTier = pyramidConfig.tiers[0]
   if (rawTier === undefined || rawTier.name !== 'raw') return {}
-  const now = new Date()
-  const ym = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
   const key = pyramidConfig.keyTemplate
     .replaceAll('{device_id}', deviceId)
     .replaceAll('{tier}', 'raw')
-    .replaceAll('{shard}', rawTier.shards[rawTier.shards.length - 1]!)
-    .replaceAll('{period}', ym)
+    .replaceAll('{shard}', String(rawTier.shards[0]!))
+    .replaceAll('{period}', utcDayLabel(Date.now()))
   try {
     const obj = await env.PYRAMID.head(key)
     if (obj === null) return {}
@@ -517,16 +587,15 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
     list.push(s)
   }
 
-  const ym = `${new Date(now).getUTCFullYear()}-${String(new Date(now).getUTCMonth() + 1).padStart(2, '0')}`
-  // The raw tier's {shard} substitution — always its (sole) rung today,
-  // but future multi-rung raw would take the *finest* rung here (the tile
-  // Lambda actually writes to).
+  // The raw tier's {shard} substitution — the *finest* rung (the tip
+  // Lambda actually writes to, `raw/1d/<today>` under multi-rung raw).
   const rawTier = pyramidConfig.tiers[0]
   const rawShard = rawTier && rawTier.name === 'raw'
-    ? rawTier.shards[rawTier.shards.length - 1]!
+    ? String(rawTier.shards[0]!)
     : '1mo'
+  const rawPeriod = utcDayLabel(now)
 
-  // Raw watermark: HEAD each device's current-month raw shard in parallel.
+  // Raw watermark: HEAD each device's current-day raw tip shard in parallel.
   // Lambda writes directly to R2 and doesn't update D1, so this is the only
   // authoritative freshness signal for the raw tier.
   const rawHealth = await Promise.all(
@@ -535,7 +604,7 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
         .replaceAll('{device_id}', String(d.deviceId))
         .replaceAll('{tier}', 'raw')
         .replaceAll('{shard}', rawShard)
-        .replaceAll('{period}', ym)
+        .replaceAll('{period}', rawPeriod)
       try {
         const obj = await env.PYRAMID.head(key)
         if (obj === null) {
