@@ -9,8 +9,8 @@
 # ]
 # ///
 """Rewrite Parquet files with smaller row groups using atomic S3 updates."""
-from click import argument, command, option
 import pyarrow.parquet as pq
+from click import argument, command
 from utz.s3 import atomic_edit
 
 
