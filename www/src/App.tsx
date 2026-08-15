@@ -7,8 +7,10 @@ import { useUrlState } from 'use-prms'
 import 'use-kbd/styles.css'
 import { AwairChart } from './components/AwairChart'
 import { DevicePoller, type DeviceDataResult } from './components/DevicePoller'
+import { FilesPage } from './components/FilesPage'
 import { TableNavigationRenderer, YAxisMetricsRenderer } from './components/groupRenderers'
 import { HealthPage } from './components/HealthPage'
+import { ShardOmnibar } from './components/ShardOmnibar'
 import { KbdTooltip } from './components/Tooltip'
 import { HOTKEY_GROUPS, HOTKEY_GROUP_ORDER } from './config/hotkeyConfig'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
@@ -23,19 +25,45 @@ const GROUP_RENDERERS = {
   'Table Navigation': TableNavigationRenderer,
 }
 
+// Popstate-aware pathname: `/files/*` navigates via history pushState
+// (react-router inside `FilesPage`), so browser back/forward can cross
+// section boundaries (e.g. /files → /health) without a full page load —
+// a raw `window.location.pathname` read wouldn't re-render this branch.
+function usePathname(): string {
+  const [pathname, setPathname] = useState(
+    () => typeof window !== 'undefined' ? window.location.pathname : '/',
+  )
+  useEffect(() => {
+    const onPop = () => setPathname(window.location.pathname)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  return pathname
+}
+
 // Top-level dispatcher: `/health` renders the diagnostic dashboard,
-// everything else falls through to the chart app. Splitting the two
-// keeps hook counts stable per instance (rules of hooks — the chart
-// branch calls many more hooks than the health branch does).
+// `/files/*` the shard browser, everything else falls through to the
+// chart app. Splitting keeps hook counts stable per instance (rules of
+// hooks — the chart branch calls many more hooks than the others).
 //
 // Path-based routing (not query-key) so the URL is `/health` rather
 // than `/?health`. CF Pages rewrites `/*` → `/index.html` with a 200
 // (see `www/public/_redirects`); no redirect hop, no extra RTT.
 function AppContent() {
-  if (typeof window !== 'undefined' && window.location.pathname === '/health') {
+  const pathname = usePathname()
+  if (pathname === '/health') {
     return (
       <div className="app">
         <HealthPage />
+        <ShardOmnibar />
+      </div>
+    )
+  }
+  if (pathname === '/files' || pathname.startsWith('/files/')) {
+    return (
+      <div className="app">
+        <FilesPage />
+        <ShardOmnibar />
       </div>
     )
   }

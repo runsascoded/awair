@@ -1,0 +1,14 @@
+.files-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 3rem;
+  color: var(--text-primary);
+  font-size: 14px;
+
+  a { color: var(--accent-primary); }
+
+  table {
+    border-collapse: collapse;
+    td, th { padding: 2px 10px; }
+  }
+}

@@ -12,6 +12,7 @@
     "smoke": "tsx scripts/smoke-test.ts"
   },
   "dependencies": {
+    "@rdub/file-tree": "github:runsascoded/file-tree#5709d4e",
     "pyrmts": "https://github.com/runsascoded/pyrmts#54cbdc9&path:/js/packages/pyrmts",
     "pyrmts-cfw": "https://github.com/runsascoded/pyrmts#54cbdc9&path:/js/packages/pyrmts-cfw"
   },

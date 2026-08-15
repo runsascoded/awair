@@ -89,6 +89,8 @@ export function HealthPage() {
           <span className={isFetching ? 'hp-fetching' : ''}>
             {isFetching ? 'refreshing…' : `next refresh in ≤30s`}
           </span>
+          <a href="/files/">browse files</a>
+          <span className="hp-dim">⌘K: search shards</span>
           <button onClick={() => refetch()} disabled={isFetching}>Refresh</button>
         </div>
       </header>
@@ -161,7 +163,10 @@ export function HealthPage() {
             <div key={cover.name} className="hp-pyramid">
               <h3>
                 <span className="hp-name">{device?.name ?? cover.name}</span>
-                <span className="hp-mono hp-dim"> · {cover.name}</span>
+                <span className="hp-mono hp-dim">
+                  {' · '}
+                  <a href={`/files/pyramid/${cover.name}/`} title="Browse this device's shards">{cover.name}</a>
+                </span>
                 <span className="hp-dim"> · genesis {fmtTs(genesis)}</span>
                 <span className={`hp-badge ${badge.cls}`}>{badge.text}</span>
                 {cover.totalStale > 0 && (

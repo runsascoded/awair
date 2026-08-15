@@ -1,3 +1,12 @@
+import {
+  autoUpdate,
+  flip,
+  FloatingPortal,
+  offset,
+  shift,
+  useFloating,
+} from '@floating-ui/react'
+import { useState } from 'react'
 import type { TierCover } from '../hooks/useHealth'
 
 const MS_PER_DAY = 86_400_000
@@ -20,7 +29,20 @@ interface TierTimelineProps {
   rawTip?: RawTip | null
 }
 
+/** Hovered-segment payload for the (single, shared) floating tooltip. */
+interface TipState {
+  tier: string
+  shardDur: string
+  status: 'present' | 'pending' | 'missing' | 'live tip'
+  start?: string
+  end?: string
+  key?: string
+  buildableAt?: string
+  uploaded?: number
+}
+
 const fmtDay = (iso: string) => iso.slice(0, 10)
+const fileHref = (key: string) => `/files/${key}`
 
 /**
  * Coverage timeline for a single device, rendered from `pyramidCover`
@@ -29,10 +51,36 @@ const fmtDay = (iso: string) => iso.slice(0, 10)
  * so rung boundaries show as strokes; the uncovered head right of the
  * last slot (the current open period) stays background-colored.
  *
+ * Slots with a registered key are clickable — they deep-link into the
+ * `/files/*` browser's parquet viewer for that R2 object — and every
+ * slot gets a floating tooltip (one shared `useFloating` instance,
+ * re-anchored to the hovered rect; not per-rect, which would mount
+ * hundreds of hook instances per timeline).
+ *
  * X-axis maps `[genesis, now]` → `[0, 1000]` in the SVG viewBox so the
  * bar scales to whatever CSS width the container has.
  */
 export function TierTimeline({ tiers, genesis, now, rawTip }: TierTimelineProps) {
+  const [tip, setTip] = useState<TipState | null>(null)
+  const { refs, floatingStyles } = useFloating({
+    open: tip !== null,
+    placement: 'top',
+    middleware: [offset(6), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  })
+  const hoverProps = (state: TipState) => ({
+    onPointerEnter: (e: React.PointerEvent<SVGRectElement>) => {
+      refs.setReference(e.currentTarget)
+      setTip(state)
+    },
+    onPointerLeave: () => setTip(null),
+  })
+  const clickProps = (key: string | undefined) => key === undefined ? {} : {
+    onClick: () => window.location.assign(fileHref(key)),
+  }
+  const segClass = (status: string, key: string | undefined) =>
+    `tt-seg-${status}${key !== undefined ? ' tt-clickable' : ''}`
+
   const range = Math.max(1, now - genesis)
   const toX = (t: number) => ((t - genesis) / range) * 1000
 
@@ -117,15 +165,18 @@ export function TierTimeline({ tiers, genesis, now, rawTip }: TierTimelineProps)
                     y={y}
                     width={w}
                     height={rowH}
-                    className={`tt-seg-${s.status}`}
-                  >
-                    <title>
-                      {t.tier} · {s.shardDur} · {s.status}{'\n'}
-                      {fmtDay(s.start)} → {fmtDay(s.end)}
-                      {s.key !== undefined ? `\n${s.key}` : ''}
-                      {s.buildableAt !== undefined ? `\nbuildable at ${s.buildableAt.slice(0, 16)}Z` : ''}
-                    </title>
-                  </rect>
+                    className={segClass(s.status, s.key)}
+                    {...hoverProps({
+                      tier: t.tier,
+                      shardDur: s.shardDur,
+                      status: s.status,
+                      start: s.start,
+                      end: s.end,
+                      key: s.key,
+                      buildableAt: s.buildableAt,
+                    })}
+                    {...clickProps(s.key)}
+                  />
                 )
               })}
               {t.tier === 'raw' && rawTip != null && (
@@ -134,14 +185,16 @@ export function TierTimeline({ tiers, genesis, now, rawTip }: TierTimelineProps)
                   y={y}
                   width={Math.max(0.3, toX(Math.min(rawTip.end, now)) - toX(Math.max(rawTip.start, genesis)))}
                   height={rowH}
-                  className="tt-seg-tip"
-                >
-                  <title>
-                    raw · live tip (unregistered — Lambda writes bypass D1){'\n'}
-                    {rawTip.key}{'\n'}
-                    uploaded {new Date(rawTip.uploaded).toISOString().slice(0, 19)}Z
-                  </title>
-                </rect>
+                  className="tt-seg-tip tt-clickable"
+                  {...hoverProps({
+                    tier: 'raw',
+                    shardDur: '1d',
+                    status: 'live tip',
+                    key: rawTip.key,
+                    uploaded: rawTip.uploaded,
+                  })}
+                  {...clickProps(rawTip.key)}
+                />
               )}
             </g>
           )
@@ -170,6 +223,30 @@ export function TierTimeline({ tiers, genesis, now, rawTip }: TierTimelineProps)
           ))}
         </g>
       </svg>
+      {tip !== null && (
+        <FloatingPortal>
+          <div ref={refs.setFloating} style={floatingStyles} className="tt-tooltip">
+            <div className="tt-tooltip-title">
+              {tip.tier} · {tip.shardDur} · <span className={`tt-status-${tip.status.replace(' ', '-')}`}>{tip.status}</span>
+            </div>
+            {tip.start !== undefined && tip.end !== undefined && (
+              <div>{fmtDay(tip.start)} → {fmtDay(tip.end)}</div>
+            )}
+            {tip.uploaded !== undefined && (
+              <div>uploaded {new Date(tip.uploaded).toISOString().slice(0, 19)}Z</div>
+            )}
+            {tip.buildableAt !== undefined && (
+              <div>buildable at {tip.buildableAt.slice(0, 16)}Z</div>
+            )}
+            {tip.key !== undefined && (
+              <>
+                <div className="tt-tooltip-key">{tip.key}</div>
+                <div className="tt-tooltip-hint">click to browse</div>
+              </>
+            )}
+          </div>
+        </FloatingPortal>
+      )}
       <div className="tt-legend">
         <span className="tt-legend-item"><span className="tt-legend-swatch tt-present-swatch" /> present</span>
         <span className="tt-legend-item"><span className="tt-legend-swatch tt-pending-swatch" /> pending</span>

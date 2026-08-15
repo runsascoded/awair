@@ -177,6 +177,8 @@
       opacity: 0.45;
     }
 
+    .tt-clickable { cursor: pointer; }
+
     // Bright/contrasting so it reads against the shard green.
     .tt-now {
       stroke: #ef4444;
@@ -245,4 +247,36 @@
     text-align: center;
   }
   .hp-error { color: #e74c3c; }
+}
+
+// Shard-rect tooltip — rendered via FloatingPortal at document.body,
+// so it must NOT be nested under `.health-page`.
+.tt-tooltip {
+  background: rgba(0, 0, 0, 0.92);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  max-width: 420px;
+  z-index: 10000;
+  pointer-events: none;
+
+  .tt-tooltip-title { font-weight: 600; }
+  .tt-status-present { color: #22c55e; }
+  .tt-status-pending { color: #f1c40f; }
+  .tt-status-missing { color: #e74c3c; }
+  .tt-status-live-tip { color: #86efac; }
+  .tt-tooltip-key {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: #cbd5e1;
+    margin-top: 2px;
+    word-break: break-all;
+  }
+  .tt-tooltip-hint {
+    color: #94a3b8;
+    font-size: 10px;
+    margin-top: 1px;
+  }
 }

@@ -22,6 +22,8 @@
  * instead of erroring the whole query.
  */
 
+import { createHandlers } from '@rdub/file-tree/server'
+import { R2Store } from '@rdub/file-tree/stores/r2'
 import { floorToSpan, formatPeriod, parquetBackend, parseDuration, parsePyramidYaml, pyramidFromConfig, type ListShardsFilter, type Pyramid, type RecordedShard, type RecordShardInput, type ShardIndex, type Storage } from 'pyrmts'
 import { D1ShardIndex, pyramidCover, r2Storage, serveQuery, type PyramidCoverStatus } from 'pyrmts-cfw'
 import pyramidYamlText from '../../../src/awair/pyramid.yml'
@@ -48,6 +50,16 @@ export default {
 
     if (request.method === 'OPTIONS') {
       return preflight(request)
+    }
+
+    // `@rdub/file-tree` browse endpoints (`/files/list`, `/files/get`) —
+    // the FE's `/files/*` shard-browser route reads through these
+    // (worker-proxy download strategy; shards are ≤~1.2MB so R2→worker→
+    // browser is fine).
+    if (url.pathname.startsWith('/files/')) {
+      const store = R2Store(env.PYRAMID, { prefixes: ['pyramid/'] })
+      const handled = await createHandlers(store, { basePath: '/files' }).handle(request)
+      if (handled !== null) return handled
     }
 
     if (url.pathname === '/health') {
