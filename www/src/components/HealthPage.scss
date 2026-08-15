@@ -66,6 +66,9 @@
     }
   }
 
+  // Default anchor blue is unreadable in DM — use the theme accent.
+  a { color: var(--accent-primary); }
+
   .hp-mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
   .hp-dim { color: var(--text-secondary); }
   .hp-num { text-align: right; font-variant-numeric: tabular-nums; }

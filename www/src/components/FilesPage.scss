@@ -1,4 +1,9 @@
 .files-page {
+  // `width: 100%` matters: `.app` is a flex column, and `margin: 0 auto`
+  // on a flex item suppresses cross-axis stretch — without an explicit
+  // width the page shrink-wraps to its content instead of filling
+  // `max-width`.
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   padding: 1rem 1.5rem 3rem;
