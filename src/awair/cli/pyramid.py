@@ -515,14 +515,33 @@ def seed_devices(out_path: str):
 
 
 def _compute_genesis_ms(device_id: int) -> int:
-    """First-of-month UTC of the earliest raw monthly shard for `device_id`."""
-    import boto3
-    from datetime import timezone as _tz
+    """Exact first-data instant (min `timestamp`) of the earliest raw monthly
+    shard for `device_id`.
+
+    Must be exact, not month-floored: a phantom pre-data window makes pyrmts
+    gap-discovery expect shards whose genesis-clipped effective range holds no
+    data (`no_inputs` forever) and, downstream, coarser shards that count those
+    unbuildable tiles in `inputsExpected` — which cascade then rewrites every
+    tick because `inputsPresent == inputsExpected` never holds (observed
+    2026-08-15: device 137506's month-floored genesis was 27 days early,
+    looping `m30/128d/2025-09-21` at one 85 KB R2 write per minute).
+    """
+    import pandas as pd
+
+    from .config import get_data_base_path
+
     months = _list_s3_months(device_id)
     if not months:
         raise RuntimeError(f'no raw shards in S3 for device {device_id}')
-    y_str, m_str = months[0].split('-')
-    return int(datetime(int(y_str), int(m_str), 1, tzinfo=_tz.utc).timestamp() * 1000)
+    path = f'{get_data_base_path(device_id)}/{months[0]}.parquet'
+    ts = pd.read_parquet(path, columns=['timestamp'])['timestamp']
+    # Floor to the raw bin (1min): pyramid `ts` values are bin-floored, so a
+    # genesis carrying the first sample's seconds would sit *after* the first
+    # bin's ts and genesis-clipping would exclude that bin.
+    first = ts.min().floor('min')
+    if first.tzinfo is None:
+        first = first.tz_localize('UTC')
+    return int(first.timestamp() * 1000)
 
 
 def _parse_pyramid_key(key: str, *, prefix: str) -> Optional[tuple[int, str, str, str]]:
