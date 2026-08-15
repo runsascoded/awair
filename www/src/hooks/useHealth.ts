@@ -1,15 +1,55 @@
 import { useQuery } from '@tanstack/react-query'
 import { PYRMTS_ORIGIN } from '../services/awairService'
 
-export interface HealthShard {
+// Mirrors `pyrmts-cfw.health.PyramidCoverRung` — per-rung slot counts in
+// a tier's current min-cover of `[genesis, now)`.
+export interface CoverRung {
   shardDur: string
-  periodStart: number
-  periodEnd: number
-  writtenAt: number
-  sizeBytes: number | null
-  nRows: number | null
-  nRgs: number | null
-  rgRowCounts: number[] | null
+  role: 'max' | 'dust'
+  expected: number
+  present: number
+  pending: number
+}
+
+// Mirrors `pyrmts-cfw.health.PyramidCoverSegment` — one min-cover slot,
+// emitted per-shard (not coalesced) so tile boundaries are visible.
+export interface CoverSegment {
+  start: string      // ISO
+  end: string        // ISO (exclusive)
+  shardDur: string
+  status: 'present' | 'pending' | 'missing'
+  key?: string       // storage key (present segments)
+  buildableAt?: string  // absent segments blocked on structural lag
+}
+
+// Mirrors `pyrmts-cfw.health.PyramidTierCoverStatus`.
+export interface TierCover {
+  tier: string
+  bin: string
+  maxRung: string
+  rungs: CoverRung[]
+  segments: CoverSegment[]
+  totalExpected: number
+  totalPresent: number
+  totalPending: number
+  complete: boolean
+  firstMissingPeriod: string | null
+  lastMaxBoundary: string
+  dustAgeSec: number
+  staleShardCount: number
+}
+
+// Mirrors `pyrmts-cfw.health.PyramidCoverStatus` + serve's `deviceId`.
+export interface DeviceCover {
+  deviceId: number
+  name: string
+  genesis: string
+  now: string
+  tiers: TierCover[]
+  totalMissing: number
+  totalPending: number
+  totalStale: number
+  allComplete: boolean
 }
 
 export interface TierStats {
@@ -20,22 +60,20 @@ export interface TierStats {
   count: number
 }
 
-export interface HealthTier {
+// Per-(tier, rung) D1 aggregates. Only rungs with ≥1 registered shard
+// appear (Lambda-owned raw tips never register in D1).
+export interface RungStats {
   tier: string
   shardDur: string
   shardCount: number
-  latestPeriodEnd: number | null
-  earliestPeriodStart: number | null
-  latestWrittenAt: number | null
-  d1UpdatedAt: number | null
+  latestWrittenAt: number
   stats: TierStats
-  shards: HealthShard[]
 }
 
-export interface HealthPyramid {
+export interface DeviceTierStats {
   pyramid: string
   deviceId: number
-  tiers: HealthTier[]
+  rungs: RungStats[]
 }
 
 export interface HealthRaw {
@@ -59,7 +97,8 @@ export interface HealthSnapshot {
   worker: 'awair-serve'
   devices: HealthDevice[]
   raw: HealthRaw[]
-  pyramids: HealthPyramid[]
+  covers: DeviceCover[]
+  tierStats: DeviceTierStats[]
   config: {
     keyTemplate: string
     tiers: { name: string; bin: string; shard: string }[]
@@ -68,9 +107,9 @@ export interface HealthSnapshot {
 
 /**
  * Polls `cfw/serve /health` — the FE's live view of pyramid state
- * (per-device raw R2 watermarks + per-tier D1 shard counts / cascade
- * write watermarks). Refetches every 30s so the page tracks Lambda writes
- * without a manual reload.
+ * (per-device raw R2 watermarks, `pyramidCover` min-cover status, and
+ * per-rung D1 size/RG stats). Refetches every 30s so the page tracks
+ * Lambda writes without a manual reload.
  */
 export function useHealth() {
   return useQuery<HealthSnapshot>({

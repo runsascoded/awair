@@ -106,6 +106,21 @@
     border-top: 1px dashed var(--border-primary);
   }
 
+  // Per-device cover roll-up badges (complete / missing / pending / stale).
+  .hp-badge {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 1px 7px;
+    border-radius: 9px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    vertical-align: 1px;
+  }
+  .hp-badge-ok      { background: rgba(34, 197, 94, 0.15);  color: #22c55e; }
+  .hp-badge-pending { background: rgba(241, 196, 15, 0.15); color: #f39c12; }
+  .hp-badge-missing { background: rgba(231, 76, 60, 0.15);  color: #e74c3c; }
+  .hp-badge-stale   { background: var(--bg-tertiary);       color: var(--text-secondary); }
+
   // Age color banding (subtle background tint on the row + saturated
   // color on the age column).
   .age-fresh .hp-age { color: #2ecc71; }
@@ -138,11 +153,28 @@
     }
 
     // Ctbk uses a bright green; matching that so this reads as
-    // "healthy coverage".
-    .tt-shard {
+    // "healthy coverage". Segments are per cover slot, so the stroke
+    // makes rung/tile boundaries visible.
+    .tt-seg-present {
       fill: #22c55e;
       stroke: var(--bg-secondary);
       stroke-width: 0.5;
+    }
+    .tt-seg-pending {
+      fill: #f1c40f;
+      stroke: var(--bg-secondary);
+      stroke-width: 0.5;
+    }
+    .tt-seg-missing {
+      fill: #e74c3c;
+      stroke: var(--bg-secondary);
+      stroke-width: 0.5;
+    }
+    // Today's unregistered raw tip (R2 HEAD) — dimmer green than
+    // registered cover slots.
+    .tt-seg-tip {
+      fill: #22c55e;
+      opacity: 0.45;
     }
 
     // Bright/contrasting so it reads against the shard green.
@@ -195,8 +227,10 @@
         height: 10px;
         border-radius: 1px;
       }
-      .tt-shard-swatch { background: #22c55e; }
-      .tt-bg-swatch { background: var(--bg-tertiary); border: 1px solid var(--border-tertiary); }
+      .tt-present-swatch { background: #22c55e; }
+      .tt-pending-swatch { background: #f1c40f; }
+      .tt-missing-swatch { background: #e74c3c; }
+      .tt-tip-swatch { background: rgba(34, 197, 94, 0.45); }
       .tt-now-swatch {
         background: transparent;
         border-left: 2px solid #ef4444;

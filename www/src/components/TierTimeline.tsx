@@ -1,26 +1,38 @@
-import type { HealthTier } from '../hooks/useHealth'
+import type { TierCover } from '../hooks/useHealth'
 
 const MS_PER_DAY = 86_400_000
 
-interface TierTimelineProps {
-  tiers: HealthTier[]
-  tierOrder: string[]
-  genesis: number
-  now: number
+/** Today's live raw tip (from the R2 HEAD in `/health`'s `raw` section).
+ *  Lambda-owned and unregistered, so it's outside `pyramidCover`'s
+ *  min-cover — drawn as an extra segment on the raw row to close the
+ *  visual gap between the last cover slot and `now`. */
+export interface RawTip {
+  start: number
+  end: number
+  key: string
+  uploaded: number
 }
 
+interface TierTimelineProps {
+  tiers: TierCover[]
+  genesis: number
+  now: number
+  rawTip?: RawTip | null
+}
+
+const fmtDay = (iso: string) => iso.slice(0, 10)
+
 /**
- * Coverage timeline for a single device: one row per tier, one rectangle
- * per shard spanning `[periodStart, min(periodEnd, now)]`. Missing spans
- * show as the background color. Ctbk-style, but simpler — awair currently
- * has one rung per tier, so there's no dust vs max-rung distinction to
- * draw. When we move to multi-rung tiers (spec/cfw-cascade B), this
- * component will need to layer rung-color bands.
+ * Coverage timeline for a single device, rendered from `pyramidCover`
+ * min-cover segments: one row per tier, one rectangle per cover slot,
+ * colored by status (present / pending / missing). Slots are per-shard,
+ * so rung boundaries show as strokes; the uncovered head right of the
+ * last slot (the current open period) stays background-colored.
  *
  * X-axis maps `[genesis, now]` → `[0, 1000]` in the SVG viewBox so the
  * bar scales to whatever CSS width the container has.
  */
-export function TierTimeline({ tiers, tierOrder, genesis, now }: TierTimelineProps) {
+export function TierTimeline({ tiers, genesis, now, rawTip }: TierTimelineProps) {
   const range = Math.max(1, now - genesis)
   const toX = (t: number) => ((t - genesis) / range) * 1000
 
@@ -28,10 +40,8 @@ export function TierTimeline({ tiers, tierOrder, genesis, now }: TierTimelinePro
   const rowGap = 3
   const labelW = 42
   const svgW = 1000  // viewBox width; CSS scales to 100%.
-  const rows = tierOrder.length
+  const rows = tiers.length
   const svgH = rows * (rowH + rowGap)
-
-  const byTier = new Map(tiers.map(t => [t.tier, t]))
 
   // Month gridlines: first-of-month between genesis and now.
   const gridlines: { x: number; label?: string; major: boolean }[] = []
@@ -73,12 +83,10 @@ export function TierTimeline({ tiers, tierOrder, genesis, now }: TierTimelinePro
         </g>
 
         {/* One row per tier. */}
-        {tierOrder.map((name, i) => {
-          const t = byTier.get(name)
+        {tiers.map((t, i) => {
           const y = i * (rowH + rowGap)
-          const shards = t?.shards ?? []
           return (
-            <g key={name} className="tt-row">
+            <g key={t.tier} className="tt-row">
               {/* Left-side tier label (SVG text so it scales with the bar). */}
               <text
                 x={labelW - 4}
@@ -86,9 +94,9 @@ export function TierTimeline({ tiers, tierOrder, genesis, now }: TierTimelinePro
                 textAnchor="end"
                 className="tt-label"
               >
-                {name}
+                {t.tier}
               </text>
-              {/* Row background — the "missing" color; shards paint over it. */}
+              {/* Row background — the "outside cover" color (open head). */}
               <rect
                 x={labelW}
                 y={y}
@@ -96,29 +104,45 @@ export function TierTimeline({ tiers, tierOrder, genesis, now }: TierTimelinePro
                 height={rowH}
                 className="tt-bg"
               />
-              {shards.map(s => {
-                const x0 = toX(Math.max(s.periodStart, genesis))
-                const x1 = toX(Math.min(s.periodEnd, now))
+              {t.segments.map(s => {
+                const start = Date.parse(s.start)
+                const end = Date.parse(s.end)
+                const x0 = toX(Math.max(start, genesis))
+                const x1 = toX(Math.min(end, now))
                 const w = Math.max(0.3, x1 - x0)
                 return (
                   <rect
-                    key={s.periodStart}
+                    key={s.start}
                     x={labelW + x0}
                     y={y}
                     width={w}
                     height={rowH}
-                    className="tt-shard"
+                    className={`tt-seg-${s.status}`}
                   >
                     <title>
-                      {name} · {s.shardDur}{'\n'}
-                      {new Date(s.periodStart).toISOString().slice(0, 10)}
-                      {' → '}
-                      {new Date(s.periodEnd).toISOString().slice(0, 10)}
-                      {'\n'}written {new Date(s.writtenAt).toISOString().slice(0, 19)}Z
+                      {t.tier} · {s.shardDur} · {s.status}{'\n'}
+                      {fmtDay(s.start)} → {fmtDay(s.end)}
+                      {s.key !== undefined ? `\n${s.key}` : ''}
+                      {s.buildableAt !== undefined ? `\nbuildable at ${s.buildableAt.slice(0, 16)}Z` : ''}
                     </title>
                   </rect>
                 )
               })}
+              {t.tier === 'raw' && rawTip != null && (
+                <rect
+                  x={labelW + toX(Math.max(rawTip.start, genesis))}
+                  y={y}
+                  width={Math.max(0.3, toX(Math.min(rawTip.end, now)) - toX(Math.max(rawTip.start, genesis)))}
+                  height={rowH}
+                  className="tt-seg-tip"
+                >
+                  <title>
+                    raw · live tip (unregistered — Lambda writes bypass D1){'\n'}
+                    {rawTip.key}{'\n'}
+                    uploaded {new Date(rawTip.uploaded).toISOString().slice(0, 19)}Z
+                  </title>
+                </rect>
+              )}
             </g>
           )
         })}
@@ -147,20 +171,23 @@ export function TierTimeline({ tiers, tierOrder, genesis, now }: TierTimelinePro
         </g>
       </svg>
       <div className="tt-legend">
-        <span className="tt-legend-item"><span className="tt-legend-swatch tt-shard-swatch" /> present</span>
-        <span className="tt-legend-item"><span className="tt-legend-swatch tt-bg-swatch" /> missing</span>
+        <span className="tt-legend-item"><span className="tt-legend-swatch tt-present-swatch" /> present</span>
+        <span className="tt-legend-item"><span className="tt-legend-swatch tt-pending-swatch" /> pending</span>
+        <span className="tt-legend-item"><span className="tt-legend-swatch tt-missing-swatch" /> missing</span>
+        {rawTip != null && (
+          <span className="tt-legend-item"><span className="tt-legend-swatch tt-tip-swatch" /> live tip</span>
+        )}
         <span className="tt-legend-item"><span className="tt-legend-swatch tt-now-swatch" /> now</span>
       </div>
     </div>
   )
 }
 
-// Re-export a shared helper for the parent to compute a device's coverage
-// window. Currently uses the D1 genesis (first-of-month UTC of earliest
-// raw shard) as the left edge; extended by a small margin for readability.
+// Shared helper for the parent to compute a device's coverage window from
+// the cover's `[genesis, now)` bounds; extended by a small left margin so
+// the first shard doesn't hug the axis.
 export function coverageWindow(genesisTs: number, now: number): { genesis: number; now: number } {
   const spanDays = (now - genesisTs) / MS_PER_DAY
-  // Add ~2% padding on the left so the first shard doesn't hug the axis.
   const pad = Math.max(1, spanDays * 0.02) * MS_PER_DAY
   return { genesis: genesisTs - pad, now }
 }

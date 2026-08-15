@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
-import { useHealth, type HealthTier } from '../hooks/useHealth'
-import { TierTimeline, coverageWindow } from './TierTimeline'
+import { TierTimeline, coverageWindow, type RawTip } from './TierTimeline'
+import { useHealth } from '../hooks/useHealth'
 import './HealthPage.scss'
+
+const MS_PER_DAY = 86_400_000
 
 /** Format a ms timestamp as compact ISO `YYYY-MM-DD HH:MM:SSZ` (UTC). */
 function fmtTs(ms: number | null): string {
@@ -55,11 +56,6 @@ function ageClass(ms: number | null): string {
 export function HealthPage() {
   const { data, error, isLoading, isFetching, refetch } = useHealth()
 
-  const tierOrder = useMemo(
-    () => data?.config.tiers.map(t => t.name) ?? [],
-    [data],
-  )
-
   if (isLoading) {
     return (
       <div className="health-page">
@@ -81,7 +77,7 @@ export function HealthPage() {
     )
   }
 
-  const { now, worker, devices, raw, pyramids, config } = data
+  const { now, worker, devices, raw, covers, tierStats, config } = data
 
   return (
     <div className="health-page">
@@ -100,9 +96,9 @@ export function HealthPage() {
       <section className="hp-section">
         <h2>Raw freshness (R2)</h2>
         <p className="hp-sub">
-          Per-device HEAD on the current-month <code>raw</code> shard. This is
-          the source of truth for freshness — Lambda writes bypass D1, so the
-          <code>pyramid_shards</code> table below trails these values.
+          Per-device HEAD on the current-day <code>raw</code> tip shard. This
+          is the source of truth for freshness — Lambda writes bypass D1, so
+          the coverage/stats below trail these values.
         </p>
         <table className="hp-table">
           <thead>
@@ -134,43 +130,57 @@ export function HealthPage() {
       </section>
 
       <section className="hp-section">
-        <h2>Pyramid tiers (D1)</h2>
+        <h2>Pyramid coverage</h2>
         <p className="hp-sub">
-          Per-device × per-tier shard inventory + size/RG stats from
-          <code> pyramid_shards</code>. Coverage extent is in the timeline
-          above. <em>latest write</em> is when the cascade worker last wrote
-          a shard for that tier — old ages here are normal when nothing needs
-          rebuilding. Rows only flag red when <em>shards = 0</em>, meaning
-          cascade hasn't converged this tier at all.
+          Per-device <code>pyramidCover</code> min-cover of
+          [genesis, now): which cover slots are registered in D1 (raw tips
+          overlaid from R2 — Lambda writes bypass the registry). The
+          timeline draws one rectangle per cover slot; the stats table
+          below shows per-rung size/RG aggregates from
+          <code> pyramid_shards</code>. <em>latest write</em> is when
+          cascade last wrote a shard at that rung — old ages are normal
+          when nothing needs rebuilding.
         </p>
-        {pyramids.map(p => {
-          const device = devices.find(d => d.deviceId === p.deviceId)
-          const byTier = new Map(p.tiers.map(t => [t.tier, t]))
-          const window = device?.genesisTs !== undefined
-            ? coverageWindow(device.genesisTs, now)
+        {covers.map(cover => {
+          const device = devices.find(d => d.deviceId === cover.deviceId)
+          const rungs = tierStats.find(s => s.deviceId === cover.deviceId)?.rungs ?? []
+          const genesis = Date.parse(cover.genesis)
+          const window = coverageWindow(genesis, now)
+          // Today's live raw tip (unregistered — outside the cover):
+          // drawn from UTC midnight to now when the R2 HEAD found it.
+          const rawHead = raw.find(r => r.deviceId === cover.deviceId)
+          const rawTip: RawTip | null = rawHead?.uploaded != null
+            ? { start: now - (now % MS_PER_DAY), end: now, key: rawHead.key, uploaded: rawHead.uploaded }
             : null
+          const badge = cover.totalMissing > 0
+            ? { cls: 'hp-badge-missing', text: `${cover.totalMissing} missing` }
+            : cover.totalPending > 0
+              ? { cls: 'hp-badge-pending', text: `${cover.totalPending} pending` }
+              : { cls: 'hp-badge-ok', text: 'complete' }
           return (
-            <div key={p.pyramid} className="hp-pyramid">
+            <div key={cover.name} className="hp-pyramid">
               <h3>
-                <span className="hp-name">{device?.name ?? p.pyramid}</span>
-                <span className="hp-mono hp-dim"> · {p.pyramid}</span>
-                {device?.genesisTs !== undefined && (
-                  <span className="hp-dim"> · genesis {fmtTs(device.genesisTs)}</span>
+                <span className="hp-name">{device?.name ?? cover.name}</span>
+                <span className="hp-mono hp-dim"> · {cover.name}</span>
+                <span className="hp-dim"> · genesis {fmtTs(genesis)}</span>
+                <span className={`hp-badge ${badge.cls}`}>{badge.text}</span>
+                {cover.totalStale > 0 && (
+                  <span className="hp-badge hp-badge-stale" title="Registered D1 shards outside the current min-cover — superseded by coarser tiles; GC candidates.">
+                    {cover.totalStale} stale
+                  </span>
                 )}
               </h3>
-              {window && (
-                <TierTimeline
-                  tiers={p.tiers}
-                  tierOrder={tierOrder}
-                  genesis={window.genesis}
-                  now={window.now}
-                />
-              )}
+              <TierTimeline
+                tiers={cover.tiers}
+                genesis={window.genesis}
+                now={window.now}
+                rawTip={rawTip}
+              />
               <table className="hp-table">
                 <thead>
                   <tr>
                     <th>tier</th>
-                    <th>shard dur</th>
+                    <th>rung</th>
                     <th>shards</th>
                     <th title="Average bytes per shard.">avg size</th>
                     <th title="Average rows per shard.">avg rows</th>
@@ -181,32 +191,19 @@ export function HealthPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tierOrder.map(name => {
-                    const t: HealthTier | undefined = byTier.get(name)
-                    // Write-age is informational, not a health signal —
-                    // cascade only writes when it has missing shards to
-                    // fill, so a quiet system legitimately shows old
-                    // ages here. Don't color-code the row.
-                    const writeAge = t?.latestWrittenAt !== null && t?.latestWrittenAt !== undefined
-                      ? now - t.latestWrittenAt
-                      : null
-                    // Zero-count is the actual bad signal — cascade
-                    // hasn't converged this tier at all.
-                    const missing = t !== undefined && t.shardCount === 0
-                    return (
-                      <tr key={name} className={missing ? 'age-stale' : ''}>
-                        <td className="hp-mono">{name}</td>
-                        <td className="hp-mono">{t?.shardDur ?? '—'}</td>
-                        <td className="hp-num">{t?.shardCount ?? 0}</td>
-                        <td className="hp-num">{fmtBytes(t?.stats.avgSizeBytes ?? null)}</td>
-                        <td className="hp-num">{fmtNum(t?.stats.avgNRows ?? null)}</td>
-                        <td className="hp-num">{fmtNum(t?.stats.avgNRgs ?? null)}</td>
-                        <td className="hp-num">{fmtNum(t?.stats.avgRowsPerRg ?? null)}</td>
-                        <td>{fmtTs(t?.latestWrittenAt ?? null)}</td>
-                        <td className="hp-age hp-dim">{fmtAge(writeAge)}</td>
-                      </tr>
-                    )
-                  })}
+                  {rungs.map(r => (
+                    <tr key={`${r.tier}|${r.shardDur}`}>
+                      <td className="hp-mono">{r.tier}</td>
+                      <td className="hp-mono">{r.shardDur}</td>
+                      <td className="hp-num">{r.shardCount}</td>
+                      <td className="hp-num">{fmtBytes(r.stats.avgSizeBytes)}</td>
+                      <td className="hp-num">{fmtNum(r.stats.avgNRows)}</td>
+                      <td className="hp-num">{fmtNum(r.stats.avgNRgs)}</td>
+                      <td className="hp-num">{fmtNum(r.stats.avgRowsPerRg)}</td>
+                      <td>{fmtTs(r.latestWrittenAt)}</td>
+                      <td className="hp-age hp-dim">{fmtAge(now - r.latestWrittenAt)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

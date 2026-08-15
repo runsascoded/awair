@@ -7,8 +7,8 @@
  *   GET /q       pyrmts serveQuery (see pyrmts-cfw for query-param grammar)
  *   GET /devices D1 devices table, JSON
  *   GET /health  Full HealthSnapshot: per-device raw R2 watermarks +
- *                per-(device, tier) shard counts / latest cascade write
- *                / D1 watermark from `pyramid_shards` + `pyramid_watermarks`
+ *                per-device `pyramidCover` min-cover status (`covers`) +
+ *                per-(device, tier, rung) D1 size/RG stats (`tierStats`)
  *   GET /health?probe=1  Minimal 200 for uptime checks
  *
  * Watermarks (for /q): each request HEADs every tier's current-period shard in
@@ -440,37 +440,14 @@ async function resolveWatermarks(
   }
 }
 
-interface WatermarkRow {
-  pyramid: string
-  tier: string
-  shard_dur: string
-  latest_period_end: number
-  updated_at: number
-}
-
 interface ShardRow {
   pyramid: string
   tier: string
   shard_dur: string
-  period_start: number
-  period_end: number
-  key: string
   written_at: number
   size_bytes: number | null
   n_rows: number | null
   n_rgs: number | null
-  rg_row_counts: string | null  // JSON array of ints
-}
-
-interface HealthShard {
-  shardDur: string
-  periodStart: number
-  periodEnd: number
-  writtenAt: number
-  sizeBytes: number | null
-  nRows: number | null
-  nRgs: number | null
-  rgRowCounts: number[] | null
 }
 
 interface TierStats {
@@ -484,18 +461,16 @@ interface TierStats {
   count: number
 }
 
-interface TierHealth {
+// Per-(tier, rung) D1 aggregates — size/RG diagnostics for the FE stats
+// table. Coverage/completeness lives in `covers`; only rungs with ≥1
+// registered shard are emitted (Lambda-owned raw tips never register,
+// and unconsolidated rungs legitimately have no rows).
+interface RungStats {
   tier: string
   shardDur: string
   shardCount: number
-  latestPeriodEnd: number | null
-  earliestPeriodStart: number | null
-  latestWrittenAt: number | null
-  d1UpdatedAt: number | null
+  latestWrittenAt: number
   stats: TierStats
-  // Per-shard rows keyed on (period_start). Used by the FE to draw the
-  // coverage timeline. Sorted by period_start ascending.
-  shards: HealthShard[]
 }
 
 interface DeviceRawHealth {
@@ -506,10 +481,10 @@ interface DeviceRawHealth {
   size: number | null
 }
 
-interface PyramidHealth {
+interface DeviceTierStats {
   pyramid: string
   deviceId: number
-  tiers: TierHealth[]
+  rungs: RungStats[]
 }
 
 interface HealthSnapshot {
@@ -523,12 +498,11 @@ interface HealthSnapshot {
     active: boolean
   }[]
   raw: DeviceRawHealth[]
-  pyramids: PyramidHealth[]
   // Per-device pyrmts min-cover status (`pyrmts-cfw.health.pyramidCover`)
   // with Lambda-owned raw tips overlaid from R2 (they bypass the D1
-  // registry — see `RawTipShardIndex`). Additive for now: `pyramids`
-  // stays until the FE HealthPage migrates to this shape.
+  // registry — see `RawTipShardIndex`).
   covers: (PyramidCoverStatus & { deviceId: number })[]
+  tierStats: DeviceTierStats[]
   config: {
     keyTemplate: string
     tiers: { name: string; bin: string; shard: string }[]
@@ -623,24 +597,18 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
   // (per-tenant × per-tier × O(months); tens of rows in prod today), well
   // under D1's payload limits, and folds the aggregation with the
   // per-shard timeline data the FE needs.
-  const batchResults = await env.DB.batch<
-    DeviceRow | WatermarkRow | ShardRow
-  >([
+  const batchResults = await env.DB.batch<DeviceRow | ShardRow>([
     env.DB.prepare(
       'SELECT device_id, name, device_type, genesis_ts, active FROM devices ORDER BY device_id',
     ),
     env.DB.prepare(
-      'SELECT pyramid, tier, shard_dur, latest_period_end, updated_at FROM pyramid_watermarks',
-    ),
-    env.DB.prepare(
-      `SELECT pyramid, tier, shard_dur, period_start, period_end, key, written_at,
-              size_bytes, n_rows, n_rgs, rg_row_counts
+      `SELECT pyramid, tier, shard_dur, written_at, size_bytes, n_rows, n_rgs
        FROM pyramid_shards
        ORDER BY pyramid, tier, shard_dur, period_start`,
     ),
   ])
-  const [devicesRes, watermarksRes, shardsRes] = batchResults
-  if (!devicesRes || !watermarksRes || !shardsRes) {
+  const [devicesRes, shardsRes] = batchResults
+  if (!devicesRes || !shardsRes) {
     throw new Error('D1 batch returned fewer results than expected')
   }
 
@@ -652,13 +620,9 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
     active: r.active === 1,
   }))
 
-  const watermarks = watermarksRes.results as unknown as WatermarkRow[]
   const shardRows = shardsRes.results as unknown as ShardRow[]
 
-  // Bucket D1 rows by (pyramid, tier, shard_dur). Watermarks are point,
-  // shards are lists.
-  const wmIdx = new Map<string, WatermarkRow>()
-  for (const w of watermarks) wmIdx.set(`${w.pyramid}|${w.tier}|${w.shard_dur}`, w)
+  // Bucket D1 rows by (pyramid, tier, shard_dur).
   const shardsByKey = new Map<string, ShardRow[]>()
   for (const s of shardRows) {
     const k = `${s.pyramid}|${s.tier}|${s.shard_dur}`
@@ -704,71 +668,48 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
     }),
   )
 
-  // One PyramidHealth per active device, keyed on `awair-{device_id}`.
-  const pyramids: PyramidHealth[] = devices.map(d => {
+  // One DeviceTierStats per device: per-(tier, rung) D1 aggregates in
+  // config ladder order, skipping rungs with no registered shards.
+  const tierStats: DeviceTierStats[] = devices.map(d => {
     const pyramidName = `awair-${d.deviceId}`
-    const tiers: TierHealth[] = pyramidConfig.tiers.map(t => {
-      const tShard = t.shards[t.shards.length - 1]!
-      const key = `${pyramidName}|${t.name}|${tShard}`
-      const wm = wmIdx.get(key) ?? null
-      const shards = shardsByKey.get(key) ?? []
-      // Derive aggregates in JS instead of a second GROUP BY.
-      let earliest: number | null = null
-      let latestEnd: number | null = null
-      let latestWritten: number | null = null
-      // Per-tier stat sums, ignoring shards where the value is null (not
-      // yet backfilled). `avg = sum / count` at the end.
-      let sizeSum = 0, sizeN = 0
-      let rowsSum = 0, rowsN = 0
-      let rgsSum = 0, rgsN = 0
-      let rpgSum = 0, rpgN = 0
-      const outShards: HealthShard[] = []
-      for (const s of shards) {
-        if (earliest === null || s.period_start < earliest) earliest = s.period_start
-        if (latestEnd === null || s.period_end > latestEnd) latestEnd = s.period_end
-        if (latestWritten === null || s.written_at > latestWritten) latestWritten = s.written_at
-        if (s.size_bytes !== null) { sizeSum += s.size_bytes; sizeN++ }
-        if (s.n_rows !== null)     { rowsSum += s.n_rows;     rowsN++ }
-        if (s.n_rgs !== null)      { rgsSum  += s.n_rgs;      rgsN++  }
-        if (s.n_rows !== null && s.n_rgs !== null && s.n_rgs > 0) {
-          rpgSum += s.n_rows / s.n_rgs
-          rpgN++
+    const rungs: RungStats[] = []
+    for (const t of pyramidConfig.tiers) {
+      for (const rung of t.shards) {
+        const shards = shardsByKey.get(`${pyramidName}|${t.name}|${rung}`) ?? []
+        if (shards.length === 0) continue
+        // Per-rung stat sums, ignoring shards where the value is null
+        // (not yet backfilled). `avg = sum / count` at the end.
+        let latestWritten = 0
+        let sizeSum = 0, sizeN = 0
+        let rowsSum = 0, rowsN = 0
+        let rgsSum = 0, rgsN = 0
+        let rpgSum = 0, rpgN = 0
+        for (const s of shards) {
+          if (s.written_at > latestWritten) latestWritten = s.written_at
+          if (s.size_bytes !== null) { sizeSum += s.size_bytes; sizeN++ }
+          if (s.n_rows !== null)     { rowsSum += s.n_rows;     rowsN++ }
+          if (s.n_rgs !== null)      { rgsSum  += s.n_rgs;      rgsN++  }
+          if (s.n_rows !== null && s.n_rgs !== null && s.n_rgs > 0) {
+            rpgSum += s.n_rows / s.n_rgs
+            rpgN++
+          }
         }
-        let rgRowCounts: number[] | null = null
-        if (s.rg_row_counts !== null) {
-          try { rgRowCounts = JSON.parse(s.rg_row_counts) as number[] } catch { rgRowCounts = null }
-        }
-        outShards.push({
-          shardDur: s.shard_dur,
-          periodStart: s.period_start,
-          periodEnd: s.period_end,
-          writtenAt: s.written_at,
-          sizeBytes: s.size_bytes,
-          nRows: s.n_rows,
-          nRgs: s.n_rgs,
-          rgRowCounts,
+        rungs.push({
+          tier: t.name,
+          shardDur: String(rung),
+          shardCount: shards.length,
+          latestWrittenAt: latestWritten,
+          stats: {
+            avgSizeBytes:  sizeN > 0 ? sizeSum / sizeN : null,
+            avgNRows:      rowsN > 0 ? rowsSum / rowsN : null,
+            avgNRgs:       rgsN  > 0 ? rgsSum  / rgsN  : null,
+            avgRowsPerRg:  rpgN  > 0 ? rpgSum  / rpgN  : null,
+            count:         shards.length,
+          },
         })
       }
-      const stats: TierStats = {
-        avgSizeBytes:  sizeN > 0 ? sizeSum / sizeN : null,
-        avgNRows:      rowsN > 0 ? rowsSum / rowsN : null,
-        avgNRgs:       rgsN  > 0 ? rgsSum  / rgsN  : null,
-        avgRowsPerRg:  rpgN  > 0 ? rpgSum  / rpgN  : null,
-        count:         shards.length,
-      }
-      return {
-        tier: t.name,
-        shardDur: tShard,
-        shardCount: shards.length,
-        latestPeriodEnd: latestEnd ?? wm?.latest_period_end ?? null,
-        earliestPeriodStart: earliest,
-        latestWrittenAt: latestWritten,
-        d1UpdatedAt: wm?.updated_at ?? null,
-        stats,
-        shards: outShards,
-      }
-    })
-    return { pyramid: pyramidName, deviceId: d.deviceId, tiers }
+    }
+    return { pyramid: pyramidName, deviceId: d.deviceId, rungs }
   })
 
   // pyrmts min-cover per device. `pyramidCover` substitutes the key
@@ -795,8 +736,8 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
     worker: 'awair-serve',
     devices,
     raw: rawHealth,
-    pyramids,
     covers,
+    tierStats,
     config: {
       keyTemplate: pyramidConfig.keyTemplate,
       tiers: pyramidConfig.tiers.map(t => ({ name: t.name, bin: t.bin, shard: t.shards[t.shards.length - 1]! })),
