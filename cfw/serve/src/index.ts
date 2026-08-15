@@ -22,8 +22,8 @@
  * instead of erroring the whole query.
  */
 
-import { parquetBackend, parsePyramidYaml, pyramidFromConfig, type ListShardsFilter, type Pyramid, type RecordedShard, type RecordShardInput, type ShardIndex, type Storage } from 'pyrmts'
-import { D1ShardIndex, r2Storage, serveQuery } from 'pyrmts-cfw'
+import { floorToSpan, formatPeriod, parquetBackend, parseDuration, parsePyramidYaml, pyramidFromConfig, type ListShardsFilter, type Pyramid, type RecordedShard, type RecordShardInput, type ShardIndex, type Storage } from 'pyrmts'
+import { D1ShardIndex, pyramidCover, r2Storage, serveQuery, type PyramidCoverStatus } from 'pyrmts-cfw'
 import pyramidYamlText from '../../../src/awair/pyramid.yml'
 
 interface Env {
@@ -524,9 +524,89 @@ interface HealthSnapshot {
   }[]
   raw: DeviceRawHealth[]
   pyramids: PyramidHealth[]
+  // Per-device pyrmts min-cover status (`pyrmts-cfw.health.pyramidCover`)
+  // with Lambda-owned raw tips overlaid from R2 (they bypass the D1
+  // registry — see `RawTipShardIndex`). Additive for now: `pyramids`
+  // stays until the FE HealthPage migrates to this shape.
+  covers: (PyramidCoverStatus & { deviceId: number })[]
   config: {
     keyTemplate: string
     tiers: { name: string; bin: string; shard: string }[]
+  }
+}
+
+/** All existing raw-tier R2 keys for one device (single paginated list). */
+async function listRawKeys(r2: R2Bucket, keyTemplate: string): Promise<Set<string>> {
+  const prefix = keyTemplate.split('{tier}')[0] + 'raw/'
+  const keys = new Set<string>()
+  let cursor: string | undefined
+  do {
+    const listing = await r2.list({ prefix, cursor, limit: 1000 })
+    for (const o of listing.objects) keys.add(o.key)
+    cursor = listing.truncated ? listing.cursor : undefined
+  } while (cursor)
+  return keys
+}
+
+/**
+ * Overlay R2 ground truth onto the raw tier of a `pyramidCover` result.
+ *
+ * `pyramidCover` reads only the D1 registry, but Lambda writes the raw
+ * tip rungs straight to R2 without registering them (only cascade's
+ * month-close consolidation records raw rows) — so unregistered-but-
+ * present raw tiles would render as missing/pending. Flip any non-present
+ * raw slot whose reconstructed key exists in R2, then recompute the
+ * affected aggregates. `totalStale` is untouched (it counts D1 rows
+ * outside the cover, which the overlay doesn't change).
+ */
+function overlayRawTips(cover: PyramidCoverStatus, keyTemplate: string, rawKeys: Set<string>): PyramidCoverStatus {
+  const tiers = cover.tiers.map(t => {
+    if (t.tier !== 'raw') return t
+    const segments = t.segments.map(seg => {
+      if (seg.status === 'present') return seg
+      const span = parseDuration(seg.shardDur)
+      // `seg.start` may be genesis-clipped on the head tile — floor back
+      // to the period boundary for the key's period label.
+      const periodStart = floorToSpan(new Date(seg.start), span)
+      const key = keyTemplate
+        .replaceAll('{tier}', t.tier)
+        .replaceAll('{shard}', seg.shardDur)
+        .replaceAll('{period}', formatPeriod(periodStart, span))
+      if (!rawKeys.has(key)) return seg
+      const { buildableAt: _dropped, ...rest } = seg
+      return { ...rest, status: 'present' as const, key }
+    })
+    const perRung = new Map<string, { present: number; pending: number }>()
+    let present = 0
+    let pending = 0
+    let firstMissingPeriod: string | null = null
+    for (const seg of segments) {
+      let agg = perRung.get(seg.shardDur)
+      if (agg === undefined) { agg = { present: 0, pending: 0 }; perRung.set(seg.shardDur, agg) }
+      if (seg.status === 'present') { agg.present++; present++ }
+      else if (seg.status === 'pending') { agg.pending++; pending++ }
+      else if (firstMissingPeriod === null) firstMissingPeriod = seg.start
+    }
+    return {
+      ...t,
+      segments,
+      rungs: t.rungs.map(r => ({
+        ...r,
+        present: perRung.get(r.shardDur)?.present ?? 0,
+        pending: perRung.get(r.shardDur)?.pending ?? 0,
+      })),
+      totalPresent: present,
+      totalPending: pending,
+      complete: t.totalExpected - present - pending === 0,
+      firstMissingPeriod,
+    }
+  })
+  return {
+    ...cover,
+    tiers,
+    totalMissing: tiers.reduce((s, t) => s + (t.totalExpected - t.totalPresent - t.totalPending), 0),
+    totalPending: tiers.reduce((s, t) => s + t.totalPending, 0),
+    allComplete: tiers.every(t => t.complete),
   }
 }
 
@@ -691,12 +771,32 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
     return { pyramid: pyramidName, deviceId: d.deviceId, tiers }
   })
 
+  // pyrmts min-cover per device. `pyramidCover` substitutes the key
+  // template without a dim filter, so bake `{device_id}` in up front —
+  // this also makes slot keys concrete for the raw-tip overlay.
+  const covers = (
+    await Promise.all(
+      devices.map(async d => {
+        const keyTemplate = pyramidConfig.keyTemplate.replaceAll('{device_id}', String(d.deviceId))
+        const cover = await pyramidCover(
+          env.DB,
+          { tiers: pyramidConfig.tiers, keyTemplate },
+          { name: `awair-${d.deviceId}`, genesis: new Date(d.genesisTs), now: new Date(now) },
+        )
+        if (cover === null) return null
+        const rawKeys = await listRawKeys(env.PYRAMID, keyTemplate)
+        return { deviceId: d.deviceId, ...overlayRawTips(cover, keyTemplate, rawKeys) }
+      }),
+    )
+  ).filter((c): c is PyramidCoverStatus & { deviceId: number } => c !== null)
+
   return {
     now,
     worker: 'awair-serve',
     devices,
     raw: rawHealth,
     pyramids,
+    covers,
     config: {
       keyTemplate: pyramidConfig.keyTemplate,
       tiers: pyramidConfig.tiers.map(t => ({ name: t.name, bin: t.bin, shard: t.shards[t.shards.length - 1]! })),
