@@ -32,7 +32,7 @@
     "@floating-ui/react": "^0.27.13",
     "@fortawesome/fontawesome-free": "^6.7.2",
     "@observablehq/plot": "^0.6.17",
-    "@rdub/file-tree": "https://github.com/runsascoded/file-tree#c8ede0835e8d42ac8172298833e9a6e5d27311f8",
+    "@rdub/file-tree": "https://github.com/runsascoded/file-tree#314d6968f19fbd86720f54935a3a68a681cb438b",
     "@tanstack/react-query": "^5.83.0",
     "d3": "^7.9.0",
     "hyparquet": "github:runsascoded/hyparquet#6d0c51c423776ef04b21fab9f469fdc05a5dc4dd",
