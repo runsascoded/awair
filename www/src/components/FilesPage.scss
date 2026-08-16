@@ -12,6 +12,18 @@
 
   a { color: var(--accent-primary); }
 
+  // Device-name annotation appended to `awair-<id>` dirs/crumbs by
+  // `<FileTree>`'s `renderCell`/`renderCrumb` hooks.
+  .ft-device {
+    margin-left: 0.5em;
+    padding: 0 0.4em;
+    border-radius: 3px;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 0.85em;
+    font-weight: 500;
+  }
+
   table {
     border-collapse: collapse;
     td, th { padding: 2px 10px; }
