@@ -12,6 +12,15 @@
 
   a { color: var(--accent-primary); }
 
+  // Human-readable date appended to epoch-seconds fields in the
+  // invalidation journal, via the JSON viewer's `renderValue` hook.
+  .ft-ts {
+    margin-left: 0.6em;
+    color: var(--text-secondary);
+    font-size: 0.9em;
+    &::before { content: '← '; opacity: 0.5; }
+  }
+
   // Device-name annotation appended to `awair-<id>` dirs/crumbs by
   // `<FileTree>`'s `renderCell`/`renderCrumb` hooks.
   .ft-device {

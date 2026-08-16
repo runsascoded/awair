@@ -193,7 +193,7 @@ async function convergeOne(
 
 /**
  * Prune spent invalidation-journal entries. Awair's journal is
- * per-pyramid-prefix (`pyrmts/awair-_invalidations.json`), shared
+ * per-pyramid-prefix (`pyramid/awair-_invalidations.json`), shared
  * across all 4 device pyramids — so we can only prune an entry when
  * NO device has an overlapping stale shard for it. Build combined
  * `expected` + `mtimes` (keyed by shard R2 key, which is unique per

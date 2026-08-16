@@ -1,4 +1,5 @@
 import { FileTree } from '@rdub/file-tree/react'
+import { makeJsonTreeRenderer } from '@rdub/file-tree/renderers/json'
 import { ParquetViewer } from '@rdub/file-tree/renderers/parquet'
 import { HttpStore } from '@rdub/file-tree/stores/http'
 import { useCallback, useMemo } from 'react'
@@ -12,6 +13,24 @@ import './FilesPage.scss'
  *  Deeper keys (`…/awair-17617/raw/1d/…`) are tier/shard paths, where
  *  the device is already established by the enclosing crumb. */
 const DEVICE_DIR = /(?:^|\/)awair-(\d+)\/?$/
+
+/** Invalidation-journal fields, all epoch *seconds* (float) — pyrmts
+ *  writes `{start, end, requested_at}` per `specs/shard-invalidation.md`.
+ *  Raw they're unreadable; annotated they're the whole point of the file. */
+const TS_KEYS = new Set(['start', 'end', 'requested_at'])
+
+const fmtEpochSec = (s: number) =>
+  `${new Date(s * 1000).toISOString().slice(0, 19).replace('T', ' ')}Z`
+
+/** Module-scope so the element type stays stable across renders (a new
+ *  renderer identity each render would remount the viewer, dropping its
+ *  expand/search state). */
+const renderJson = makeJsonTreeRenderer({
+  renderValue: ({ key, value, defaultNode }) =>
+    key !== undefined && TS_KEYS.has(key) && typeof value === 'number' && Number.isFinite(value)
+      ? <>{defaultNode}<span className="ft-ts">{fmtEpochSec(value)}</span></>
+      : defaultNode,
+})
 
 /**
  * `/files/*` — `@rdub/file-tree` browser over the pyramid R2 bucket,
@@ -52,6 +71,11 @@ export function FilesPage() {
           routeBase="/files"
           title="Pyramid shards"
           parquetRenderer={ParquetViewer}
+          // `pyramid/awair-_invalidations.json` is the only JSON in the
+          // bucket today, but it's the one file you actually read by
+          // hand. (The jq filter needs the optional `jq-web` peer;
+          // without it the tree/search/copy-path still work.)
+          jsonRenderer={renderJson}
           renderCell={({ entry, column, defaultNode }) => {
             if (column !== 'name') return defaultNode
             const name = deviceName(entry.key)
