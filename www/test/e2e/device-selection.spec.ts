@@ -11,6 +11,21 @@ test.describe('Device Selection', () => {
     page.on('console', msg => console.log('Browser console:', msg.text()))
     page.on('pageerror', error => console.error('Page error:', error))
 
+    // The device list comes from `cfw/serve`'s `/devices` (JSON), not the
+    // legacy `devices.parquet`, so it was reaching the live worker — which
+    // has since grown "Desk" and "RT BR". Pin it to the two devices the
+    // parquet fixtures below cover, so the checkbox list is deterministic.
+    await page.route('**/devices', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          { deviceId: 17617, name: 'Gym', deviceType: 'awair-element', genesisTs: 1749146400000, active: true },
+          { deviceId: 137496, name: 'BR', deviceType: 'awair-element', genesisTs: 1749146400000, active: true },
+        ]),
+      })
+    })
+
     // Intercept S3 requests and serve local snapshot files
     await page.route('**/*.parquet', async route => {
       const request = route.request()
@@ -106,7 +121,7 @@ test.describe('Device Selection', () => {
     expect(options.length).toBe(2)
 
     // Deselect BR device
-    const brCheckbox = page.locator('.device-checkboxes label:has(span.name:text("BR")) input[type="checkbox"]')
+    const brCheckbox = page.locator('.device-checkboxes label:has(span.name:text-is("BR")) input[type="checkbox"]')
     await brCheckbox.click()
     await page.waitForTimeout(500)
 
@@ -114,7 +129,7 @@ test.describe('Device Selection', () => {
     await expect(deviceDropdown).toBeHidden()
 
     // Gym checkbox should still be checked
-    const gymCheckbox = page.locator('.device-checkboxes label:has(span.name:text("Gym")) input[type="checkbox"]')
+    const gymCheckbox = page.locator('.device-checkboxes label:has(span.name:text-is("Gym")) input[type="checkbox"]')
     await expect(gymCheckbox).toBeChecked()
   })
 
@@ -133,7 +148,7 @@ test.describe('Device Selection', () => {
     expect(await deviceDropdown.inputValue()).toBe('17617')
 
     // Deselect Gym (the device currently shown in dropdown)
-    const gymCheckbox = page.locator('.device-checkboxes label:has(span.name:text("Gym")) input[type="checkbox"]')
+    const gymCheckbox = page.locator('.device-checkboxes label:has(span.name:text-is("Gym")) input[type="checkbox"]')
     await gymCheckbox.click()
     await page.waitForTimeout(500)
 
@@ -141,7 +156,7 @@ test.describe('Device Selection', () => {
     await expect(deviceDropdown).toBeHidden()
 
     // BR should be checked (remaining device)
-    const brCheckbox = page.locator('.device-checkboxes label:has(span.name:text("BR")) input[type="checkbox"]')
+    const brCheckbox = page.locator('.device-checkboxes label:has(span.name:text-is("BR")) input[type="checkbox"]')
     await expect(brCheckbox).toBeChecked()
 
     // Gym should be unchecked
