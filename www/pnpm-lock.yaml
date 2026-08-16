@@ -22,8 +22,8 @@ importers:
         specifier: ^0.6.17
         version: 0.6.17
       '@rdub/file-tree':
-        specifier: https://github.com/runsascoded/file-tree#ed3f0874d50de7310fada586f0b444e462878b1b
-        version: https://codeload.github.com/runsascoded/file-tree/tar.gz/ed3f0874d50de7310fada586f0b444e462878b1b(highlight.js@11.12.0)(hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/6d0c51c423776ef04b21fab9f469fdc05a5dc4dd)(jq-web@0.6.2)(react-dom@19.2.3(react@19.2.3))(react-markdown@10.1.0(@types/react@19.2.7)(react@19.2.3))(react-router-dom@7.18.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(remark-gfm@4.0.1)(use-prms@0.4.1(react@19.2.3))
+        specifier: https://github.com/runsascoded/file-tree#c8ede0835e8d42ac8172298833e9a6e5d27311f8
+        version: https://codeload.github.com/runsascoded/file-tree/tar.gz/c8ede0835e8d42ac8172298833e9a6e5d27311f8(highlight.js@11.12.0)(hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/6d0c51c423776ef04b21fab9f469fdc05a5dc4dd)(jq-web@0.6.2)(react-dom@19.2.3(react@19.2.3))(react-markdown@10.1.0(@types/react@19.2.7)(react@19.2.3))(react-router-dom@7.18.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(remark-gfm@4.0.1)(use-prms@0.4.1(react@19.2.3))
       '@tanstack/react-query':
         specifier: ^5.83.0
         version: 5.90.15(react@19.2.3)
@@ -1414,9 +1414,9 @@ packages:
     peerDependencies:
       eslint: ^9
 
-  '@rdub/file-tree@https://codeload.github.com/runsascoded/file-tree/tar.gz/ed3f0874d50de7310fada586f0b444e462878b1b':
-    resolution: {tarball: https://codeload.github.com/runsascoded/file-tree/tar.gz/ed3f0874d50de7310fada586f0b444e462878b1b}
-    version: 0.0.1-dist.7f7b893
+  '@rdub/file-tree@https://codeload.github.com/runsascoded/file-tree/tar.gz/c8ede0835e8d42ac8172298833e9a6e5d27311f8':
+    resolution: {tarball: https://codeload.github.com/runsascoded/file-tree/tar.gz/c8ede0835e8d42ac8172298833e9a6e5d27311f8}
+    version: 0.0.1-dist.24a645f
     peerDependencies:
       highlight.js: ^11
       hyparquet: ^1
@@ -6863,7 +6863,7 @@ snapshots:
       - supports-color
       - typescript
 
-  '@rdub/file-tree@https://codeload.github.com/runsascoded/file-tree/tar.gz/ed3f0874d50de7310fada586f0b444e462878b1b(highlight.js@11.12.0)(hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/6d0c51c423776ef04b21fab9f469fdc05a5dc4dd)(jq-web@0.6.2)(react-dom@19.2.3(react@19.2.3))(react-markdown@10.1.0(@types/react@19.2.7)(react@19.2.3))(react-router-dom@7.18.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(remark-gfm@4.0.1)(use-prms@0.4.1(react@19.2.3))':
+  '@rdub/file-tree@https://codeload.github.com/runsascoded/file-tree/tar.gz/c8ede0835e8d42ac8172298833e9a6e5d27311f8(highlight.js@11.12.0)(hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/6d0c51c423776ef04b21fab9f469fdc05a5dc4dd)(jq-web@0.6.2)(react-dom@19.2.3(react@19.2.3))(react-markdown@10.1.0(@types/react@19.2.7)(react@19.2.3))(react-router-dom@7.18.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(remark-gfm@4.0.1)(use-prms@0.4.1(react@19.2.3))':
     dependencies:
       aws4fetch: 1.0.20
       highlight.js: 11.12.0

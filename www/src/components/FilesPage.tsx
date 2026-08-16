@@ -26,6 +26,9 @@ const fmtEpochSec = (s: number) =>
  *  renderer identity each render would remount the viewer, dropping its
  *  expand/search state). */
 const renderJson = makeJsonTreeRenderer({
+  // The journal is an array of flat records, so the default (root only)
+  // shows nothing but `[ {3 keys}, … ]` — depth 2 is the whole file.
+  initialOpenDepth: 2,
   renderValue: ({ key, value, defaultNode }) =>
     key !== undefined && TS_KEYS.has(key) && typeof value === 'number' && Number.isFinite(value)
       ? <>{defaultNode}<span className="ft-ts">{fmtEpochSec(value)}</span></>
