@@ -22,11 +22,21 @@ export interface RawTip {
   uploaded: number
 }
 
+/** Identifies one rung — the join between a stats-table row and the
+ *  timeline segments it describes. */
+export interface RungKey {
+  tier: string
+  shardDur: string
+}
+
 interface TierTimelineProps {
   tiers: TierCover[]
   genesis: number
   now: number
   rawTip?: RawTip | null
+  /** Rung to spotlight (hovered in the stats table): its segments stay
+   *  lit while every other segment fades back. */
+  highlight?: RungKey | null
 }
 
 /** Hovered-segment payload for the (single, shared) floating tooltip. */
@@ -60,7 +70,7 @@ const fileHref = (key: string) => `/files/${key}`
  * X-axis maps `[genesis, now]` → `[0, 1000]` in the SVG viewBox so the
  * bar scales to whatever CSS width the container has.
  */
-export function TierTimeline({ tiers, genesis, now, rawTip }: TierTimelineProps) {
+export function TierTimeline({ tiers, genesis, now, rawTip, highlight = null }: TierTimelineProps) {
   const [tip, setTip] = useState<TipState | null>(null)
   const { refs, floatingStyles } = useFloating({
     open: tip !== null,
@@ -78,8 +88,13 @@ export function TierTimeline({ tiers, genesis, now, rawTip }: TierTimelineProps)
   const clickProps = (key: string | undefined) => key === undefined ? {} : {
     onClick: () => window.location.assign(fileHref(key)),
   }
-  const segClass = (status: string, key: string | undefined) =>
-    `tt-seg-${status}${key !== undefined ? ' tt-clickable' : ''}`
+  // With a rung spotlighted, everything outside it fades — dimming the
+  // haystack reads better than outlining the needles, since a rung can
+  // be hundreds of sub-pixel-wide rects.
+  const spotlight = (tier: string, shardDur: string) => highlight === null ? ''
+    : highlight.tier === tier && highlight.shardDur === shardDur ? ' tt-hl' : ' tt-faded'
+  const segClass = (status: string, key: string | undefined, tier: string, shardDur: string) =>
+    `tt-seg-${status}${key !== undefined ? ' tt-clickable' : ''}${spotlight(tier, shardDur)}`
 
   const range = Math.max(1, now - genesis)
   const toX = (t: number) => ((t - genesis) / range) * 1000
@@ -140,7 +155,7 @@ export function TierTimeline({ tiers, genesis, now, rawTip }: TierTimelineProps)
                 x={labelW - 4}
                 y={y + rowH - 3}
                 textAnchor="end"
-                className="tt-label"
+                className={`tt-label${highlight?.tier === t.tier ? ' tt-label-hl' : ''}`}
               >
                 {t.tier}
               </text>
@@ -165,7 +180,7 @@ export function TierTimeline({ tiers, genesis, now, rawTip }: TierTimelineProps)
                     y={y}
                     width={w}
                     height={rowH}
-                    className={segClass(s.status, s.key)}
+                    className={segClass(s.status, s.key, t.tier, s.shardDur)}
                     {...hoverProps({
                       tier: t.tier,
                       shardDur: s.shardDur,
@@ -185,7 +200,7 @@ export function TierTimeline({ tiers, genesis, now, rawTip }: TierTimelineProps)
                   y={y}
                   width={Math.max(0.3, toX(Math.min(rawTip.end, now)) - toX(Math.max(rawTip.start, genesis)))}
                   height={rowH}
-                  className="tt-seg-tip tt-clickable"
+                  className={`tt-seg-tip tt-clickable${spotlight('raw', '1d')}`}
                   {...hoverProps({
                     tier: 'raw',
                     shardDur: '1d',

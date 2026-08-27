@@ -1,5 +1,6 @@
-import { TierTimeline, coverageWindow, type RawTip } from './TierTimeline'
-import { useHealth } from '../hooks/useHealth'
+import { useState } from 'react'
+import { TierTimeline, coverageWindow, type RawTip, type RungKey } from './TierTimeline'
+import { useHealth, type DeviceCover, type HealthRaw, type RungStats } from '../hooks/useHealth'
 import './HealthPage.scss'
 
 const MS_PER_DAY = 86_400_000
@@ -51,6 +52,132 @@ function ageClass(ms: number | null): string {
   if (ms < 10 * 60_000) return 'age-warn'
   if (ms < 60 * 60_000) return 'age-degraded'
   return 'age-stale'
+}
+
+/**
+ * Row spans for the `tier` column: consecutive rows sharing a tier
+ * collapse into one cell, so `m3` is stated once for its three rungs
+ * instead of read as three unrelated rows. `0` means "covered by the
+ * cell above" — emit no `<td>` at all.
+ */
+export function tierSpans(rungs: { tier: string }[]): number[] {
+  const spans = rungs.map(() => 0)
+  let i = 0
+  while (i < rungs.length) {
+    let j = i
+    while (j < rungs.length && rungs[j].tier === rungs[i].tier) j++
+    spans[i] = j - i
+    i = j
+  }
+  return spans
+}
+
+/**
+ * One device's coverage timeline plus its per-rung stats table. Its own
+ * component so the table↔timeline hover link has somewhere to keep
+ * state: hovering a row spotlights that rung's segments in the diagram
+ * above, which is the only way to see *where* a rung's shards sit.
+ */
+function DeviceCoverage(
+  { cover, deviceName, rungs, rawHead, now }: {
+    cover: DeviceCover
+    deviceName?: string
+    rungs: RungStats[]
+    rawHead?: HealthRaw
+    now: number
+  },
+) {
+  const [highlight, setHighlight] = useState<RungKey | null>(null)
+  const genesis = Date.parse(cover.genesis)
+  const window = coverageWindow(genesis, now)
+  // Today's live raw tip (unregistered — outside the cover): drawn from
+  // UTC midnight to now when the R2 HEAD found it.
+  const rawTip: RawTip | null = rawHead?.uploaded != null
+    ? { start: now - (now % MS_PER_DAY), end: now, key: rawHead.key, uploaded: rawHead.uploaded }
+    : null
+  const badge = cover.totalMissing > 0
+    ? { cls: 'hp-badge-missing', text: `${cover.totalMissing} missing` }
+    : cover.totalPending > 0
+      ? { cls: 'hp-badge-pending', text: `${cover.totalPending} pending` }
+      : { cls: 'hp-badge-ok', text: 'complete' }
+  const spans = tierSpans(rungs)
+  // A rung whose shards are all superseded by coarser tiles has no slots
+  // in the min-cover, so hovering it lights nothing — which would read
+  // as a broken highlight rather than as a fact about the pyramid.
+  // These are exactly the shards behind the `stale` badge above.
+  const covered = new Set(cover.tiers.flatMap(t => t.segments.map(s => `${t.tier}|${s.shardDur}`)))
+
+  return (
+    <div className="hp-pyramid">
+      <h3>
+        <span className="hp-name">{deviceName ?? cover.name}</span>
+        <span className="hp-mono hp-dim">
+          {' · '}
+          <a href={`/files/pyramid/${cover.name}/`} title="Browse this device's shards">{cover.name}</a>
+        </span>
+        <span className="hp-dim"> · genesis {fmtTs(genesis)}</span>
+        <span className={`hp-badge ${badge.cls}`}>{badge.text}</span>
+        {cover.totalStale > 0 && (
+          <span className="hp-badge hp-badge-stale" title="Registered D1 shards outside the current min-cover — superseded by coarser tiles; GC candidates.">
+            {cover.totalStale} stale
+          </span>
+        )}
+      </h3>
+      <TierTimeline
+        tiers={cover.tiers}
+        genesis={window.genesis}
+        now={window.now}
+        rawTip={rawTip}
+        highlight={highlight}
+      />
+      <table className="hp-table hp-rungs">
+        <thead>
+          <tr>
+            <th>tier</th>
+            <th>rung</th>
+            <th>shards</th>
+            <th title="Average bytes per shard.">avg size</th>
+            <th title="Average rows per shard.">avg rows</th>
+            <th title="Average row groups per shard.">avg RGs</th>
+            <th title="Average rows per row group. Small values → many small RGs → good pruning, but per-RG metadata overhead. Target ~1000-10000.">rows/RG</th>
+            <th>latest write</th>
+            <th>write age</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rungs.map((r, i) => (
+            <tr
+              key={`${r.tier}|${r.shardDur}`}
+              className={spans[i] > 0 ? 'hp-tier-start' : undefined}
+              onPointerEnter={() => setHighlight({ tier: r.tier, shardDur: r.shardDur })}
+              onPointerLeave={() => setHighlight(null)}
+            >
+              {spans[i] > 0 && (
+                <td className="hp-mono hp-tier-cell" rowSpan={spans[i]}>{r.tier}</td>
+              )}
+              {covered.has(`${r.tier}|${r.shardDur}`)
+                ? <td className="hp-mono">{r.shardDur}</td>
+                : (
+                  <td
+                    className="hp-mono hp-rung-uncovered"
+                    title="Registered, but outside the current min-cover — superseded by coarser tiles, so nothing highlights above."
+                  >
+                    {r.shardDur}
+                  </td>
+                )}
+              <td className="hp-num">{r.shardCount}</td>
+              <td className="hp-num">{fmtBytes(r.stats.avgSizeBytes)}</td>
+              <td className="hp-num">{fmtNum(r.stats.avgNRows)}</td>
+              <td className="hp-num">{fmtNum(r.stats.avgNRgs)}</td>
+              <td className="hp-num">{fmtNum(r.stats.avgRowsPerRg)}</td>
+              <td>{fmtTs(r.latestWrittenAt)}</td>
+              <td className="hp-age hp-dim">{fmtAge(now - r.latestWrittenAt)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 }
 
 export function HealthPage() {
@@ -143,77 +270,16 @@ export function HealthPage() {
           cascade last wrote a shard at that rung — old ages are normal
           when nothing needs rebuilding.
         </p>
-        {covers.map(cover => {
-          const device = devices.find(d => d.deviceId === cover.deviceId)
-          const rungs = tierStats.find(s => s.deviceId === cover.deviceId)?.rungs ?? []
-          const genesis = Date.parse(cover.genesis)
-          const window = coverageWindow(genesis, now)
-          // Today's live raw tip (unregistered — outside the cover):
-          // drawn from UTC midnight to now when the R2 HEAD found it.
-          const rawHead = raw.find(r => r.deviceId === cover.deviceId)
-          const rawTip: RawTip | null = rawHead?.uploaded != null
-            ? { start: now - (now % MS_PER_DAY), end: now, key: rawHead.key, uploaded: rawHead.uploaded }
-            : null
-          const badge = cover.totalMissing > 0
-            ? { cls: 'hp-badge-missing', text: `${cover.totalMissing} missing` }
-            : cover.totalPending > 0
-              ? { cls: 'hp-badge-pending', text: `${cover.totalPending} pending` }
-              : { cls: 'hp-badge-ok', text: 'complete' }
-          return (
-            <div key={cover.name} className="hp-pyramid">
-              <h3>
-                <span className="hp-name">{device?.name ?? cover.name}</span>
-                <span className="hp-mono hp-dim">
-                  {' · '}
-                  <a href={`/files/pyramid/${cover.name}/`} title="Browse this device's shards">{cover.name}</a>
-                </span>
-                <span className="hp-dim"> · genesis {fmtTs(genesis)}</span>
-                <span className={`hp-badge ${badge.cls}`}>{badge.text}</span>
-                {cover.totalStale > 0 && (
-                  <span className="hp-badge hp-badge-stale" title="Registered D1 shards outside the current min-cover — superseded by coarser tiles; GC candidates.">
-                    {cover.totalStale} stale
-                  </span>
-                )}
-              </h3>
-              <TierTimeline
-                tiers={cover.tiers}
-                genesis={window.genesis}
-                now={window.now}
-                rawTip={rawTip}
-              />
-              <table className="hp-table">
-                <thead>
-                  <tr>
-                    <th>tier</th>
-                    <th>rung</th>
-                    <th>shards</th>
-                    <th title="Average bytes per shard.">avg size</th>
-                    <th title="Average rows per shard.">avg rows</th>
-                    <th title="Average row groups per shard.">avg RGs</th>
-                    <th title="Average rows per row group. Small values → many small RGs → good pruning, but per-RG metadata overhead. Target ~1000-10000.">rows/RG</th>
-                    <th>latest write</th>
-                    <th>write age</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rungs.map(r => (
-                    <tr key={`${r.tier}|${r.shardDur}`}>
-                      <td className="hp-mono">{r.tier}</td>
-                      <td className="hp-mono">{r.shardDur}</td>
-                      <td className="hp-num">{r.shardCount}</td>
-                      <td className="hp-num">{fmtBytes(r.stats.avgSizeBytes)}</td>
-                      <td className="hp-num">{fmtNum(r.stats.avgNRows)}</td>
-                      <td className="hp-num">{fmtNum(r.stats.avgNRgs)}</td>
-                      <td className="hp-num">{fmtNum(r.stats.avgRowsPerRg)}</td>
-                      <td>{fmtTs(r.latestWrittenAt)}</td>
-                      <td className="hp-age hp-dim">{fmtAge(now - r.latestWrittenAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-        })}
+        {covers.map(cover => (
+          <DeviceCoverage
+            key={cover.name}
+            cover={cover}
+            deviceName={devices.find(d => d.deviceId === cover.deviceId)?.name}
+            rungs={tierStats.find(s => s.deviceId === cover.deviceId)?.rungs ?? []}
+            rawHead={raw.find(r => r.deviceId === cover.deviceId)}
+            now={now}
+          />
+        ))}
       </section>
 
       <section className="hp-section">
