@@ -20,6 +20,10 @@ import { PYRAMID_CONFIG, pyramidNameFor } from './pyramid'
 export interface MonitorEnv {
   PYRAMID: R2Bucket
   DB: D1Database
+  // Service binding to the serve worker (`serve-empty` probe). Preferred
+  // over a `SERVE_URL` fetch, which loops back to this worker on the shared
+  // workers.dev subdomain. When unset, falls back to `SERVE_URL`.
+  SERVE?: Fetcher
   PYRAMID_NAME?: string
   // Pushover credentials (set via `wrangler secret put`). When either is
   // unset the monitor still evaluates + persists state but sends nothing.
@@ -115,15 +119,19 @@ async function checkCascadeLag(
 async function checkServeEmpty(
   env: MonitorEnv, devices: Device[], now: number, t: HealthThresholds,
 ): Promise<CheckResult | null> {
-  if (env.SERVE_URL === undefined || devices.length === 0) return null
+  // Prefer the service binding (direct worker-to-worker); fall back to a
+  // public URL. A bare `fetch()` to the sibling workers.dev host loops back
+  // to this worker, so the binding is required for the probe to work.
+  const base = env.SERVE !== undefined ? 'https://serve' : env.SERVE_URL?.replace(/\/$/, '')
+  if (base === undefined || devices.length === 0) return null
   const dev = devices[0]!
   const id = `serve-empty:${dev.id}`
   const min = t.serveEmptyMinConsecutive
   const from = new Date(now - 7 * 86_400_000).toISOString()
   const to = new Date(now).toISOString()
-  const url = `${env.SERVE_URL.replace(/\/$/, '')}/q?device_id=${dev.id}&bin_budget=800&from=${from}&to=${to}`
+  const url = `${base}/q?device_id=${dev.id}&bin_budget=800&from=${from}&to=${to}`
   try {
-    const resp = await fetch(url)
+    const resp = env.SERVE !== undefined ? await env.SERVE.fetch(url) : await fetch(url)
     if (!resp.ok) {
       return { id, ok: false, detail: `${dev.name} (${dev.id}): serve HTTP ${resp.status}`, minConsecutive: min }
     }

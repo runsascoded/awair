@@ -21,6 +21,9 @@ import { parseEvent, recordEvent, summarize } from './events'
 interface Env {
   PYRAMID: R2Bucket
   DB: D1Database
+  // Service binding to the serve worker (health monitor's `serve-empty`
+  // probe). See `wrangler.toml` `[[services]]`.
+  SERVE?: Fetcher
   DEVICES_URL: string
   TOTAL_BUDGET_MS: string
   // Prefix for per-device pyramid names (`${prefix}-{device_id}`). Prod

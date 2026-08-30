@@ -17,6 +17,13 @@ crons = ["* * * * *"]
 binding = "PYRAMID"
 bucket_name = "awair"
 
+# Service binding to the serve worker for the health monitor's `serve-empty`
+# probe. A plain `fetch()` to `awair-serve.ryan-0dc.workers.dev` loops back
+# to THIS worker (same workers.dev subdomain), so route directly instead.
+[[services]]
+binding = "SERVE"
+service = "awair-serve"
+
 # D1 backs the `ShardIndex` (which shards have we already written?) and
 # will also hold the `devices` table in Phase 1b.
 [[d1_databases]]
