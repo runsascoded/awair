@@ -33,7 +33,9 @@ interface PyramidRow {
 interface PyramidResponse {
   records: PyramidRow[]
   plan: {
-    outputTier: string
+    // Absent when the planner found no in-budget tier with coverage
+    // (empty plan). See the retry in `fetch()`.
+    outputTier?: string
     outputBin: string
     authoritativeEnd: string | null
     smoothing?: {
@@ -49,6 +51,24 @@ interface PyramidResponse {
 function pyramidUrl(): string {
   const env = (import.meta.env as Record<string, string | undefined>).VITE_PYRMTS_URL
   return env ?? DEFAULT_PYRMTS_URL
+}
+
+// Telemetry sink (the cascade worker's `/event`). Records the empty-plan
+// transient + fetch errors durably in D1 for later frequency analysis
+// (see `cfw/cascade/src/events.ts`). Fire-and-forget via `sendBeacon`, so
+// it never blocks or fails a fetch.
+const DEFAULT_TELEMETRY_URL = 'https://awair-cascade.ryan-0dc.workers.dev/event'
+function telemetryUrl(): string {
+  return (import.meta.env as Record<string, string | undefined>).VITE_TELEMETRY_URL ?? DEFAULT_TELEMETRY_URL
+}
+function beacon(payload: Record<string, unknown>): void {
+  try {
+    if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') return
+    // text/plain Blob keeps this a CORS "simple request" (no preflight).
+    navigator.sendBeacon(telemetryUrl(), new Blob([JSON.stringify(payload)], { type: 'text/plain' }))
+  } catch {
+    // Telemetry must never affect the app.
+  }
 }
 
 /**
@@ -119,28 +139,75 @@ export class PyrmtsSource implements DataSource {
     const smoothParam = encodeSmoothing(opts.smoothing)
     if (smoothParam !== null) url.searchParams.set('smooth', smoothParam)
 
-    const networkStart = performance.now()
-    const resp = await fetch(url.toString())
-    const networkEnd = performance.now()
-
-    if (!resp.ok) {
-      const body = await resp.text()
-      throw new Error(`PyrmtsSource: ${resp.status} ${resp.statusText} — ${body}`)
+    // The serve worker very occasionally returns an empty plan
+    // (`outputTier` absent, 0 records) for a device that has data — the
+    // signature of a transient D1-inventory read that momentarily drops
+    // the aggregate tiers, leaving only the over-budget raw rows so no
+    // in-budget tier has coverage. It self-heals within ~a second, so
+    // retry a few times before surfacing an empty result, which would
+    // otherwise render the "No data" state on an initial / new-device
+    // load. See session notes 2026-08-30 + the cascade `serve-empty`
+    // health check. (A genuinely-empty range costs a few short retries
+    // then falls through — an acceptable trade for the rare case.)
+    // Common telemetry fields for this query (see `beacon`).
+    const evBase = {
+      deviceId: opts.deviceId,
+      binBudget: opts.binBudget ?? DEFAULT_BIN_BUDGET,
+      rangeFrom: opts.range.from.getTime(),
+      rangeTo: opts.range.to.getTime(),
+      ...(smoothParam !== null ? { smooth: smoothParam } : {}),
     }
 
-    const contentLength = resp.headers.get('content-length')
-    const text = await resp.text()
-    const bytesTransferred = contentLength ? Number.parseInt(contentLength, 10) : new TextEncoder().encode(text).byteLength
+    const RETRY_DELAYS_MS = [300, 600, 1200]
+    let networkStart = 0
+    let networkEnd = 0
+    let bytesTransferred = 0
+    let body!: PyramidResponse
+    let records!: FetchResult['records']
+    let emptyAttempts = 0
+    for (let attempt = 0; ; attempt++) {
+      networkStart = performance.now()
+      let resp: Response
+      try {
+        resp = await fetch(url.toString())
+      } catch (e) {
+        beacon({ kind: 'client_error', ...evBase, status: 0, detail: (e as Error).message })
+        throw e
+      }
+      networkEnd = performance.now()
 
-    const body = JSON.parse(text) as PyramidResponse
-    const records = body.records.map(pyramidRowToAwairRecord)
+      if (!resp.ok) {
+        const errText = await resp.text()
+        beacon({ kind: 'client_error', ...evBase, status: resp.status, detail: `${resp.statusText} — ${errText}`.slice(0, 500) })
+        throw new Error(`PyrmtsSource: ${resp.status} ${resp.statusText} — ${errText}`)
+      }
+
+      const contentLength = resp.headers.get('content-length')
+      const text = await resp.text()
+      bytesTransferred = contentLength ? Number.parseInt(contentLength, 10) : new TextEncoder().encode(text).byteLength
+
+      body = JSON.parse(text) as PyramidResponse
+      records = body.records.map(pyramidRowToAwairRecord)
+
+      const emptyPlan = body.plan.outputTier == null && records.length === 0
+      if (!emptyPlan) break
+      emptyAttempts++
+      if (attempt >= RETRY_DELAYS_MS.length) break
+      console.warn(`[${opts.deviceId}] pyrmts: empty plan (tier=None) — transient, retry ${attempt + 1}/${RETRY_DELAYS_MS.length} in ${RETRY_DELAYS_MS[attempt]}ms`)
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS_MS[attempt]))
+    }
+    // Record the transient (once per fetch that saw ≥1 empty attempt),
+    // noting whether a retry recovered.
+    if (emptyAttempts > 0) {
+      beacon({ kind: 'client_empty', ...evBase, attempts: emptyAttempts, recovered: records.length > 0 })
+    }
 
     const t1 = performance.now()
 
     const smoothInfo = body.plan.smoothing
       ? ` smooth=${body.plan.smoothing.smoothBin}(${body.plan.smoothing.smoothBinCount}×${body.plan.outputBin}, ${body.plan.smoothing.smoothMode})`
       : ''
-    const line = `[${opts.deviceId}] pyrmts: tier=${body.plan.outputTier} bin=${body.plan.outputBin}${smoothInfo} ` +
+    const line = `[${opts.deviceId}] pyrmts: tier=${body.plan.outputTier ?? 'None'} bin=${body.plan.outputBin}${smoothInfo} ` +
       `records=${records.length} bytes=${bytesTransferred} segments=${body.plan.segments.map(s => `${s.tier}[${s.keys.length}]`).join(',')}`
     // `records=0` from a successful fetch means the tier shard is empty/missing
     // for the requested range — surface as a warning so it stands out in the
