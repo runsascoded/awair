@@ -32,6 +32,10 @@ DEVICES_URL = "https://380nwk.s3.amazonaws.com/devices.parquet"
 # Total per-tick wall-clock budget. Bundled paid CFW allows 30s CPU / no
 # strict wall-clock cap, but keep well under so we don't tail off cron ticks.
 TOTAL_BUDGET_MS = "25000"
+# Health monitor: origin of the serve worker for the `serve-empty` probe.
+# Pushover creds are secrets — `wrangler secret put PUSHOVER_TOKEN` /
+# `PUSHOVER_USER`. See `src/monitor.ts`.
+SERVE_URL = "https://awair-serve.ryan-0dc.workers.dev"
 
 [observability]
 enabled = true

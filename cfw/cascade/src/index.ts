@@ -15,6 +15,8 @@
 
 import { convergeAll, type ConvergeAllReport } from './cascade'
 import { backfillFooterCache, type BackfillReport } from './backfill'
+import { runHealthMonitor } from './monitor'
+import { parseEvent, recordEvent, summarize } from './events'
 
 interface Env {
   PYRAMID: R2Bucket
@@ -25,6 +27,15 @@ interface Env {
   // defaults to `awair`; the `dev` wrangler env overrides to `awair-dev`.
   PYRAMID_NAME?: string  // read as pyramidNamePrefix
   MANUAL_KEY?: string
+  // Health monitor (see `monitor.ts`). All optional: unset Pushover creds
+  // ⇒ evaluate + persist state but send nothing; unset `SERVE_URL` ⇒ skip
+  // the serve probe.
+  PUSHOVER_TOKEN?: string
+  PUSHOVER_USER?: string
+  SERVE_URL?: string
+  HEALTH_RAW_TIP_MAX_AGE_MS?: string
+  HEALTH_CASCADE_MAX_LAG_MS?: string
+  HEALTH_SERVE_EMPTY_MIN_CONSECUTIVE?: string
 }
 
 function parseBudget(env: Env): number {
@@ -88,6 +99,10 @@ export default {
         })
         .catch(e => console.error('convergeAll failed:', (e as Error).message, (e as Error).stack)),
     )
+    // Independent of converge: evaluate health + page Pushover on
+    // transitions. Cheap (a HEAD + a D1 read per device, plus an optional
+    // serve probe) and self-contained (never throws).
+    ctx.waitUntil(runHealthMonitor(env))
   },
 
   async fetch(req: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
@@ -101,6 +116,37 @@ export default {
       // Phase 2 replaces this with the real HealthSnapshot. Kept
       // returning 200 now so wrangler + smoke tests have a stable probe.
       return new Response(JSON.stringify({ ok: true, worker: 'awair-cascade' }) + '\n', {
+        status: 200,
+        headers: { ...corsHeaders(), 'content-type': 'application/json' },
+      })
+    }
+
+    // Telemetry sink for FE beacons (`client_empty` / `client_error`). Kept
+    // CORS-open + parse-tolerant so `navigator.sendBeacon` (text/plain, no
+    // preflight) lands. See `events.ts` / migration `0007`.
+    if (url.pathname === '/event' && req.method === 'POST') {
+      try {
+        const body = await req.text()
+        const ev = parseEvent(JSON.parse(body) as unknown)
+        if (ev === null) return new Response('bad event\n', { status: 400, headers: corsHeaders() })
+        await recordEvent(env.DB, ev)
+        console.log(JSON.stringify({ serveEvent: ev }))
+        return new Response(null, { status: 204, headers: corsHeaders() })
+      } catch {
+        return new Response('bad event\n', { status: 400, headers: corsHeaders() })
+      }
+    }
+
+    // Rolling anomaly summary. `?days=` (default 7) window, `?limit=`
+    // (default 50) recent rows. Open (no secret) — device ids + query
+    // params only.
+    if (url.pathname === '/events') {
+      const now = Date.now()
+      const days = Number.parseInt(url.searchParams.get('days') ?? '7', 10)
+      const limit = Number.parseInt(url.searchParams.get('limit') ?? '50', 10)
+      const since = now - (Number.isFinite(days) && days > 0 ? days : 7) * 86_400_000
+      const summary = await summarize(env.DB, since, now, Number.isFinite(limit) && limit > 0 ? limit : 50)
+      return new Response(JSON.stringify(summary, null, 2) + '\n', {
         status: 200,
         headers: { ...corsHeaders(), 'content-type': 'application/json' },
       })
@@ -149,8 +195,10 @@ export default {
 
     return new Response(
       'awair-cascade endpoints:\n' +
-      '  GET /health\n' +
-      '  GET /converge?devices=&tiers=&dryRun=1 (secret-gated via ?key= when MANUAL_KEY set)\n',
+      '  GET  /health\n' +
+      '  GET  /converge?devices=&tiers=&dryRun=1 (secret-gated via ?key= when MANUAL_KEY set)\n' +
+      '  POST /event   (serve-anomaly telemetry sink; FE beacons)\n' +
+      '  GET  /events?days=7&limit=50 (rolling serve-anomaly summary)\n',
       { status: 404, headers: corsHeaders() },
     )
   },

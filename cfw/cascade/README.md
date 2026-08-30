@@ -139,3 +139,67 @@ curl 'http://localhost:8787/converge?dryRun=1'
 ```bash
 pnpm run tail
 ```
+
+## Health monitor + Pushover alerts
+
+Each cron tick also runs a health monitor (`src/monitor.ts`, pure logic in
+`src/health.ts`) that pages Pushover on healthy↔unhealthy *transitions*,
+deduped through the `health_state` D1 table (migration `0006`). A sustained
+outage pages once (down) and once (recovered), not every minute.
+
+Checks (per device unless noted):
+
+- **`raw-tip`** — Lambda liveness: the current-day raw tip must be younger
+  than `HEALTH_RAW_TIP_MAX_AGE_MS` (default 5 min).
+- **`cascade-lag`** — cascade liveness: the finest aggregate tier's (`m10`)
+  newest shard must be younger than `HEALTH_CASCADE_MAX_LAG_MS` (default 2 d;
+  `m10`'s 1 d rung closes daily, so normal lag is <~1.5 d).
+- **`serve-empty`** — a coarse-budget 7 d probe against `SERVE_URL`; fails on
+  an empty plan (`tier=None`), gated by `HEALTH_SERVE_EMPTY_MIN_CONSECUTIVE`
+  (default 3 ticks ≈ 3 min) so the benign sub-minute D1-read transient does
+  not page. Skipped when `SERVE_URL` is unset.
+
+Stored *coarse*-shard age (e.g. `d1` ~23 d, `h2/h6` ~7 d) is the
+immutable-closed-shard ladder cadence, **not** a fault — the serve bridges
+every open tail from the raw tip — so it is deliberately not alerted on.
+
+Setup (one-time): create a Pushover application, then set the two secrets.
+Until both are set the monitor still evaluates + persists state but sends
+nothing (a no-op), so it is safe to deploy first.
+
+```bash
+pnpm wrangler secret put PUSHOVER_TOKEN   # Pushover application (API) token
+pnpm wrangler secret put PUSHOVER_USER    # Pushover user (or group) key
+```
+
+`SERVE_URL` is a plain var in `wrangler.toml`. Thresholds
+(`HEALTH_*`) are optional vars; the defaults above apply when unset.
+
+### Telemetry: tracking the empty-plan transient
+
+The serve worker's failure mode is a silent HTTP 200 with an empty plan
+(`tier=None`) — a transient incomplete D1 `listShards` read — so it never
+surfaces as a logged error, and Workers Logs (3-day retention) only show a
+200. `serve_events` (migration `0007`) is the durable, SQL-queryable record
+of how often it actually happens. It logs *anomalies only*:
+
+- `probe_empty` — the `serve-empty` health probe hit `tier=None` (synthetic
+  ~1/min baseline, independent of user traffic).
+- `client_empty` — a real FE fetch hit the transient; `attempts` +
+  `recovered` record how the in-fetch retry fared (`pyrmtsSource.ts` beacons
+  via `navigator.sendBeacon` → `POST /event`).
+- `client_error` — a real FE fetch got a non-2xx / threw (`status`, `detail`)
+  — catches the genuine D1/R2 throws that otherwise vanish as unlogged 400s.
+
+```bash
+# Rolling summary (byKind + byDay counts, recent rows):
+curl 'https://awair-cascade.ryan-0dc.workers.dev/events?days=7' | jq
+
+# Or straight SQL:
+pnpm wrangler d1 execute awair-cascade --remote \
+  --command "SELECT date(ts/1000,'unixepoch') d, kind, count(*) FROM serve_events GROUP BY d, kind ORDER BY d DESC"
+```
+
+`POST /event` is CORS-open + `sendBeacon`-friendly (text/plain, no preflight)
+and validates/clamps every field (`src/events.ts`). Rows are anomalies only,
+so the table stays small.
