@@ -1,5 +1,5 @@
+import { CoverTimeline, coverageWindow, type ExtraTip, type RungKey } from 'pyrmts-react'
 import { useState } from 'react'
-import { TierTimeline, coverageWindow, type RawTip, type RungKey } from './TierTimeline'
 import { useHealth, type DeviceCover, type HealthRaw, type RungStats } from '../hooks/useHealth'
 import './HealthPage.scss'
 
@@ -91,10 +91,11 @@ function DeviceCoverage(
   const genesis = Date.parse(cover.genesis)
   const window = coverageWindow(genesis, now)
   // Today's live raw tip (unregistered — outside the cover): drawn from
-  // UTC midnight to now when the R2 HEAD found it.
-  const rawTip: RawTip | null = rawHead?.uploaded != null
-    ? { start: now - (now % MS_PER_DAY), end: now, key: rawHead.key, uploaded: rawHead.uploaded }
-    : null
+  // UTC midnight to now when the R2 HEAD found it. `raw/1d` matches the
+  // rung the tip shard is keyed at, so hovering that rung spotlights it.
+  const extraTips: ExtraTip[] = rawHead?.uploaded != null
+    ? [{ tier: 'raw', shardDur: '1d', start: now - (now % MS_PER_DAY), end: now, key: rawHead.key, uploaded: rawHead.uploaded }]
+    : []
   const badge = cover.totalMissing > 0
     ? { cls: 'hp-badge-missing', text: `${cover.totalMissing} missing` }
     : cover.totalPending > 0
@@ -123,11 +124,12 @@ function DeviceCoverage(
           </span>
         )}
       </h3>
-      <TierTimeline
+      <CoverTimeline
         tiers={cover.tiers}
         genesis={window.genesis}
         now={window.now}
-        rawTip={rawTip}
+        extraTips={extraTips}
+        hrefFor={(key) => `/files/${key}`}
         highlight={highlight}
       />
       <table className="hp-table hp-rungs">
