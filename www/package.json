@@ -38,6 +38,8 @@
     "hyparquet": "github:runsascoded/hyparquet#6d0c51c423776ef04b21fab9f469fdc05a5dc4dd",
     "plotly.js": "https://github.com/runsascoded/plotly.js#cf90c76e0398a19b429a573fac5fabcec44d0606",
     "pltly": "https://gitlab.com/runsascoded/js/pltly/-/archive/0ab01c4932166b5ee8606a22a2ff819a9381950d/pltly-0ab01c4932166b5ee8606a22a2ff819a9381950d.tar.gz",
+    "pyrmts": "https://github.com/runsascoded/pyrmts#55825c1&path:/js/packages/pyrmts",
+    "pyrmts-react": "https://github.com/runsascoded/pyrmts#55825c1&path:/js/packages/pyrmts-react",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-icons": "^5.5.0",
