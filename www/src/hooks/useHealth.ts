@@ -92,6 +92,14 @@ export interface HealthDevice {
   active: boolean
 }
 
+// Mirrors `pyrmts-cfw.SchemaDiff` — live D1 vs. `D1ShardIndex`'s expected
+// objects. `ok` = no drift; otherwise `missing`/`mismatched` name them.
+export interface SchemaDiff {
+  ok: boolean
+  missing: string[]
+  mismatched: string[]
+}
+
 export interface HealthSnapshot {
   now: number
   worker: 'awair-serve'
@@ -99,6 +107,7 @@ export interface HealthSnapshot {
   raw: HealthRaw[]
   covers: DeviceCover[]
   tierStats: DeviceTierStats[]
+  schema?: SchemaDiff
   config: {
     keyTemplate: string
     tiers: { name: string; bin: string; shard: string }[]

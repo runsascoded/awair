@@ -204,7 +204,7 @@ export function HealthPage() {
     )
   }
 
-  const { now, worker, devices, raw, covers, tierStats, config } = data
+  const { now, worker, devices, raw, covers, tierStats, schema, config } = data
 
   return (
     <div className="health-page">
@@ -218,6 +218,20 @@ export function HealthPage() {
           </span>
           <a href="/files/">browse files</a>
           <span className="hp-dim">⌘K: search shards</span>
+          {schema === undefined ? null : schema.ok ? (
+            <span className="hp-schema-ok" title="D1 schema matches pyrmts-cfw D1ShardIndex">
+              schema ✓
+            </span>
+          ) : (
+            <span
+              className="hp-schema-drift"
+              title={`D1 drift vs pyrmts-cfw — apply the missing migration${
+                schema.missing.length > 0 ? `; missing: ${schema.missing.join(', ')}` : ''
+              }${schema.mismatched.length > 0 ? `; mismatched: ${schema.mismatched.join(', ')}` : ''}`}
+            >
+              schema drift: {[...schema.missing, ...schema.mismatched].join(', ')}
+            </span>
+          )}
           <button onClick={() => refetch()} disabled={isFetching}>Refresh</button>
         </div>
       </header>

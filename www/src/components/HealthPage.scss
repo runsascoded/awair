@@ -71,6 +71,22 @@
 
   .hp-mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
   .hp-dim { color: var(--text-secondary); }
+  // Schema-drift indicator (D1 vs `pyrmts-cfw` `D1ShardIndex`). Green when
+  // in sync; amber + the missing object names when a migration is owed.
+  .hp-schema-ok {
+    color: var(--status-ok, #16a34a);
+    font-weight: 600;
+    cursor: help;
+  }
+  .hp-schema-drift {
+    color: #b45309;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 3px;
+    padding: 0 6px;
+    font-weight: 600;
+    cursor: help;
+  }
   .hp-num { text-align: right; font-variant-numeric: tabular-nums; }
   .hp-age {
     font-variant-numeric: tabular-nums;

@@ -25,7 +25,7 @@
 import { createHandlers } from '@rdub/file-tree/server'
 import { R2Store } from '@rdub/file-tree/stores/r2'
 import { floorToSpan, formatPeriod, parquetBackend, parseDuration, parsePyramidYaml, pyramidFromConfig, type ListShardsFilter, type Pyramid, type RecordedShard, type RecordShardInput, type ShardIndex, type Storage } from 'pyrmts'
-import { D1ShardIndex, pyramidCover, r2Storage, serveQuery, type PyramidCoverStatus } from 'pyrmts-cfw'
+import { D1ShardIndex, pyramidCover, r2Storage, serveQuery, type PyramidCoverStatus, type SchemaDiff } from 'pyrmts-cfw'
 import pyramidYamlText from '../../../src/awair/pyramid.yml'
 
 interface Env {
@@ -515,6 +515,12 @@ interface HealthSnapshot {
   // registry — see `RawTipShardIndex`).
   covers: (PyramidCoverStatus & { deviceId: number })[]
   tierStats: DeviceTierStats[]
+  // Live D1 schema vs. what `pyrmts-cfw`'s `D1ShardIndex` expects. `ok`
+  // means no drift; `missing`/`mismatched` name the objects a migration
+  // still owes. The DDL is library-owned but consumer-applied, so this is
+  // the only thing that notices a deployment provisioned before a schema
+  // change (this is exactly how `pyramid_shards_period` went missing).
+  schema: SchemaDiff
   config: {
     keyTemplate: string
     tiers: { name: string; bin: string; shard: string }[]
@@ -609,6 +615,10 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
   // (per-tenant × per-tier × O(months); tens of rows in prod today), well
   // under D1's payload limits, and folds the aggregation with the
   // per-shard timeline data the FE needs.
+  // Schema drift check runs concurrently with the data batch — read-only
+  // (`sqlite_master` + PRAGMAs), so it never blocks the snapshot.
+  const schemaP = D1ShardIndex.verifySchema(env.DB)
+
   const batchResults = await env.DB.batch<DeviceRow | ShardRow>([
     env.DB.prepare(
       'SELECT device_id, name, device_type, genesis_ts, active FROM devices ORDER BY device_id',
@@ -750,6 +760,7 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
     raw: rawHealth,
     covers,
     tierStats,
+    schema: await schemaP,
     config: {
       keyTemplate: pyramidConfig.keyTemplate,
       tiers: pyramidConfig.tiers.map(t => ({ name: t.name, bin: t.bin, shard: t.shards[t.shards.length - 1]! })),
