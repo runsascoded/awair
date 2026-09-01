@@ -55,27 +55,39 @@ function thresholdsFrom(env: MonitorEnv): HealthThresholds {
   }
 }
 
-/** Build the current-day raw tip R2 key for a device. */
-function rawTipKey(deviceId: number, now: number): string {
+/** Build the raw tip R2 key for a device on the UTC day containing `dayMs`. */
+export function rawTipKey(deviceId: number, dayMs: number): string {
   const raw = PYRAMID_CONFIG.tiers[0]!
   return PYRAMID_CONFIG.keyTemplate
     .replaceAll('{device_id}', String(deviceId))
     .replaceAll('{tier}', raw.name)
     .replaceAll('{shard}', String(raw.shards[0]!))
-    .replaceAll('{period}', utcDayLabel(now))
+    .replaceAll('{period}', utcDayLabel(dayMs))
 }
 
-/** Lambda liveness: HEAD each device's current-day raw tip; fail if
- *  missing or older than `rawTipMaxAgeMs`. */
-async function checkRawTips(
+const DAY_MS = 86_400_000
+
+/** Lambda liveness: HEAD each device's raw tip; fail if missing or older
+ *  than `rawTipMaxAgeMs`.
+ *
+ *  The raw 1d tip is keyed by UTC day. For the first tick(s) after the
+ *  UTC-midnight rollover the new day's tip doesn't exist yet (the Lambda
+ *  hasn't written the new day's first record), while yesterday's tip is
+ *  still seconds old — so HEAD today, then fall back to yesterday. Age is
+ *  measured from whichever tip exists, so a genuinely dead Lambda still
+ *  pages (yesterday's tip ages past the threshold); only the benign
+ *  boundary blip is absorbed. Without this, every UTC midnight false-pages
+ *  a `no raw tip for <today>` down + recovered pair. */
+export async function checkRawTips(
   env: MonitorEnv, devices: Device[], now: number, t: HealthThresholds,
 ): Promise<CheckResult[]> {
   return Promise.all(devices.map(async (dev): Promise<CheckResult> => {
     const id = `raw-tip:${dev.id}`
     try {
       const obj = await env.PYRAMID.head(rawTipKey(dev.id, now))
+        ?? await env.PYRAMID.head(rawTipKey(dev.id, now - DAY_MS))
       if (obj === null) {
-        return { id, ok: false, detail: `${dev.name} (${dev.id}): no raw tip for ${utcDayLabel(now)}`, minConsecutive: 1 }
+        return { id, ok: false, detail: `${dev.name} (${dev.id}): no raw tip for ${utcDayLabel(now)} or ${utcDayLabel(now - DAY_MS)}`, minConsecutive: 1 }
       }
       const age = now - obj.uploaded.getTime()
       const ok = age <= t.rawTipMaxAgeMs
