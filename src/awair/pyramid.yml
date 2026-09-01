@@ -4,7 +4,8 @@
 #
 # Multi-rung `shards: [...]` ladders (unified shard-duration ladder), per
 # ctbk's `configs/pyramids/avail.yaml` pattern. Each rung ≤ 4× the
-# previous; divisibility-chained so pyrmts' gap-discovery can tile the
+# previous (except raw's deliberate 1d→1mo calendar jump);
+# divisibility-chained so pyrmts' gap-discovery can tile the
 # current partial period with progressively smaller rungs and consolidate
 # to the max-rung once it closes. Cascade fills the smaller rungs itself;
 # the Python `awair pyramid backfill` CLI writes ONLY the max-rung per
@@ -44,14 +45,23 @@ tiers:
   # month-close (via same-tier consolidation in cfw/cascade/src/write.ts
   # + pyrmts.tileFromExisting; see pyrmts specs/{calendar-rung-consolidation,
   # js-calendar-same-tier-tiling}.md). Bounded Lambda tip R/W (~40KB
-  # constant vs 40KB→1.2MB grow with [1mo]-only).
+  # constant vs 40KB→1.2MB grow with [1mo]-only). Deliberate 1d→1mo jump
+  # (calendar archival): the only rung pair intentionally left non-≤4×.
   - { name: raw, bin: 1min,  shards: [1d, 1mo] }
-  # Cascade fills 1d rungs for the current partial 32d period, then
-  # consolidates to 4d, then 32d as boundaries close.
-  - { name: m3,  bin: 3min,  shards: [1d, 4d, 32d] }
+  # Cascade fills 1d rungs for the current partial period, then
+  # consolidates 4d→16d→32d as boundaries close. 16d rung infilled
+  # 2026-08-31 (was [1d,4d,32d], an 8× 4d→32d jump); restores ≤4× so the
+  # serve has a finer closed-shard set to tile the open tail with. Max
+  # rung unchanged (32d) ⇒ Python builder output identical.
+  - { name: m3,  bin: 3min,  shards: [1d, 4d, 16d, 32d] }
   # 10 % 3 ≠ 0 → source is raw, not m3 (silent-smear avoidance).
-  - { name: m10, bin: 10min, shards: [1d, 4d, 32d] }
-  - { name: m30, bin: 30min, shards: [4d, 32d, 128d] }
-  - { name: h2,  bin: 2h,    shards: [16d, 128d, 512d] }
-  - { name: h6,  bin: 6h,    shards: [16d, 128d, 512d] }
+  - { name: m10, bin: 10min, shards: [1d, 4d, 16d, 32d] }
+  # 16d rung infilled (was [4d,32d,128d]); 4d→16d→32d→128d all ≤4×.
+  - { name: m30, bin: 30min, shards: [4d, 16d, 32d, 128d] }
+  # 64d rung infilled (was [16d,128d,512d], an 8× 16d→128d jump).
+  - { name: h2,  bin: 2h,    shards: [16d, 64d, 128d, 512d] }
+  - { name: h6,  bin: 6h,    shards: [16d, 64d, 128d, 512d] }
+  # d1 already ≤4× (32d→128d→512d); left as-is. A smaller smallest rung
+  # (e.g. 8d) for open-tail freshness on long-range queries is a separate
+  # follow-on — see specs/pyramid-rung-density-infill.md.
   - { name: d1,  bin: 1d,    shards: [32d, 128d, 512d] }
