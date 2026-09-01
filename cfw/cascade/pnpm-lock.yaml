@@ -15,11 +15,11 @@ importers:
         specifier: ^0.13.0
         version: 0.13.1
       pyrmts:
-        specifier: https://github.com/runsascoded/pyrmts#54cbdc9&path:/js/packages/pyrmts
-        version: https://codeload.github.com/runsascoded/pyrmts/tar.gz/54cbdc9#path:/js/packages/pyrmts(react@19.2.8)
+        specifier: https://github.com/runsascoded/pyrmts#e75c85793687696888e027e61b82dcfa11ae6159&path:/js/packages/pyrmts
+        version: https://codeload.github.com/runsascoded/pyrmts/tar.gz/e75c85793687696888e027e61b82dcfa11ae6159#path:/js/packages/pyrmts(react@19.2.8)
       pyrmts-cfw:
-        specifier: https://github.com/runsascoded/pyrmts#54cbdc9&path:/js/packages/pyrmts-cfw
-        version: https://codeload.github.com/runsascoded/pyrmts/tar.gz/54cbdc9#path:/js/packages/pyrmts-cfw(react@19.2.8)
+        specifier: https://github.com/runsascoded/pyrmts#e75c85793687696888e027e61b82dcfa11ae6159&path:/js/packages/pyrmts-cfw
+        version: https://codeload.github.com/runsascoded/pyrmts/tar.gz/e75c85793687696888e027e61b82dcfa11ae6159#path:/js/packages/pyrmts-cfw(react@19.2.8)
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20240725.0
@@ -881,18 +881,9 @@ packages:
   printable-characters@1.0.42:
     resolution: {integrity: sha512-dKp+C4iXWK4vVYZmYSd0KBH5F/h1HoZRsbJ82AVKRO3PEo8L4lBS/vLwhVtpwwuYcoIsVY+1JYKR268yn480uQ==}
 
-  pyrmts-cfw@https://codeload.github.com/runsascoded/pyrmts/tar.gz/54cbdc9#path:/js/packages/pyrmts-cfw:
-    resolution: {path: /js/packages/pyrmts-cfw, tarball: https://codeload.github.com/runsascoded/pyrmts/tar.gz/54cbdc9}
+  pyrmts-cfw@https://codeload.github.com/runsascoded/pyrmts/tar.gz/e75c85793687696888e027e61b82dcfa11ae6159#path:/js/packages/pyrmts-cfw:
+    resolution: {path: /js/packages/pyrmts-cfw, tarball: https://codeload.github.com/runsascoded/pyrmts/tar.gz/e75c85793687696888e027e61b82dcfa11ae6159}
     version: 0.0.0
-
-  pyrmts@https://codeload.github.com/runsascoded/pyrmts/tar.gz/54cbdc9#path:/js/packages/pyrmts:
-    resolution: {path: /js/packages/pyrmts, tarball: https://codeload.github.com/runsascoded/pyrmts/tar.gz/54cbdc9}
-    version: 0.0.0
-    peerDependencies:
-      react: '>=18'
-    peerDependenciesMeta:
-      react:
-        optional: true
 
   pyrmts@https://codeload.github.com/runsascoded/pyrmts/tar.gz/e75c85793687696888e027e61b82dcfa11ae6159#path:/js/packages/pyrmts:
     resolution: {path: /js/packages/pyrmts, tarball: https://codeload.github.com/runsascoded/pyrmts/tar.gz/e75c85793687696888e027e61b82dcfa11ae6159}
@@ -1705,18 +1696,11 @@ snapshots:
 
   printable-characters@1.0.42: {}
 
-  pyrmts-cfw@https://codeload.github.com/runsascoded/pyrmts/tar.gz/54cbdc9#path:/js/packages/pyrmts-cfw(react@19.2.8):
+  pyrmts-cfw@https://codeload.github.com/runsascoded/pyrmts/tar.gz/e75c85793687696888e027e61b82dcfa11ae6159#path:/js/packages/pyrmts-cfw(react@19.2.8):
     dependencies:
       pyrmts: https://codeload.github.com/runsascoded/pyrmts/tar.gz/e75c85793687696888e027e61b82dcfa11ae6159#path:/js/packages/pyrmts(react@19.2.8)
     transitivePeerDependencies:
       - react
-
-  pyrmts@https://codeload.github.com/runsascoded/pyrmts/tar.gz/54cbdc9#path:/js/packages/pyrmts(react@19.2.8):
-    dependencies:
-      hyparquet: 1.26.2
-      yaml: 2.9.0
-    optionalDependencies:
-      react: 19.2.8
 
   pyrmts@https://codeload.github.com/runsascoded/pyrmts/tar.gz/e75c85793687696888e027e61b82dcfa11ae6159#path:/js/packages/pyrmts(react@19.2.8):
     dependencies:
