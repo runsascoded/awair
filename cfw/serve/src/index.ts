@@ -28,6 +28,16 @@ import { floorToSpan, formatPeriod, parquetBackend, parseDuration, parsePyramidY
 import { D1ShardIndex, pyramidCover, r2Storage, serveQuery, type PyramidCoverStatus, type SchemaDiff } from 'pyrmts-cfw'
 import pyramidYamlText from '../../../src/awair/pyramid.yml'
 
+// App-owned columns cascade adds to pyrmts's `pyramid_shards` inventory table
+// (stats + footer cache), registered so `verifySchema` tolerates them without
+// loosening its strict check — a live column neither pyrmts-owned nor listed
+// here still reads as drift. Keep in sync with `cfw/cascade/migrations/`:
+// `0003_shard_stats.sql` (size_bytes, n_rows, n_rgs, rg_row_counts) and
+// `0004_footer_cache.sql` (footer_bytes). A new stats column needs a line here.
+const PYRAMID_SHARDS_EXTRA_COLUMNS = [
+  'size_bytes', 'n_rows', 'n_rgs', 'rg_row_counts', 'footer_bytes',
+]
+
 interface Env {
   PYRAMID: R2Bucket
   DB: D1Database
@@ -617,7 +627,9 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
   // per-shard timeline data the FE needs.
   // Schema drift check runs concurrently with the data batch — read-only
   // (`sqlite_master` + PRAGMAs), so it never blocks the snapshot.
-  const schemaP = D1ShardIndex.verifySchema(env.DB)
+  const schemaP = D1ShardIndex.verifySchema(env.DB, {
+    extraColumns: { pyramid_shards: PYRAMID_SHARDS_EXTRA_COLUMNS },
+  })
 
   const batchResults = await env.DB.batch<DeviceRow | ShardRow>([
     env.DB.prepare(
