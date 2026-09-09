@@ -1,5 +1,5 @@
 import { CoverTimeline, coverageWindow, type ExtraTip, type RungKey } from 'pyrmts-react'
-import { useState } from 'react'
+import { useState, type SyntheticEvent } from 'react'
 import { useHealth, type DeviceCover, type HealthRaw, type RungStats } from '../hooks/useHealth'
 import './HealthPage.scss'
 
@@ -107,6 +107,16 @@ function DeviceCoverage(
   // as a broken highlight rather than as a fact about the pyramid.
   // These are exactly the shards behind the `stale` badge above.
   const covered = new Set(cover.tiers.flatMap(t => t.segments.map(s => `${t.tier}|${s.shardDur}`)))
+  const totalShards = rungs.reduce((a, r) => a + r.shardCount, 0)
+  // Persist the stats-table disclosure per device, so a page reload (and the
+  // periodic /health refetch) preserves which rungs tables you'd opened.
+  const statsKey = `awair-hp-rungs-open:${cover.name}`
+  const [statsOpen, setStatsOpen] = useState<boolean>(() => localStorage.getItem(statsKey) === '1')
+  const onStatsToggle = (e: SyntheticEvent<HTMLDetailsElement>) => {
+    const open = e.currentTarget.open
+    setStatsOpen(open)
+    localStorage.setItem(statsKey, open ? '1' : '0')
+  }
 
   return (
     <div className="hp-pyramid">
@@ -132,52 +142,58 @@ function DeviceCoverage(
         hrefFor={(key) => `/files/${key}`}
         highlight={highlight}
       />
-      <table className="hp-table hp-rungs">
-        <thead>
-          <tr>
-            <th>tier</th>
-            <th>rung</th>
-            <th>shards</th>
-            <th title="Average bytes per shard.">avg size</th>
-            <th title="Average rows per shard.">avg rows</th>
-            <th title="Average row groups per shard.">avg RGs</th>
-            <th title="Average rows per row group. Small values → many small RGs → good pruning, but per-RG metadata overhead. Target ~1000-10000.">rows/RG</th>
-            <th>latest write</th>
-            <th>write age</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rungs.map((r, i) => (
-            <tr
-              key={`${r.tier}|${r.shardDur}`}
-              className={spans[i] > 0 ? 'hp-tier-start' : undefined}
-              onPointerEnter={() => setHighlight({ tier: r.tier, shardDur: r.shardDur })}
-              onPointerLeave={() => setHighlight(null)}
-            >
-              {spans[i] > 0 && (
-                <td className="hp-mono hp-tier-cell" rowSpan={spans[i]}>{r.tier}</td>
-              )}
-              {covered.has(`${r.tier}|${r.shardDur}`)
-                ? <td className="hp-mono">{r.shardDur}</td>
-                : (
-                  <td
-                    className="hp-mono hp-rung-uncovered"
-                    title="Registered, but outside the current min-cover — superseded by coarser tiles, so nothing highlights above."
-                  >
-                    {r.shardDur}
-                  </td>
-                )}
-              <td className="hp-num">{r.shardCount}</td>
-              <td className="hp-num">{fmtBytes(r.stats.avgSizeBytes)}</td>
-              <td className="hp-num">{fmtNum(r.stats.avgNRows)}</td>
-              <td className="hp-num">{fmtNum(r.stats.avgNRgs)}</td>
-              <td className="hp-num">{fmtNum(r.stats.avgRowsPerRg)}</td>
-              <td>{fmtTs(r.latestWrittenAt)}</td>
-              <td className="hp-age hp-dim">{fmtAge(now - r.latestWrittenAt)}</td>
+      <details className="hp-rungs-details" open={statsOpen} onToggle={onStatsToggle}>
+        <summary>
+          per-rung stats
+          <span className="hp-dim"> · {rungs.length} rungs · {totalShards} shards</span>
+        </summary>
+        <table className="hp-table hp-rungs">
+          <thead>
+            <tr>
+              <th>tier</th>
+              <th>rung</th>
+              <th>shards</th>
+              <th title="Average bytes per shard.">avg size</th>
+              <th title="Average rows per shard.">avg rows</th>
+              <th title="Average row groups per shard.">avg RGs</th>
+              <th title="Average rows per row group. Small values → many small RGs → good pruning, but per-RG metadata overhead. Target ~1000-10000.">rows/RG</th>
+              <th>latest write</th>
+              <th>write age</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rungs.map((r, i) => (
+              <tr
+                key={`${r.tier}|${r.shardDur}`}
+                className={spans[i] > 0 ? 'hp-tier-start' : undefined}
+                onPointerEnter={() => setHighlight({ tier: r.tier, shardDur: r.shardDur })}
+                onPointerLeave={() => setHighlight(null)}
+              >
+                {spans[i] > 0 && (
+                  <td className="hp-mono hp-tier-cell" rowSpan={spans[i]}>{r.tier}</td>
+                )}
+                {covered.has(`${r.tier}|${r.shardDur}`)
+                  ? <td className="hp-mono">{r.shardDur}</td>
+                  : (
+                    <td
+                      className="hp-mono hp-rung-uncovered"
+                      title="Registered, but outside the current min-cover — superseded by coarser tiles, so nothing highlights above."
+                    >
+                      {r.shardDur}
+                    </td>
+                  )}
+                <td className="hp-num">{r.shardCount}</td>
+                <td className="hp-num">{fmtBytes(r.stats.avgSizeBytes)}</td>
+                <td className="hp-num">{fmtNum(r.stats.avgNRows)}</td>
+                <td className="hp-num">{fmtNum(r.stats.avgNRgs)}</td>
+                <td className="hp-num">{fmtNum(r.stats.avgRowsPerRg)}</td>
+                <td>{fmtTs(r.latestWrittenAt)}</td>
+                <td className="hp-age hp-dim">{fmtAge(now - r.latestWrittenAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
     </div>
   )
 }
@@ -280,8 +296,8 @@ export function HealthPage() {
           Per-device <code>pyramidCover</code> min-cover of
           [genesis, now): which cover slots are registered in D1 (raw tips
           overlaid from R2 — Lambda writes bypass the registry). The
-          timeline draws one rectangle per cover slot; the stats table
-          below shows per-rung size/RG aggregates from
+          timeline draws one rectangle per cover slot; the collapsible
+          per-rung stats below each device show size/RG aggregates from
           <code> pyramid_shards</code>. <em>latest write</em> is when
           cascade last wrote a shard at that rung — old ages are normal
           when nothing needs rebuilding.
