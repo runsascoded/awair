@@ -67,6 +67,25 @@ export function rawTipKey(deviceId: number, dayMs: number): string {
 
 const DAY_MS = 86_400_000
 
+// A raw-tip HEAD / cascade-lag query can throw a transient Cloudflare blip
+// ("Network connection lost") on a single tick — infra noise, not a device
+// problem. `retryOnce` clears the common single-shot transient in-tick; if it
+// still throws, the check reports failure at `INFRA_ERROR_MIN_CONSECUTIVE` so
+// the state machine debounces it (a 1-2 tick R2 blip is absorbed, while a
+// sustained R2 outage still pages after a few minutes). The success-path
+// signals — a readable-but-stale tip, or a missing tip — stay at
+// `minConsecutive: 1`: those are real, persist every tick, and should page
+// promptly.
+const INFRA_ERROR_MIN_CONSECUTIVE = 3
+
+async function retryOnce<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch {
+    return await fn()
+  }
+}
+
 /** Lambda liveness: HEAD each device's raw tip; fail if missing or older
  *  than `rawTipMaxAgeMs`.
  *
@@ -84,8 +103,8 @@ export async function checkRawTips(
   return Promise.all(devices.map(async (dev): Promise<CheckResult> => {
     const id = `raw-tip:${dev.id}`
     try {
-      const obj = await env.PYRAMID.head(rawTipKey(dev.id, now))
-        ?? await env.PYRAMID.head(rawTipKey(dev.id, now - DAY_MS))
+      const obj = await retryOnce(() => env.PYRAMID.head(rawTipKey(dev.id, now)))
+        ?? await retryOnce(() => env.PYRAMID.head(rawTipKey(dev.id, now - DAY_MS)))
       if (obj === null) {
         return { id, ok: false, detail: `${dev.name} (${dev.id}): no raw tip for ${utcDayLabel(now)} or ${utcDayLabel(now - DAY_MS)}`, minConsecutive: 1 }
       }
@@ -93,7 +112,9 @@ export async function checkRawTips(
       const ok = age <= t.rawTipMaxAgeMs
       return { id, ok, detail: `${dev.name} (${dev.id}): raw tip ${humanDuration(age)} old`, minConsecutive: 1 }
     } catch (e) {
-      return { id, ok: false, detail: `${dev.name} (${dev.id}): raw-tip HEAD failed — ${(e as Error).message}`, minConsecutive: 1 }
+      // Transient R2 blip (survived one retry) — debounce, don't page on a
+      // single tick (this is what false-paged all 4 devices at once).
+      return { id, ok: false, detail: `${dev.name} (${dev.id}): raw-tip HEAD failed — ${(e as Error).message}`, minConsecutive: INFRA_ERROR_MIN_CONSECUTIVE }
     }
   }))
 }
@@ -107,10 +128,10 @@ async function checkCascadeLag(
   return Promise.all(devices.map(async (dev): Promise<CheckResult> => {
     const id = `cascade-lag:${dev.id}`
     try {
-      const row = await env.DB
+      const row = await retryOnce(() => env.DB
         .prepare('SELECT MAX(period_end) AS mx FROM pyramid_shards WHERE pyramid = ? AND tier = ?')
         .bind(pyramidNameFor(dev.id, prefix), t.cascadeTier)
-        .first<{ mx: number | null }>()
+        .first<{ mx: number | null }>())
       const mx = row?.mx ?? null
       if (mx === null) {
         return { id, ok: false, detail: `${dev.name} (${dev.id}): no ${t.cascadeTier} shards`, minConsecutive: 1 }
@@ -119,7 +140,8 @@ async function checkCascadeLag(
       const ok = lag <= t.cascadeMaxLagMs
       return { id, ok, detail: `${dev.name} (${dev.id}): ${t.cascadeTier} newest close ${humanDuration(lag)} ago`, minConsecutive: 1 }
     } catch (e) {
-      return { id, ok: false, detail: `${dev.name} (${dev.id}): cascade-lag query failed — ${(e as Error).message}`, minConsecutive: 1 }
+      // Transient D1 blip (survived one retry) — debounce, same as raw-tip.
+      return { id, ok: false, detail: `${dev.name} (${dev.id}): cascade-lag query failed — ${(e as Error).message}`, minConsecutive: INFRA_ERROR_MIN_CONSECUTIVE }
     }
   }))
 }
