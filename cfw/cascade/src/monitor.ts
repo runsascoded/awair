@@ -145,7 +145,13 @@ async function checkServeEmpty(
   try {
     const resp = env.SERVE !== undefined ? await env.SERVE.fetch(url) : await fetch(url)
     if (!resp.ok) {
-      return { id, ok: false, detail: `${dev.name} (${dev.id}): serve HTTP ${resp.status}`, minConsecutive: min }
+      // Capture the body: `serveQuery` returns `{error: <msg>}` on any thrown
+      // plan/fetch/stitch error, so without this every page is a blind "serve
+      // HTTP 400" with no cause. Collapse whitespace + cap length to keep the
+      // Pushover line short.
+      const body = (await resp.text().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 160)
+      const suffix = body.length > 0 ? ` — ${body}` : ''
+      return { id, ok: false, detail: `${dev.name} (${dev.id}): serve HTTP ${resp.status}${suffix}`, minConsecutive: min }
     }
     const body = await resp.json() as { plan?: { outputTier?: string | null } }
     const tier = body.plan?.outputTier ?? null

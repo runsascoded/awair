@@ -345,6 +345,16 @@ async function serveQueryWithCache(
     ...(pyramidName !== undefined ? { shardIndex: new RawTipShardIndex(new D1ShardIndex(env.DB)), pyramidName } : {}),
   })
 
+  // Observability: `serveQuery` returns plan/fetch/stitch failures as a 4xx
+  // *body* (`{error: …}`), not a thrown exception — so nothing logs them and
+  // the health monitor's page is a blind "serve HTTP 400". With
+  // `[observability]` on, surface the status + query + error body in Workers
+  // Logs. Clone so `inner.body` stays readable for the response below.
+  if (inner.status >= 400) {
+    const errBody = await inner.clone().text().catch(() => '')
+    console.error(`serve /q ${inner.status} ${new URL(request.url).search} :: ${errBody.slice(0, 400)}`)
+  }
+
   if (!opts.debug) {
     return new Response(inner.body, {
       status: inner.status,
