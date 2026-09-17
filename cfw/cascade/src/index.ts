@@ -100,12 +100,17 @@ export default {
             console.log(JSON.stringify(trimmed))
           } else console.log(`convergeAll: quiet tick (${r.elapsedMs}ms, ${r.perDevice.length} devices)`)
         })
-        .catch(e => console.error('convergeAll failed:', (e as Error).message, (e as Error).stack)),
+        .catch(e => console.error('convergeAll failed:', (e as Error).message, (e as Error).stack))
+        // Evaluate health + page Pushover on transitions AFTER converge settles.
+        // Health's serve-empty probe reads the same D1 `pyramid_shards` inventory
+        // + R2 shards that `convergeAll` rewrites each tick; running them
+        // concurrently raced those writes and flapped the probe on transient
+        // serve 400s. Chaining after converge (resolve OR reject — the `.catch`
+        // above absorbs failures) lets the probe read a consistent, at-rest
+        // state. Still well within the 60s tick (converge ≤25s + health ~2s).
+        // `runHealthMonitor` is self-contained and never throws.
+        .then(() => runHealthMonitor(env)),
     )
-    // Independent of converge: evaluate health + page Pushover on
-    // transitions. Cheap (a HEAD + a D1 read per device, plus an optional
-    // serve probe) and self-contained (never throws).
-    ctx.waitUntil(runHealthMonitor(env))
   },
 
   async fetch(req: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
