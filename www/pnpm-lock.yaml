@@ -23,7 +23,7 @@ importers:
         version: 0.6.17
       '@rdub/file-tree':
         specifier: https://github.com/runsascoded/file-tree#314d6968f19fbd86720f54935a3a68a681cb438b
-        version: https://codeload.github.com/runsascoded/file-tree/tar.gz/314d6968f19fbd86720f54935a3a68a681cb438b(highlight.js@11.12.0)(hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/6d0c51c423776ef04b21fab9f469fdc05a5dc4dd)(jq-web@0.6.2)(react-dom@19.2.3(react@19.2.3))(react-markdown@10.1.0(@types/react@19.2.7)(react@19.2.3))(react-router-dom@7.18.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(remark-gfm@4.0.1)(use-prms@0.4.1(react@19.2.3))
+        version: https://codeload.github.com/runsascoded/file-tree/tar.gz/314d6968f19fbd86720f54935a3a68a681cb438b(highlight.js@11.12.0)(hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/6d0c51c423776ef04b21fab9f469fdc05a5dc4dd)(jq-web@0.6.2)(react-dom@19.2.3(react@19.2.3))(react-markdown@10.1.0(@types/react@19.2.7)(react@19.2.3))(react-router-dom@7.18.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(remark-gfm@4.0.1)(use-prms@0.5.0(react@19.2.3))
       '@tanstack/react-query':
         specifier: ^5.83.0
         version: 5.90.15(react@19.2.3)
@@ -67,8 +67,8 @@ importers:
         specifier: ^0.12.0
         version: 0.12.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       use-prms:
-        specifier: ^0.4.1
-        version: 0.4.1(react@19.2.3)
+        specifier: ^0.5.0
+        version: 0.5.0(react@19.2.3)
       use-session-storage-state:
         specifier: ^19.0.1
         version: 19.0.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -5209,6 +5209,14 @@ packages:
       react:
         optional: true
 
+  use-prms@0.5.0:
+    resolution: {integrity: sha512-oWgETG/6KxEzJToR0MltHgIkJBLVBcibjjvx7qdMg63SqUVgNAy6iYBjODjcXwC7OYtw9UyyrnFfqC6JumQdKQ==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+
   use-session-storage-state@19.0.1:
     resolution: {integrity: sha512-TK1K+UyTGNyOPN2K3yLOt0nTfeRlYRrLlNRN0kiI4irDng3HU4P0BArSAib0eD/VaQNlYs5WCdjeoEK1y/fIZA==}
     engines: {node: '>=14'}
@@ -6903,7 +6911,7 @@ snapshots:
       - supports-color
       - typescript
 
-  '@rdub/file-tree@https://codeload.github.com/runsascoded/file-tree/tar.gz/314d6968f19fbd86720f54935a3a68a681cb438b(highlight.js@11.12.0)(hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/6d0c51c423776ef04b21fab9f469fdc05a5dc4dd)(jq-web@0.6.2)(react-dom@19.2.3(react@19.2.3))(react-markdown@10.1.0(@types/react@19.2.7)(react@19.2.3))(react-router-dom@7.18.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(remark-gfm@4.0.1)(use-prms@0.4.1(react@19.2.3))':
+  '@rdub/file-tree@https://codeload.github.com/runsascoded/file-tree/tar.gz/314d6968f19fbd86720f54935a3a68a681cb438b(highlight.js@11.12.0)(hyparquet@https://codeload.github.com/runsascoded/hyparquet/tar.gz/6d0c51c423776ef04b21fab9f469fdc05a5dc4dd)(jq-web@0.6.2)(react-dom@19.2.3(react@19.2.3))(react-markdown@10.1.0(@types/react@19.2.7)(react@19.2.3))(react-router-dom@7.18.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(remark-gfm@4.0.1)(use-prms@0.5.0(react@19.2.3))':
     dependencies:
       aws4fetch: 1.0.20
       highlight.js: 11.12.0
@@ -6911,7 +6919,7 @@ snapshots:
       jq-web: 0.6.2
       react-markdown: 10.1.0(@types/react@19.2.7)(react@19.2.3)
       remark-gfm: 4.0.1
-      use-prms: 0.4.1(react@19.2.3)
+      use-prms: 0.5.0(react@19.2.3)
     optionalDependencies:
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
@@ -11678,6 +11686,10 @@ snapshots:
       react: 18.3.1
 
   use-prms@0.4.1(react@19.2.3):
+    optionalDependencies:
+      react: 19.2.3
+
+  use-prms@0.5.0(react@19.2.3):
     optionalDependencies:
       react: 19.2.3
 
