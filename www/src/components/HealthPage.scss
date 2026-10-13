@@ -17,6 +17,7 @@
     .hp-gap-fill { fill: #8b5cf6; fill-opacity: 0.25; }
     .hp-gap-hatch { stroke: #c4b5fd; stroke-width: 1; }
     .hp-gap-band { stroke: #a78bfa; stroke-width: 0.7; pointer-events: auto; cursor: help; }
+    .hp-gap-band.hp-gap-active { stroke: #ede9fe; stroke-width: 2; filter: drop-shadow(0 0 2px #8b5cf6); }
     rect[tabindex]:focus { outline: 2px solid var(--accent-primary); }
   }
 
@@ -42,8 +43,19 @@
     padding: 0.5rem 0.75rem;
     border-left: 3px solid var(--text-secondary);
     font-size: 0.85rem;
+    overflow-x: auto;
 
-    ul { margin: 0.25rem 0; padding-left: 1.25rem; }
+    .hp-gap-table {
+      width: auto;
+      font-variant-numeric: tabular-nums;
+      caption { text-align: left; color: var(--text-secondary); font-size: 0.75rem; margin-bottom: 0.25rem; }
+      th, td { white-space: nowrap; }
+      th:last-child { text-align: right; }
+      td:last-child { text-align: right; }
+      tbody tr { outline-offset: -2px; }
+      tbody tr.hp-gap-active td { background: color-mix(in srgb, #8b5cf6 18%, var(--bg-secondary)); }
+      tbody tr.hp-gap-active td:first-child { box-shadow: inset 3px 0 #a78bfa; }
+    }
   }
   padding: 1rem 1.5rem 3rem;
   max-width: 1200px;

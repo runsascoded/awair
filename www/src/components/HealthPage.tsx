@@ -1,7 +1,8 @@
 import { CoverTimeline, coverageWindow, type ExtraTip, type RungKey } from 'pyrmts-react'
-import { useState, type SyntheticEvent } from 'react'
+import { useMemo, useState, type SyntheticEvent } from 'react'
 import { MeasurementGapOverlay } from './MeasurementGapOverlay'
 import { useHealth, type DeviceCover, type HealthRaw, type RungStats } from '../hooks/useHealth'
+import { formatMeasurementGap } from '../utils/measurementGaps'
 import './HealthPage.scss'
 
 const MS_PER_DAY = 86_400_000
@@ -25,13 +26,6 @@ function fmtAge(ms: number | null): string {
   if (h < 24) return `${h}h`
   const d = Math.round(h / 24)
   return `${d}d`
-}
-
-function fmtGapDuration(ms: number): string {
-  const minutes = Math.round(ms / 60_000)
-  const hours = Math.floor(minutes / 60)
-  const remainder = minutes % 60
-  return hours === 0 ? `${minutes}m` : `${hours}h${remainder === 0 ? '' : ` ${remainder}m`}`
 }
 
 /** Format a byte count as KiB / MiB. */
@@ -96,6 +90,11 @@ function DeviceCoverage(
   },
 ) {
   const [highlight, setHighlight] = useState<RungKey | null>(null)
+  const [hoveredGap, setHoveredGap] = useState<number | null>(null)
+  const [focusedGap, setFocusedGap] = useState<number | null>(null)
+  const activeGap = hoveredGap ?? focusedGap
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const gaps = useMemo(() => (cover.dataGaps ?? []).map(gap => formatMeasurementGap(gap, { timeZone })), [cover.dataGaps, timeZone])
   const genesis = Date.parse(cover.genesis)
   const window = coverageWindow(genesis, now)
   // Today's live raw tip (unregistered — outside the cover): drawn from
@@ -151,24 +150,38 @@ function DeviceCoverage(
           hrefFor={(key) => `/files/${key}`}
           highlight={highlight}
         />
-        {(cover.dataGaps?.length ?? 0) > 0 && (
-          <MeasurementGapOverlay gaps={cover.dataGaps!} genesis={window.genesis} now={window.now} tierCount={cover.tiers.length} />
+        {gaps.length > 0 && (
+          <MeasurementGapOverlay
+            gaps={gaps} genesis={window.genesis} now={window.now} tierCount={cover.tiers.length}
+            activeGap={activeGap} onHoverGap={setHoveredGap} onFocusGap={setFocusedGap}
+          />
         )}
       </div>
-      {(cover.dataGaps?.length ?? 0) > 0 && (
+      {gaps.length > 0 && (
         <p className="hp-gap-legend"><span /> Hatched band: no source measurements. Other periods may not have been checked.</p>
       )}
-      {(cover.dataGaps?.length ?? 0) > 0 && (
+      {gaps.length > 0 && (
         <div className="hp-data-gaps">
           <strong>Measurement gaps</strong>
           <p className="hp-sub">Confirmed in the source data; shard completion means the available readings are processed. Missing bins contain no measurements.</p>
-          <ul>
-            {cover.dataGaps!.map(gap => (
-              <li key={gap.start}>
-                {fmtTs(gap.start)} → {fmtTs(gap.end)} · {fmtGapDuration(gap.end - gap.start)}
-              </li>
-            ))}
-          </ul>
+          <table className="hp-table hp-gap-table" aria-label={`${deviceName ?? cover.name} measurement gaps`}>
+            <caption>Local time · {timeZone}</caption>
+            <thead><tr><th scope="col">Start</th><th scope="col">End</th><th scope="col">Duration</th></tr></thead>
+            <tbody>
+              {gaps.map(gap => (
+                <tr
+                  key={gap.start} tabIndex={0} data-gap-start={gap.start}
+                  className={activeGap === gap.start ? 'hp-gap-active' : undefined}
+                  onPointerEnter={() => setHoveredGap(gap.start)} onPointerLeave={() => setHoveredGap(null)}
+                  onFocus={() => setFocusedGap(gap.start)} onBlur={() => setFocusedGap(null)}
+                >
+                  <td><time dateTime={new Date(gap.start).toISOString()}>{gap.startLabel}</time></td>
+                  <td><time dateTime={new Date(gap.end).toISOString()}>{gap.endLabel}</time></td>
+                  <td>{gap.duration}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
       <details className="hp-rungs-details" open={statsOpen} onToggle={onStatsToggle}>
