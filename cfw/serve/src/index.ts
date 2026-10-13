@@ -27,6 +27,8 @@ import { R2Store } from '@rdub/file-tree/stores/r2'
 import { floorToSpan, formatPeriod, parquetBackend, parseDuration, parsePyramidYaml, pyramidFromConfig, type ListShardsFilter, type Pyramid, type RecordedShard, type RecordShardInput, type ShardIndex, type Storage } from 'pyrmts'
 import { D1ShardIndex, pyramidCover, r2Storage, serveQuery, type PyramidCoverStatus, type SchemaDiff } from 'pyrmts-cfw'
 import pyramidYamlText from '../../../src/awair/pyramid.yml'
+import { readDataGaps } from './raw-source-health'
+import type { DataGap } from '../../shared/raw-source'
 
 // App-owned columns cascade adds to pyrmts's `pyramid_shards` inventory table
 // (stats + footer cache), registered so `verifySchema` tolerates them without
@@ -533,7 +535,7 @@ interface HealthSnapshot {
   // Per-device pyrmts min-cover status (`pyrmts-cfw.health.pyramidCover`)
   // with Lambda-owned raw tips overlaid from R2 (they bypass the D1
   // registry — see `RawTipShardIndex`).
-  covers: (PyramidCoverStatus & { deviceId: number })[]
+  covers: (PyramidCoverStatus & { deviceId: number; dataGaps: DataGap[] })[]
   tierStats: DeviceTierStats[]
   // Live D1 schema vs. what `pyrmts-cfw`'s `D1ShardIndex` expects. `ok`
   // means no drift; `missing`/`mismatched` name the objects a migration
@@ -770,10 +772,11 @@ async function buildHealthSnapshot(env: Env): Promise<HealthSnapshot> {
         )
         if (cover === null) return null
         const rawKeys = await listRawKeys(env.PYRAMID, keyTemplate)
-        return { deviceId: d.deviceId, ...overlayRawTips(cover, keyTemplate, rawKeys) }
+        const dataGaps = await readDataGaps(env.PYRAMID, rawKeys)
+        return { deviceId: d.deviceId, dataGaps, ...overlayRawTips(cover, keyTemplate, rawKeys) }
       }),
     )
-  ).filter((c): c is PyramidCoverStatus & { deviceId: number } => c !== null)
+  ).filter((c): c is PyramidCoverStatus & { deviceId: number; dataGaps: DataGap[] } => c !== null)
 
   return {
     now,

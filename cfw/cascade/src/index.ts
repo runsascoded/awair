@@ -26,6 +26,7 @@ interface Env {
   SERVE?: Fetcher
   DEVICES_URL: string
   TOTAL_BUDGET_MS: string
+  RAW_SOURCE_ROOT?: string
   // Prefix for per-device pyramid names (`${prefix}-{device_id}`). Prod
   // defaults to `awair`; the `dev` wrangler env overrides to `awair-dev`.
   PYRAMID_NAME?: string  // read as pyramidNamePrefix
@@ -59,7 +60,7 @@ async function runConverge(env: Env, url: URL): Promise<ConvergeAllReport> {
   const tiers = url.searchParams.get('tiers')?.split(',').map(s => s.trim()).filter(Boolean)
   const dryRun = ['1', 'true', 'yes'].includes(url.searchParams.get('dryRun') ?? '')
   return convergeAll(
-    { PYRAMID: env.PYRAMID, DB: env.DB },
+    { PYRAMID: env.PYRAMID, DB: env.DB, RAW_SOURCE_ROOT: env.RAW_SOURCE_ROOT },
     {
       totalBudgetMs: parseBudget(env),
       pyramidNamePrefix: env.PYRAMID_NAME,
@@ -74,7 +75,7 @@ export default {
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
       convergeAll(
-        { PYRAMID: env.PYRAMID, DB: env.DB },
+        { PYRAMID: env.PYRAMID, DB: env.DB, RAW_SOURCE_ROOT: env.RAW_SOURCE_ROOT },
         { totalBudgetMs: parseBudget(env), pyramidNamePrefix: env.PYRAMID_NAME },
       )
         .then(r => {

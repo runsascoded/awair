@@ -1,4 +1,50 @@
 .health-page {
+  .hp-coverage-chart {
+    position: relative;
+    margin: 0.25rem 0 0.75rem;
+    .tier-timeline { margin: 0; }
+  }
+
+  .hp-gap-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    display: block;
+    pointer-events: none;
+
+    .hp-gap-fill { fill: #8b5cf6; fill-opacity: 0.25; }
+    .hp-gap-hatch { stroke: #c4b5fd; stroke-width: 1; }
+    .hp-gap-band { stroke: #a78bfa; stroke-width: 0.7; pointer-events: auto; cursor: help; }
+    rect[tabindex]:focus { outline: 2px solid var(--accent-primary); }
+  }
+
+  .hp-gap-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 0.2rem;
+    margin-bottom: 0.5rem;
+
+    span {
+      width: 12px;
+      height: 10px;
+      flex-shrink: 0;
+      background: repeating-linear-gradient(135deg, #a78bfa 0 3px, #5b21b6 3px 4px);
+    }
+  }
+
+  .hp-data-gaps {
+    margin: 0.5rem 0;
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid var(--text-secondary);
+    font-size: 0.85rem;
+
+    ul { margin: 0.25rem 0; padding-left: 1.25rem; }
+  }
   padding: 1rem 1.5rem 3rem;
   max-width: 1200px;
   margin: 0 auto;
@@ -15,11 +61,14 @@
   }
 
   .hp-header {
+    background: none;
+    color: var(--text-primary);
+    padding: 0 0 0.5rem;
+    text-align: left;
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 1rem;
-    padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border-primary);
     margin-bottom: 1rem;
     flex-wrap: wrap;

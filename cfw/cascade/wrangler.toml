@@ -39,6 +39,7 @@ DEVICES_URL = "https://380nwk.s3.amazonaws.com/devices.parquet"
 # Total per-tick wall-clock budget. Bundled paid CFW allows 30s CPU / no
 # strict wall-clock cap, but keep well under so we don't tail off cron ticks.
 TOTAL_BUDGET_MS = "25000"
+RAW_SOURCE_ROOT = "https://380nwk.s3.amazonaws.com"
 # Health monitor: origin of the serve worker for the `serve-empty` probe.
 # Pushover creds are secrets — `wrangler secret put PUSHOVER_TOKEN` /
 # `PUSHOVER_USER`. See `src/monitor.ts`.
@@ -69,6 +70,7 @@ migrations_dir = "migrations"
 DEVICES_URL = "https://380nwk.s3.amazonaws.com/devices.parquet"
 TOTAL_BUDGET_MS = "25000"
 PYRAMID_NAME = "awair-dev"
+RAW_SOURCE_ROOT = "https://380nwk.s3.amazonaws.com"
 
 [env.dev.triggers]
 crons = []

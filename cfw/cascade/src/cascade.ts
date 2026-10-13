@@ -3,8 +3,8 @@
 //
 // Modeled after ctbk's `gbfs/cascade/src/avail3/cascade.ts::converge`,
 // adapted for awair's multi-tenant layout (4 devices, single pyramid
-// config, `filter={device_id}` per-tenant). No cross-tier ingest — the
-// raw tier is Lambda's job and cascade skips it.
+// config, `filter={device_id}` per-tenant). Lambda owns the live raw tip;
+// cascade reconciles closed S3 months and writes derivative shards.
 
 import {
   listExpectedShards,
@@ -18,6 +18,7 @@ import { D1ShardIndex, r2Storage } from 'pyrmts-cfw'
 import { readDevices, type Device } from './devices'
 import { DEFAULT_PYRAMID_NAME_PREFIX, makePyramid, PYRAMID_CONFIG, pyramidNameFor, RAW_TIER, TIER_ORDER } from './pyramid'
 import { writeShard, type WriteResult } from './write'
+import { auditSource, DEFAULT_SOURCE_ROOT } from './reconcile'
 
 export interface ConvergeAllOpts {
   now?: Date
@@ -83,7 +84,7 @@ function sortMissing(a: ExpectedShard, b: ExpectedShard): number {
  * `PerDeviceReport`.
  */
 async function convergeOne(
-  env: { PYRAMID: R2Bucket; DB: D1Database },
+  env: { PYRAMID: R2Bucket; DB: D1Database; RAW_SOURCE_ROOT?: string },
   device: Device,
   now: Date,
   opts: {
@@ -103,6 +104,11 @@ async function convergeOne(
   // straddling shards get their `inputsExpected` correctly discounted.
   const range = { from: device.genesisDate, to: now }
   const filter = { device_id: device.id }
+  const deadline = started + opts.remainingBudgetMs
+  const sourceRoot = env.RAW_SOURCE_ROOT ?? DEFAULT_SOURCE_ROOT
+  if (!opts.dryRun && (opts.tierFilter === null || opts.tierFilter.has(RAW_TIER))) {
+    await auditSource({ r2: env.PYRAMID, device, now, deadline, sourceRoot })
+  }
 
   // Journal-based invalidation via pyrmts. See file docstring under
   // "Stale detection". Load once per (device × tick) — reasonable
@@ -116,11 +122,15 @@ async function convergeOne(
 
   // Cascade writes only the coarser-than-tip rungs of raw (via same-tier
   // consolidation in `write.ts::consolidateRawShard`); Lambda owns the tip
-  // rung (`raw.shards[0]`). Filter out raw's tip so cascade never races
-  // Lambda's writes.
+  // rung (`raw.shards[0]`). Closed-month reconciliation can repair older
+  // daily tips; it never writes the current open month.
   const rawTier = PYRAMID_CONFIG.tiers.find(t => t.name === RAW_TIER)!
   const rawTipRung = rawTier.shards[0]!
   work = work.filter(m => !(m.tier === RAW_TIER && m.shardDur === rawTipRung))
+  // Old partial files and stale files can still exist in R2. A consumer
+  // must wait until its expected inputs have been successfully rebuilt
+  // and recorded, rather than treating those bodies as complete.
+  const unavailableSourceKeys = new Set(work.map(m => m.key))
   if (opts.tierFilter !== null) work = work.filter(m => opts.tierFilter!.has(m.tier))
   work.sort(sortMissing)
 
@@ -147,6 +157,8 @@ async function convergeOne(
       targetPeriodEnd: m.periodEnd,
       effectiveStart: m.effectiveStart,
       effectiveEnd: m.effectiveEnd,
+      now, deadline, sourceRoot,
+      unavailableSourceKeys,
     })
     results.push(r); stats[r.status] = (stats[r.status] ?? 0) + 1
 
@@ -162,11 +174,8 @@ async function convergeOne(
         periodEnd: m.periodEnd,
         key: r.key,
       })
-      // Stats + footer cache aren't part of pyrmts' ShardIndex API — stamp
-      // them directly. All cascade writes are single-RG (one `.write()`
-      // call in `write.ts::encodeShard`), so n_rgs=1 and
-      // rg_row_counts=[rows]. If the writer ever splits into multiple
-      // RGs, update this.
+      // The writer emits one row group for nonempty output, and no row
+      // groups for a valid empty shard.
       if (r.bytes !== undefined && r.rows !== undefined) {
         await env.DB.prepare(
           `UPDATE pyramid_shards
@@ -176,8 +185,8 @@ async function convergeOne(
         ).bind(
           r.bytes,
           r.rows,
-          1,
-          JSON.stringify([r.rows]),
+          r.rows === 0 ? 0 : 1,
+          JSON.stringify(r.rows === 0 ? [] : [r.rows]),
           r.footerBytes ?? null,
           pyramidName,
           m.tier,
@@ -185,6 +194,7 @@ async function convergeOne(
           m.periodStart.getTime(),
         ).run()
       }
+      unavailableSourceKeys.delete(m.key)
     }
   }
 
@@ -232,7 +242,7 @@ async function pruneJournal(
  * continues to the next device with whatever budget remains.
  */
 export async function convergeAll(
-  env: { PYRAMID: R2Bucket; DB: D1Database },
+  env: { PYRAMID: R2Bucket; DB: D1Database; RAW_SOURCE_ROOT?: string },
   opts: ConvergeAllOpts = {},
 ): Promise<ConvergeAllReport> {
   const now = opts.now ?? new Date()

@@ -1,5 +1,6 @@
 import { CoverTimeline, coverageWindow, type ExtraTip, type RungKey } from 'pyrmts-react'
 import { useState, type SyntheticEvent } from 'react'
+import { MeasurementGapOverlay } from './MeasurementGapOverlay'
 import { useHealth, type DeviceCover, type HealthRaw, type RungStats } from '../hooks/useHealth'
 import './HealthPage.scss'
 
@@ -24,6 +25,13 @@ function fmtAge(ms: number | null): string {
   if (h < 24) return `${h}h`
   const d = Math.round(h / 24)
   return `${d}d`
+}
+
+function fmtGapDuration(ms: number): string {
+  const minutes = Math.round(ms / 60_000)
+  const hours = Math.floor(minutes / 60)
+  const remainder = minutes % 60
+  return hours === 0 ? `${minutes}m` : `${hours}h${remainder === 0 ? '' : ` ${remainder}m`}`
 }
 
 /** Format a byte count as KiB / MiB. */
@@ -134,14 +142,35 @@ function DeviceCoverage(
           </span>
         )}
       </h3>
-      <CoverTimeline
-        tiers={cover.tiers}
-        genesis={window.genesis}
-        now={window.now}
-        extraTips={extraTips}
-        hrefFor={(key) => `/files/${key}`}
-        highlight={highlight}
-      />
+      <div className="hp-coverage-chart">
+        <CoverTimeline
+          tiers={cover.tiers}
+          genesis={window.genesis}
+          now={window.now}
+          extraTips={extraTips}
+          hrefFor={(key) => `/files/${key}`}
+          highlight={highlight}
+        />
+        {(cover.dataGaps?.length ?? 0) > 0 && (
+          <MeasurementGapOverlay gaps={cover.dataGaps!} genesis={window.genesis} now={window.now} tierCount={cover.tiers.length} />
+        )}
+      </div>
+      {(cover.dataGaps?.length ?? 0) > 0 && (
+        <p className="hp-gap-legend"><span /> Hatched band: no source measurements. Other periods may not have been checked.</p>
+      )}
+      {(cover.dataGaps?.length ?? 0) > 0 && (
+        <div className="hp-data-gaps">
+          <strong>Measurement gaps</strong>
+          <p className="hp-sub">Confirmed in the source data; shard completion means the available readings are processed. Missing bins contain no measurements.</p>
+          <ul>
+            {cover.dataGaps!.map(gap => (
+              <li key={gap.start}>
+                {fmtTs(gap.start)} → {fmtTs(gap.end)} · {fmtGapDuration(gap.end - gap.start)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <details className="hp-rungs-details" open={statsOpen} onToggle={onStatsToggle}>
         <summary>
           per-rung stats
@@ -293,6 +322,9 @@ export function HealthPage() {
       <section className="hp-section">
         <h2>Pyramid coverage</h2>
         <p className="hp-sub">
+          These bars show shard processing, not continuous sensor availability.
+          Confirmed source outages are listed separately as measurement gaps.
+          {' '}
           Per-device <code>pyramidCover</code> min-cover of
           [genesis, now): which cover slots are registered in D1 (raw tips
           overlaid from R2 — Lambda writes bypass the registry). The

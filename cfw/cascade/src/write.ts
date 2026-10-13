@@ -6,8 +6,6 @@
 // Shards are per-(device_id, tier, period), so `device_id` is constant
 // within a shard — the group-by key reduces to just `floored_ts`.
 
-import { parquetReadObjects } from 'hyparquet'
-import { ByteWriter, ParquetWriter, schemaFromColumnData } from 'hyparquet-writer'
 import {
   addSpan,
   floorToSpan,
@@ -22,15 +20,8 @@ import {
 } from 'pyrmts'
 import { makePyramid, PYRAMID_CONFIG, sourceTierFor } from './pyramid'
 import type { Device } from './devices'
-
-const METRIC_NAMES = PYRAMID_CONFIG.metrics.map(m => m.name)
-const STATE_SUFFIXES = ['_n', '_sum', '_sumsq'] as const
-
-interface AwairRow {
-  ts: number             // ms since epoch (source parquet stores INT64 → we normalize to number)
-  device_id: number
-  [stateCol: string]: number
-}
+import { coarsen, encodeShard, FOOTER_CACHE_SIZE, readSourceShard, type AwairRow } from './rows'
+import { DEFAULT_SOURCE_ROOT, reconcileMonth } from './reconcile'
 
 export interface WriteResult {
   status: 'wrote' | 'no_inputs' | 'raw_skip' | 'incomplete' | 'error'
@@ -46,10 +37,6 @@ export interface WriteResult {
   error?: string
 }
 
-/** Match pyrmts' `DEFAULT_INITIAL_FETCH_SIZE`; oversize the cache so a
- *  single D1 read serves whatever hyparquet asks for on the initial slice. */
-const FOOTER_CACHE_SIZE = 64 * 1024
-
 /** Format an R2 key from the pyramid.yml `keyTemplate`. `{shard}` is
  *  required by the current template to disambiguate rungs that would
  *  otherwise share a period label — see `pyramid.yml`. */
@@ -59,100 +46,6 @@ function shardKey(deviceId: number, tier: string, shard: Shard, periodLabel: str
     .replaceAll('{tier}', tier)
     .replaceAll('{shard}', shard)
     .replaceAll('{period}', periodLabel)
-}
-
-/** Coerce a hyparquet cell (bigint | number | string | null) to a plain JS number. */
-function asNum(v: unknown): number {
-  if (v === null || v === undefined) return 0
-  if (typeof v === 'bigint') return Number(v)
-  if (typeof v === 'number') return v
-  return Number(v)
-}
-
-/** Read one source shard from R2, filter rows to `[effStart, effEnd)` in ms. */
-async function readSourceShard(
-  r2: R2Bucket,
-  key: string,
-  effStartMs: number,
-  effEndMs: number,
-): Promise<AwairRow[] | null> {
-  const obj = await r2.get(key)
-  if (obj === null) return null
-  const buf = await obj.arrayBuffer()
-  const raw = (await parquetReadObjects({ file: buf })) as Record<string, unknown>[]
-  const rows: AwairRow[] = []
-  for (const r of raw) {
-    const ts = asNum(r['ts'])
-    if (ts < effStartMs || ts >= effEndMs) continue
-    const out: AwairRow = { ts, device_id: asNum(r['device_id']) }
-    for (const m of METRIC_NAMES) {
-      for (const suf of STATE_SUFFIXES) {
-        const col = `${m}${suf}`
-        out[col] = asNum(r[col])
-      }
-    }
-    rows.push(out)
-  }
-  return rows
-}
-
-/**
- * Sum-monoid coarsen: bucket rows by `floor(ts, targetBinMs)` and
- * column-wise sum every `{metric}{_n,_sum,_sumsq}` field per bucket.
- *
- * Emits sorted-by-ts output. `device_id` is constant per-shard, so
- * we assert that assumption and carry it forward on the output rows.
- */
-function coarsen(rows: AwairRow[], targetBinMs: number, deviceId: number): AwairRow[] {
-  const buckets = new Map<number, AwairRow>()
-  for (const row of rows) {
-    if (row.device_id !== deviceId) {
-      throw new Error(`coarsen: expected device_id=${deviceId}, got ${row.device_id}`)
-    }
-    const binTs = Math.floor(row.ts / targetBinMs) * targetBinMs
-    let out = buckets.get(binTs)
-    if (out === undefined) {
-      out = { ts: binTs, device_id: deviceId }
-      for (const m of METRIC_NAMES) for (const s of STATE_SUFFIXES) out[`${m}${s}`] = 0
-      buckets.set(binTs, out)
-    }
-    for (const m of METRIC_NAMES) {
-      for (const s of STATE_SUFFIXES) {
-        const col = `${m}${s}`
-        out[col] = (out[col] as number) + (row[col] as number)
-      }
-    }
-  }
-  return [...buckets.values()].sort((a, b) => a.ts - b.ts)
-}
-
-/** Column layout matching the Python builder output (`aggregate_raw` /
- *  `coarsen` in `src/awair/pyramid/builder.py`). */
-function rowsToColumns(rows: AwairRow[]) {
-  const cols: Array<{ name: string; data: unknown[]; type: 'INT64' | 'INT32' | 'DOUBLE' }> = []
-  cols.push({ name: 'ts',        data: rows.map(r => BigInt(r.ts)),        type: 'INT64' })
-  cols.push({ name: 'device_id', data: rows.map(r => r.device_id),          type: 'INT32' })
-  for (const m of METRIC_NAMES) {
-    cols.push({ name: `${m}_n`,     data: rows.map(r => r[`${m}_n`]     as number), type: 'INT32'  })
-    cols.push({ name: `${m}_sum`,   data: rows.map(r => r[`${m}_sum`]   as number), type: 'DOUBLE' })
-    cols.push({ name: `${m}_sumsq`, data: rows.map(r => r[`${m}_sumsq`] as number), type: 'DOUBLE' })
-  }
-  return cols
-}
-
-/** Serialize rows to a parquet byte buffer. */
-function encodeShard(rows: AwairRow[]): Uint8Array {
-  const columnData = rowsToColumns(rows)
-  const schema = schemaFromColumnData({ columnData })
-  const bw = new ByteWriter(64 * 1024)
-  // No codec — SNAPPY needs a bundled compressor and ZSTD would need a
-  // wasm module. Awair shards are small (<2 MB uncompressed for a full
-  // month at raw), so uncompressed is fine for now. Revisit if bytes
-  // become a concern.
-  const pq = new ParquetWriter({ writer: bw, schema })
-  pq.write({ columnData })
-  pq.finish()
-  return new Uint8Array(bw.buffer, 0, bw.index)
 }
 
 export interface WriteOpts {
@@ -167,13 +60,18 @@ export interface WriteOpts {
   targetPeriodEnd: Date       // exclusive
   effectiveStart: Date        // clipped to genesis / query range
   effectiveEnd: Date          // exclusive
+  now?: Date
+  deadline?: number
+  sourceRoot?: string
+  /** Missing/stale expected inputs remain unusable even if an old R2 body exists. */
+  unavailableSourceKeys?: ReadonlySet<string>
 }
 
 /**
  * Write one shard for one device.
  *
- * - raw: no-op (Lambda owns raw writes; skipping keeps cascade purely
- *   derivative and avoids double-writes).
+ * - raw daily: skip the live tip owned by Lambda.
+ * - raw monthly: reconcile the closed S3 source, then consolidate daily tiles.
  * - Everything else: enumerate source-tier periods intersecting the
  *   effective range, read each source shard, coarsen to target bin,
  *   write.
@@ -199,6 +97,9 @@ export async function writeShard(opts: WriteOpts): Promise<WriteResult> {
     return await consolidateRawShard({
       r2, device, targetTier, targetShardDur,
       targetPeriodStart, targetPeriodEnd, key,
+      now: opts.now ?? new Date(),
+      deadline: opts.deadline ?? Date.now() + 25_000,
+      sourceRoot: opts.sourceRoot ?? DEFAULT_SOURCE_ROOT,
     })
   }
 
@@ -225,14 +126,15 @@ export async function writeShard(opts: WriteOpts): Promise<WriteResult> {
   const allRows: AwairRow[] = []
   let inputsPresent = 0
   for (const srcKey of sourceKeys) {
+    if (opts.unavailableSourceKeys?.has(srcKey)) continue
     const rows = await readSourceShard(r2, srcKey, effStartMs, effEndMs)
     if (rows === null) continue
     inputsPresent++
     for (const row of rows) allRows.push(row)
   }
 
-  if (allRows.length === 0) {
-    return { status: 'no_inputs', key, inputsPresent, inputsExpected: sourceKeys.length }
+  if (inputsPresent !== sourceKeys.length) {
+    return { status: 'incomplete', key, inputsPresent, inputsExpected: sourceKeys.length }
   }
 
   const targetBinMs = targetBinToMs(targetTier.bin)
@@ -261,16 +163,9 @@ export async function writeShard(opts: WriteOpts): Promise<WriteResult> {
  * (e.g. `raw/1mo/YYYY-MM.parquet`) from existing finer-rung tiles
  * (e.g. 28–31 `raw/1d/YYYY-MM-DD.parquet` shards) via `tileFromExisting`.
  *
- * The finer-rung tiles are the Lambda-owned tip layout (single-writer,
- * atomic overwrite); the coarser-rung output is byte-stable once all
- * sub-tiles are present, so re-runs produce identical bytes.
- *
- * Fails soft: if `tileFromExisting` reports holes (any sub-tile missing),
- * returns `{status: 'incomplete'}` with the missing count. The consumer
- * (`cascade.ts`) does not record incomplete writes to D1 — next tick
- * re-tries. This is the correct behavior at month-close: the last few
- * daily tips may not have landed yet, and we don't want a partial monthly
- * shard on storage.
+ * Reconcile the closed authoritative S3 month first, including explicit
+ * zero-row daily tiles. A failed source fetch or a missing tile still
+ * returns `incomplete`; only complete input inventory reaches D1.
  */
 async function consolidateRawShard(opts: {
   r2: R2Bucket
@@ -280,8 +175,17 @@ async function consolidateRawShard(opts: {
   targetPeriodStart: Date
   targetPeriodEnd: Date
   key: string
+  now: Date
+  deadline: number
+  sourceRoot: string
 }): Promise<WriteResult> {
   const { r2, device, targetTier, targetShardDur, targetPeriodStart, targetPeriodEnd, key } = opts
+  if (targetShardDur !== '1mo') throw new Error('Raw reconciliation requires a monthly target')
+  const ready = await reconcileMonth({
+    r2, device, month: targetPeriodStart.toISOString().slice(0, 7),
+    now: opts.now, deadline: opts.deadline, sourceRoot: opts.sourceRoot, repair: true,
+  })
+  if (!ready) return { status: 'incomplete', key, inputsPresent: 0, inputsExpected: 1 }
   const pyramid = makePyramid(r2)
   const filter = { device_id: device.id }
 
@@ -327,6 +231,9 @@ async function consolidateRawShard(opts: {
   const periodEndMs = targetPeriodEnd.getTime()
   let inputsPresent = 0
   for (const pick of picks) {
+    if (Date.now() >= opts.deadline) {
+      return { status: 'incomplete', key, inputsPresent, inputsExpected: picks.length }
+    }
     const rows = await readSourceShard(r2, pick.key, periodStartMs, periodEndMs)
     if (rows === null) {
       // Raced a delete? Bail — cascade will retry next tick.

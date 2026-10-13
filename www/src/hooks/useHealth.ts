@@ -50,6 +50,8 @@ export interface DeviceCover {
   totalPending: number
   totalStale: number
   allComplete: boolean
+  /** Confirmed missing minute bins from reconciled S3 snapshots. */
+  dataGaps?: { start: number; end: number }[]
 }
 
 export interface TierStats {
