@@ -19,10 +19,21 @@ This adds one source conditional GET per audited device/tick and daily R2 HEADs/
 
 Closed S3 sources are fetched and validated before any daily writes, with a 16 MiB input cap and the existing cascade time budget. Daily objects from closed months may be replaced to reflect S3 repairs; the open month remains untouched. No Parquet measurement schema or D1 migration is needed, and the health field is additive.
 
+Daily HEAD checks and monthly input reads are batched independently, bounded by the calendar month's 31 daily tiles. Production R2 latency made serial checks plus reads exceed the 25-second tick budget even after the daily repair completed. Writes and invalidation remain sequential, and the monthly writer checks its deadline again after the input batch. The latency regression reproduces failure with serial reads and passes with batching.
+
 ## Validation
 
 Cascade tests exercise empty days, sparse monthly output, all-empty downstream output, refusal of unknown inputs, source failures, conditional rechecks, deleted-day repair, changed-source repair, and retry after a partial write. The public BR September 2026 source contains 39,710 readings in 39,707 minute bins; the confirmed missing-bin interval is September 21 21:33 UTC through September 23 19:33 UTC, exactly 46 hours. September 22 has no rows in either raw or three-minute rollups.
 
-Implementation and local UI verification are complete. Production deployment and rebuilding the affected R2/D1 shards remain pending.
+Production rollout and rebuilding are complete as of 2026-10-13 02:35 UTC. The consolidation/UI fix is committed in `3ff3c32`, with the production latency adjustment in `089d380`. The separate `use-prms` bump is `befe629`. Both pushed code changes passed GitHub CI; the dashboard's Pages deployment passed its build, lint, and E2E checks.
+
+Deployed Worker versions: serve `536981e5-3b86-48bf-8674-00de6ede42c6`, cascade `e989a068-3b01-4c24-adf9-417774ccad07`. The normal production cron repaired September daily tiles and rebuilt the affected monthly/32-day/128-day rollups across the shared four-device invalidation journal. The final tick pruned 65 spent invalidations, leaving zero. All four devices report complete processing coverage and zero missing shards.
+
+Downloaded rebuilt BR production artifacts were compared with the original S3 source. Every tier preserves exactly 39,710 September CO₂ readings; all metric counts match per bin, and per-bin sums/squared sums match within floating-point tolerance. September bin counts are raw 39,707; m3 13,324; m10 4,000; m30 1,335; h2 336; h6 113; d1 29. September 22 has no rows at every tier. The real `/q` daily query for the month plans the rebuilt `d1/128d/2026-06-04` shard and returns 29 populated days, with September 22 absent.
+
+Production CIC verified [health] and [the BR outage chart]: the health page shows green processing bars with vertical purple source-gap bands and a 46-hour gap entry; the chart preserves the break. BR has four smaller confirmed September gaps as well. Only reconciled months have source evidence; unmarked historical intervals remain unchecked. The cascade's 26 unit tests plus the one-off production artifact audit passed (27 checks total).
 
 An audit of existing production artifacts found that the unregistered BR `m10/32d/2026-09-08` body contains only October 1–9. The registered `m30`, `h2`, `h6`, and `d1` `128d/2026-06-04` consumers all contain just 9,791 September CO₂ readings (September 1–7) versus 39,710 in S3. The old cross-tier writer persisted partial bodies before the registration gate; consumers could then mistake those bodies for complete inputs. Consequently, those old coarse shards omit September 8–30, beyond the real source outage. Reconciliation must rebuild downstream shards too. The per-tick unavailable-input set now prevents propagation through missing/stale expected inputs, including previously persisted bodies. The regression test fails without the guard and passes with it.
+
+[health]: https://air.rbw.sh/health
+[the BR outage chart]: https://air.rbw.sh/?d=br&y=thaA&t=260924-4d

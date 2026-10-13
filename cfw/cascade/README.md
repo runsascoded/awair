@@ -209,4 +209,4 @@ pnpm wrangler d1 execute awair-cascade --remote \
 and validates/clamps every field (`src/events.ts`). Rows are anomalies only,
 so the table stays small.
 
-[sparse-consolidation]: ../../specs/sparse-consolidation.md
+[sparse-consolidation]: ../../specs/done/sparse-consolidation.md
