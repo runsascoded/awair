@@ -4,8 +4,10 @@ export interface MeasurementGap {
 }
 
 export interface FormattedMeasurementGap extends MeasurementGap {
-  startLabel: string
-  endLabel: string
+  startDate: string
+  startTime: string
+  endDate: string
+  endTime: string
   duration: string
   label: string
 }
@@ -34,13 +36,15 @@ export function formatMeasurementGap(
   const zone = (date: Date) => zonedTime.formatToParts(date).find(part => part.type === 'timeZoneName')!.value
   const changesOffset = zone(start) !== zone(end)
   const timeLabel = (date: Date) => changesOffset ? zonedTime.format(date) : time.format(date)
-  const startLabel = `${dateLabel(start, startYear !== currentYear || startYear !== endYear)} ${timeLabel(start)}`
-  const endLabel = calendar.format(start) === calendar.format(end)
-    ? timeLabel(end)
-    : `${dateLabel(end, startYear !== endYear)} ${timeLabel(end)}`
+  const startDate = dateLabel(start, startYear !== currentYear || startYear !== endYear)
+  const startTime = timeLabel(start)
+  const endDate = calendar.format(start) === calendar.format(end) ? '' : dateLabel(end, startYear !== endYear)
+  const endTime = timeLabel(end)
+  const startLabel = `${startDate} ${startTime}`
+  const endLabel = endDate ? `${endDate} ${endTime}` : endTime
   const minutes = Math.round((gap.end - gap.start) / 60_000)
   const hours = Math.floor(minutes / 60)
   const remainder = minutes % 60
   const duration = hours === 0 ? `${minutes}m` : `${hours}h${remainder === 0 ? '' : ` ${remainder}m`}`
-  return { ...gap, startLabel, endLabel, duration, label: `Missing measurements: ${startLabel} → ${endLabel} · ${duration} (${timeZone})` }
+  return { ...gap, startDate, startTime, endDate, endTime, duration, label: `Missing measurements: ${startLabel} → ${endLabel} · ${duration} (${timeZone})` }
 }

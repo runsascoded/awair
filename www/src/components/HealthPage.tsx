@@ -124,6 +124,17 @@ function DeviceCoverage(
     setStatsOpen(open)
     localStorage.setItem(statsKey, open ? '1' : '0')
   }
+  const gapsKey = `awair-hp-gaps-open:${cover.name}`
+  const [gapsOpen, setGapsOpen] = useState(() => sessionStorage.getItem(gapsKey) === '1')
+  const onGapsToggle = (e: SyntheticEvent<HTMLDetailsElement>) => {
+    const open = e.currentTarget.open
+    setGapsOpen(open)
+    sessionStorage.setItem(gapsKey, open ? '1' : '0')
+    if (!open) {
+      setHoveredGap(null)
+      setFocusedGap(null)
+    }
+  }
 
   return (
     <div className="hp-pyramid">
@@ -161,12 +172,12 @@ function DeviceCoverage(
         <p className="hp-gap-legend"><span /> Hatched band: no source measurements. Other periods may not have been checked.</p>
       )}
       {gaps.length > 0 && (
-        <div className="hp-data-gaps">
-          <strong>Measurement gaps</strong>
+        <details className="hp-data-gaps" open={gapsOpen} onToggle={onGapsToggle}>
+          <summary>Measurement gaps <span className="hp-dim">· {gaps.length}</span></summary>
           <p className="hp-sub">Confirmed in the source data; shard completion means the available readings are processed. Missing bins contain no measurements.</p>
           <table className="hp-table hp-gap-table" aria-label={`${deviceName ?? cover.name} measurement gaps`}>
             <caption>Local time · {timeZone}</caption>
-            <thead><tr><th scope="col">Start</th><th scope="col">End</th><th scope="col">Duration</th></tr></thead>
+            <thead><tr><th scope="colgroup" colSpan={2}>Start</th><th scope="colgroup" colSpan={2}>End</th><th scope="col">Duration</th></tr></thead>
             <tbody>
               {gaps.map(gap => (
                 <tr
@@ -175,14 +186,16 @@ function DeviceCoverage(
                   onPointerEnter={() => setHoveredGap(gap.start)} onPointerLeave={() => setHoveredGap(null)}
                   onFocus={() => setFocusedGap(gap.start)} onBlur={() => setFocusedGap(null)}
                 >
-                  <td><time dateTime={new Date(gap.start).toISOString()}>{gap.startLabel}</time></td>
-                  <td><time dateTime={new Date(gap.end).toISOString()}>{gap.endLabel}</time></td>
+                  <td className="hp-gap-date">{gap.startDate}</td>
+                  <td className="hp-gap-time"><time dateTime={new Date(gap.start).toISOString()}>{gap.startTime}</time></td>
+                  <td className="hp-gap-date">{gap.endDate}</td>
+                  <td className="hp-gap-time"><time dateTime={new Date(gap.end).toISOString()}>{gap.endTime}</time></td>
                   <td>{gap.duration}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </details>
       )}
       <details className="hp-rungs-details" open={statsOpen} onToggle={onStatsToggle}>
         <summary>
