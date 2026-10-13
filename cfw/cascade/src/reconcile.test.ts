@@ -77,9 +77,38 @@ function respond(rows: Record<string, unknown>[], etag = 'v1') {
   return fetch
 }
 
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('closed-month reconciliation', () => {
+  it('finishes a closed month within the tick budget despite daily R2 read latency', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(end)
+    const b = bucket()
+    const source = [sourceRow(start), sourceRow(end - minute)]
+    respond(source)
+    const originalHead = b.r2.head.bind(b.r2)
+    const originalGet = b.r2.get.bind(b.r2)
+    vi.spyOn(b.r2, 'head').mockImplementation(async key => {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return originalHead(key)
+    })
+    vi.spyOn(b.r2, 'get').mockImplementation(async key => {
+      if (key.startsWith(`pyramid/awair-${device.id}/raw/1d/`)) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+      return originalGet(key)
+    })
+    const pending = writeShard({
+      ...opts(b.r2), targetTier: PYRAMID_CONFIG.tiers[0]!, targetShardDur: '1mo',
+      targetPeriodStart: new Date(start), targetPeriodEnd: new Date(end), effectiveStart: new Date(start), effectiveEnd: new Date(end),
+    })
+    await vi.runAllTimersAsync()
+    const result = await pending
+    expect({ status: result.status, rows: result.rows, inputsPresent: result.inputsPresent, inputsExpected: result.inputsExpected }).toEqual({
+      status: 'wrote', rows: 2, inputsPresent: 30, inputsExpected: 30,
+    })
+  })
+
   it('stores known-empty days, keeps the outage sparse, and publishes evidence after invalidation', async () => {
     const b = bucket()
     const before = Date.parse('2026-09-21T21:31:00Z')

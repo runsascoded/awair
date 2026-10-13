@@ -122,12 +122,17 @@ export async function reconcileMonth(opts: ReconcileOpts): Promise<boolean> {
   const effectiveStart = Math.max(start, device.genesisDate.getTime())
   const storage = r2Storage(r2)
   const pyramid = makePyramid(r2)
+  const days: number[] = []
+  for (let day = Math.floor(effectiveStart / DAY_MS) * DAY_MS; day < end; day += DAY_MS) days.push(day)
+  const dailyKeys = days.map(day => `pyramid/awair-${device.id}/raw/1d/${new Date(day).toISOString().slice(0, 10)}.parquet`)
+  // At most 31 independent HEADs. Serial R2 latency can otherwise consume
+  // the entire tick even when every daily tile has already been repaired.
+  const existingDays = await Promise.all(dailyKeys.map(dailyKey => r2.head(dailyKey)))
   let changed = false
-  for (let day = Math.floor(effectiveStart / DAY_MS) * DAY_MS; day < end; day += DAY_MS) {
+  for (const [index, day] of days.entries()) {
     if (Date.now() >= deadline) return false
-    const label = new Date(day).toISOString().slice(0, 10)
-    const dailyKey = `pyramid/awair-${device.id}/raw/1d/${label}.parquet`
-    const existing = await r2.head(dailyKey)
+    const dailyKey = dailyKeys[index]!
+    const existing = existingDays[index]
     if (existing?.customMetadata?.source_etag === sourceEtag && existing.customMetadata.source_url === sourceUrl) continue
     if (!changed) {
       await invalidate(pyramid, storage, [new Date(effectiveStart), new Date(end)])

@@ -229,17 +229,19 @@ async function consolidateRawShard(opts: {
   const allRows: AwairRow[] = []
   const periodStartMs = targetPeriodStart.getTime()
   const periodEndMs = targetPeriodEnd.getTime()
-  let inputsPresent = 0
-  for (const pick of picks) {
-    if (Date.now() >= opts.deadline) {
-      return { status: 'incomplete', key, inputsPresent, inputsExpected: picks.length }
-    }
-    const rows = await readSourceShard(r2, pick.key, periodStartMs, periodEndMs)
+  if (Date.now() >= opts.deadline) {
+    return { status: 'incomplete', key, inputsPresent: 0, inputsExpected: picks.length }
+  }
+  const inputs = await Promise.all(picks.map(pick => readSourceShard(r2, pick.key, periodStartMs, periodEndMs)))
+  const inputsPresent = inputs.filter(rows => rows !== null).length
+  if (Date.now() >= opts.deadline) {
+    return { status: 'incomplete', key, inputsPresent, inputsExpected: picks.length }
+  }
+  for (const rows of inputs) {
     if (rows === null) {
       // Raced a delete? Bail — cascade will retry next tick.
       return { status: 'incomplete', key, inputsPresent, inputsExpected: picks.length }
     }
-    inputsPresent++
     for (const row of rows) allRows.push(row)
   }
   allRows.sort((a, b) => a.ts - b.ts)

@@ -10,8 +10,7 @@ Companion to:
 
 - `cfw/serve/` — reads shards, serves `GET /q`.
 - `cfw/monitor/` — HEADs raw shards, sends Pushover alerts on freshness gaps.
-- Lambda ×4 devices — the only writer of the `raw` tier; cascade skips
-  `raw` on purpose.
+- Lambda ×4 devices — owns the current raw daily tip. Cascade reconciles closed S3 months into daily raw tiles, including valid empty days, then consolidates monthly raw and builds coarser tiers.
 
 Spec: `specs/cfw-cascade.md`.
 
@@ -21,6 +20,12 @@ Spec: `specs/cfw-cascade.md`.
   will replace with a full HealthSnapshot).
 - `GET /converge?devices=&tiers=&dryRun=1` — manual trigger. Secret-gated
   via `?key=` (from `wrangler secret put MANUAL_KEY`).
+
+## Closed source reconciliation
+
+Missing or invalidated monthly raw shards are reconciled from `RAW_SOURCE_ROOT` (default `https://380nwk.s3.amazonaws.com`). A valid closed month establishes which daily tiles are empty; failed or absent source responses never establish completeness. The source snapshot under `raw/_sources/YYYY-MM.json` records the ETag and confirmed measurement gaps, which `/health` exposes separately from processing coverage.
+
+Every downstream write requires complete, current expected inputs. Old partial R2 bodies cannot substitute for missing or invalidated registered shards. Reconciliation invalidates overlapping rollups before and after daily writes, so the normal cron rebuilds all affected tiers. Repairs can span multiple budgeted ticks; source evidence is published only after all daily writes succeed. Reconciled sources are subsequently checked with conditional GETs for historical source repairs. See [the sparse consolidation specification][sparse-consolidation].
 
 ## Deploy (one-time setup)
 
@@ -203,3 +208,5 @@ pnpm wrangler d1 execute awair-cascade --remote \
 `POST /event` is CORS-open + `sendBeacon`-friendly (text/plain, no preflight)
 and validates/clamps every field (`src/events.ts`). Rows are anomalies only,
 so the table stays small.
+
+[sparse-consolidation]: ../../specs/sparse-consolidation.md
