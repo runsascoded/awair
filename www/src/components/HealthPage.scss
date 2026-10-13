@@ -56,9 +56,12 @@
       caption { text-align: left; color: var(--text-secondary); font-size: 0.75rem; margin-bottom: 0.25rem; }
       th, td { white-space: nowrap; }
       th:last-child { text-align: right; }
-      td:last-child { text-align: right; }
       td.hp-gap-date { text-align: right; padding-right: 0.3rem; }
       td.hp-gap-time { padding-left: 0.3rem; }
+      td.hp-gap-number { text-align: right; padding-right: 0; }
+      td.hp-gap-unit { text-align: left; padding-left: 0; }
+      td.hp-gap-hours-unit { padding-right: 0.35rem; }
+      td.hp-gap-minutes { padding-left: 0; }
       tbody tr { outline-offset: -2px; }
       tbody tr.hp-gap-active td { background: color-mix(in srgb, #8b5cf6 18%, var(--bg-secondary)); }
       tbody tr.hp-gap-active td:first-child { box-shadow: inset 3px 0 #a78bfa; }

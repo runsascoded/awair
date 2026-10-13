@@ -9,6 +9,8 @@ export interface FormattedMeasurementGap extends MeasurementGap {
   endDate: string
   endTime: string
   duration: string
+  durationHours: number
+  durationMinutes: number
   label: string
 }
 
@@ -35,16 +37,21 @@ export function formatMeasurementGap(
   const zonedTime = new Intl.DateTimeFormat(locale, { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short' })
   const zone = (date: Date) => zonedTime.formatToParts(date).find(part => part.type === 'timeZoneName')!.value
   const changesOffset = zone(start) !== zone(end)
-  const timeLabel = (date: Date) => changesOffset ? zonedTime.format(date) : time.format(date)
+  const timeLabel = (date: Date) => (changesOffset ? zonedTime : time).formatToParts(date)
+    .map(part => part.type === 'hour' ? part.value.replace(/^0/, '\u2007') : part.value).join('')
   const startDate = dateLabel(start, startYear !== currentYear || startYear !== endYear)
   const startTime = timeLabel(start)
   const endDate = calendar.format(start) === calendar.format(end) ? '' : dateLabel(end, startYear !== endYear)
   const endTime = timeLabel(end)
-  const startLabel = `${startDate} ${startTime}`
-  const endLabel = endDate ? `${endDate} ${endTime}` : endTime
+  const startLabel = `${startDate} ${startTime.trimStart()}`
+  const endLabel = endDate ? `${endDate} ${endTime.trimStart()}` : endTime.trimStart()
   const minutes = Math.round((gap.end - gap.start) / 60_000)
   const hours = Math.floor(minutes / 60)
   const remainder = minutes % 60
   const duration = hours === 0 ? `${minutes}m` : `${hours}h${remainder === 0 ? '' : ` ${remainder}m`}`
-  return { ...gap, startDate, startTime, endDate, endTime, duration, label: `Missing measurements: ${startLabel} → ${endLabel} · ${duration} (${timeZone})` }
+  return {
+    ...gap, startDate, startTime, endDate, endTime, duration,
+    durationHours: hours, durationMinutes: remainder,
+    label: `Missing measurements: ${startLabel} → ${endLabel} · ${duration} (${timeZone})`,
+  }
 }
